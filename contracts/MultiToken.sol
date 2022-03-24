@@ -1,25 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.12;
 
+import "./interfaces/IMultiToken.sol";
+
 // A lite version of a semi fungible, which removes some methods and so
 // is not technically a 1155 compliant multi-token semi fungible, but almost
 // follows the standard.
 // NOTE - We remove on transfer callbacks and safe transfer because of the
 //        risk of external calls to untrusted code.
 
-contract MultiToken {
+contract MultiToken is IMultiToken {
     // TOOD - Choose to change names to perfect match the 1155 ie adding 'safe',
     //        choose whether to support the batch methods, and to support token uris
     //        or names
 
     // Allows loading of each balance
-    mapping(uint256 => mapping(address => uint256)) public balanceOf;
+    mapping(uint256 => mapping(address => uint256)) public override balanceOf;
     // Uniform approval for all tokens
-    mapping(address => mapping(address => bool)) public isApprovedForAll;
+    mapping(address => mapping(address => bool))
+        public
+        override isApprovedForAll;
     // Additional optional per token approvals
     // Note - non standard for erc1150 but we want to replicate erc20 interface
     mapping(uint256 => mapping(address => mapping(address => uint256)))
-        public perTokenApprovals;
+        public
+        override perTokenApprovals;
+    // Sub Token Name and Symbol, created by inheriting contracts
+    mapping(uint256 => string) public override name;
+    mapping(uint256 => string) public override symbol;
     // Error triggered when the create2 verification fails
     error NonLinkerCaller();
 
@@ -31,9 +39,10 @@ contract MultiToken {
 
     /// @notice Runs the initial deployment code
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
-    constructor(bytes32 _linkerCodeHash) {
+    /// @param _factory The factory which is used to deploy the linking contracts
+    constructor(bytes32 _linkerCodeHash, address _factory) {
         // Set the immutables
-        factory = msg.sender;
+        factory = _factory;
         linkerCodeHash = _linkerCodeHash;
     }
 
@@ -46,14 +55,11 @@ contract MultiToken {
     /// @notice This modifier checks the caller is the create2 validated ERC20 bridge
     /// @param tokenID The internal token identifier
     modifier onlyLinker(uint256 tokenID) {
+        // Get the salt which is used by the deploying contract
+        bytes32 salt = keccak256(abi.encode(address(this), tokenID));
         // Preform the hash which determines the address of a create2 deployment
         bytes32 addressBytes = keccak256(
-            abi.encodePacked(
-                bytes1(0xff),
-                factory,
-                bytes32(tokenID),
-                linkerCodeHash
-            )
+            abi.encodePacked(bytes1(0xff), factory, salt, linkerCodeHash)
         );
 
         // If the caller does not match the address hash, we revert because it is not
@@ -74,7 +80,7 @@ contract MultiToken {
         address source,
         address destination,
         uint256 amount
-    ) external {
+    ) external override {
         // Forward to our internal version
         _transferFrom(tokenID, source, destination, amount, msg.sender);
     }
@@ -92,7 +98,7 @@ contract MultiToken {
         address destination,
         uint256 amount,
         address caller
-    ) external onlyLinker(tokenID) {
+    ) external override onlyLinker(tokenID) {
         // Route to our internal transfer
         _transferFrom(tokenID, source, destination, amount, caller);
     }
@@ -151,7 +157,7 @@ contract MultiToken {
         uint256 tokenID,
         address operator,
         uint256 amount
-    ) external {
+    ) external override {
         _setApproval(tokenID, operator, amount, msg.sender);
     }
 
@@ -166,7 +172,7 @@ contract MultiToken {
         address operator,
         uint256 amount,
         address caller
-    ) external onlyLinker(tokenID) {
+    ) external override onlyLinker(tokenID) {
         _setApproval(tokenID, operator, amount, caller);
     }
 
