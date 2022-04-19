@@ -16,6 +16,9 @@ contract MultiToken is IMultiToken {
 
     // Allows loading of each balance
     mapping(uint256 => mapping(address => uint256)) public override balanceOf;
+    // Allows loading of each total supply
+    // ID => amount (?)
+    mapping(uint256 => uint256) public totalSupply;
     // Uniform approval for all tokens
     mapping(address => mapping(address => bool))
         public
@@ -202,6 +205,7 @@ contract MultiToken is IMultiToken {
         uint256 amount
     ) internal {
         balanceOf[tokenID][to] += amount;
+        totalSupply[tokenID] += amount;
     }
 
     /// @notice Burning function to remove tokens
@@ -216,5 +220,6 @@ contract MultiToken is IMultiToken {
     ) internal {
         uint256 current = balanceOf[tokenID][source];
         balanceOf[tokenID][source] = current >= amount ? current - amount : 0;
+        totalSupply[tokenID] -= amount;
     }
 }
