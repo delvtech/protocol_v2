@@ -22,9 +22,6 @@ interface ITerm {
 	/// @return the total value of the tokens that have been unlocked
 	function unlock(address destination, uint256[] tokenIDs, uint256 amount) external returns (uint256);
 
-    /// @notice creates a YT from timestamp 0 to timestamp 0
-    function unlockedExposure() external;
-
     /// @notice initializes a new term and makes the first deposit
     /// @param expiration the expiration timestamp for the term
     /// @param andotherparams placeholder for other parameters we want for this function
