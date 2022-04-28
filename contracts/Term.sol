@@ -44,6 +44,7 @@ contract Term is MultiToken {
 	function _createYT(address destination, uint256 value, uint256 expiration) returns (uint256) {
 		uint256 id = _createYieldTokenID(block.timestamp, expiration);
         mint(id, destination, value);
+        // TODO: shares logic
         // TODO: how do we calculate how many were created?
 	}
 
@@ -54,6 +55,7 @@ contract Term is MultiToken {
     /// @return the amount created
 	function _createPT(address destination, uint256 value, uint256 expiration) {
 		uint256 id = _createPrincipalTokenID(expiration);
+        // TODO: shares logic
         mint(id, destination, value);
 	}
 
@@ -61,6 +63,7 @@ contract Term is MultiToken {
     // do we need a distinction between destroy PT vs YT?
     function _destroyToken(uint256 tokenID, uint256 amount) returns (theValue) {
         burn(tokenID, amount);
+        // TODO: shares logic
 
 	/// @notice creates a YT spanning from current date to the end of the term
     /// @param destination the address to send the tokens to
@@ -77,7 +80,6 @@ contract Term is MultiToken {
         _createYT(destination, amount, newExpiration);
 	}
 
-    /// note look at google doc notes sarah
 	/// @dev removes all PTs & YTs input
     /// @param destination
 	/// @param tokenIDs the IDs of the tokens to unlock
