@@ -11,7 +11,7 @@ contract Term is MultiToken {
     /// @param internalAmounts how much of each asset to burn
 	/// @param expiration the expiration timestamp
 	/// @return a tuple of the number of PT's and YT's created
-	function lock(uint256[] internalAssets, uint256[] internalAmount, uint256[] tokenAmountIn, uint256 expiration) external returns (uint256, uint256) {
+	function lock(uint256[] internalAssets, uint256[] internalAmount, uint256 underlyingamoutn, uint256 ytBeginDate, uint256 expiration) external returns (uint256, uint256) {
 		uint256 totalValue = 0;
         // do special case for index 0 -- totally unlocked
 
@@ -95,4 +95,9 @@ contract Term is MultiToken {
         // what would be the ID in this case?
         transferFrom(someID, msg.sender, destination, totalValue);
     }
+
+        /// @notice initializes a new term and makes the first deposit
+    /// @param expiration the expiration timestamp for the term
+    /// @param andotherparams placeholder for other parameters we want for this function
+    function initialize(uint256 expiration, uint256 startTime, ) external;
 }  
