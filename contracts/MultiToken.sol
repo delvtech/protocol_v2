@@ -17,7 +17,6 @@ contract MultiToken is IMultiToken {
     // Allows loading of each balance
     mapping(uint256 => mapping(address => uint256)) public override balanceOf;
     // Allows loading of each total supply
-    // ID => amount (?)
     mapping(uint256 => uint256) public totalSupply;
     // Uniform approval for all tokens
     mapping(address => mapping(address => bool))
@@ -219,7 +218,8 @@ contract MultiToken is IMultiToken {
         uint256 amount
     ) internal {
         uint256 current = balanceOf[tokenID][source];
-        balanceOf[tokenID][source] = current >= amount ? current - amount : 0;
+        balanceOf[tokenID][source] -= amount;
+        
         totalSupply[tokenID] -= amount;
     }
 
@@ -235,7 +235,6 @@ contract MultiToken is IMultiToken {
         require(_ids.length == _values.length, "ids and values length mismatch");
 
         for (uint256 i = 0; i < _ids.length; i++) {
-            require(balanceOf(_ids[i][from] >= _values[i]), "insufficient balance");
             _transferFrom(_ids[id], _from, _to, _values[i], msg.sender);
         }
     }
