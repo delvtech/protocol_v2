@@ -16,6 +16,8 @@ contract MultiToken is IMultiToken {
 
     // Allows loading of each balance
     mapping(uint256 => mapping(address => uint256)) public override balanceOf;
+    // Allows loading of each total supply
+    mapping(uint256 => uint256) public totalSupply;
     // Uniform approval for all tokens
     mapping(address => mapping(address => bool))
         public
@@ -202,6 +204,7 @@ contract MultiToken is IMultiToken {
         uint256 amount
     ) internal {
         balanceOf[tokenID][to] += amount;
+        totalSupply[tokenID] += amount;
     }
 
     /// @notice Burning function to remove tokens
@@ -215,6 +218,24 @@ contract MultiToken is IMultiToken {
         uint256 amount
     ) internal {
         uint256 current = balanceOf[tokenID][source];
-        balanceOf[tokenID][source] = current >= amount ? current - amount : 0;
+        balanceOf[tokenID][source] -= amount;
+        
+        totalSupply[tokenID] -= amount;
+    }
+
+    /// @notice Returns the amount of tokens in existence
+    /// @param tokenID The asset to query supply of
+    function totalSupply(uint256 tokenID) external view returns (uint256) {
+        return totalSupply[tokenID];
+    }
+
+    function batchTransferFrom(address _from, address _to, uint256[] calldata _ids, uint256[] calldata _values, bytes calldata _data) external {
+        require(_from != address(0), "transfer from the zero address");
+        require(_to != address(0), "transfer to the zero address");
+        require(_ids.length == _values.length, "ids and values length mismatch");
+
+        for (uint256 i = 0; i < _ids.length; i++) {
+            _transferFrom(_ids[id], _from, _to, _values[i], msg.sender);
+        }
     }
 }
