@@ -4,6 +4,7 @@ pragma solidity ^0.8.12;
 import "./interfaces/IERC20.sol";
 import "./interfaces/IMultiToken.sol";
 import "./interfaces/IForwarderFactory.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 // This ERC20 forwarder forwards calls through an ERC20 compliant interface
 // to move the sub tokens in our multi token contract. This enables our
@@ -16,6 +17,8 @@ contract ERC20Forwarder is IERC20 {
     IMultiToken public immutable token;
     // The ID for this contract's 'ERC20' as a sub token of the main token
     uint256 public immutable tokenId;
+    //
+    mapping(address => uint256) public nonces;
 
     /// @notice Constructs this contract by initializing the immutables
     /// @dev To give the contract a constant deploy code hash we call back
@@ -137,7 +140,7 @@ contract ERC20Forwarder is IERC20 {
         emit Transfer(source, recipient, amount);
         return true;
     }
-L
+
     function permit(
         address owner,
         address spender,
@@ -149,14 +152,13 @@ L
     ) external {
         require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
 
-        bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline));
+        bytes32 structHash = keccak256(
+            abi.encodePacked(owner, spender, value, nonces[owner]++, deadline)
+        );
 
-        bytes32 hash = _hashTypedDataV4(structHash);
+        address signer = ECDSA.recover(structHash, v, r, s);
+        require(signer == owner, "ERC20Permit: invalid signature");
 
-        address signer = ECDSA.recover(hash, v, r, s);
-        require(signer == owner, "ERC20Permit: invalid signature")
-
-        token.setApproval(tokenID, operator, amount);
+        token.setApproval(tokenId, owner, value);
     }
-
 }
