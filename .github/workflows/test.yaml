@@ -19,16 +19,6 @@ jobs:
           run: npx hardhat compile
         - name: test
           run: npm run test
-    sim:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v2
-        - name: Install dependencies
-          run: pip3 install numpy && npm ci 
-        - name: compile
-          run: npx hardhat compile
-        - name: simulation
-          run: npm run sim
     typecheck:
       runs-on: ubuntu-latest
       steps:
