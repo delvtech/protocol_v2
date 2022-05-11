@@ -34,10 +34,10 @@ contract MultiToken is IMultiToken {
     error NonLinkerCaller();
 
     // The contract which deployed this one
-    address immutable factory;
+    address public immutable factory;
     // The bytecode hash of the contract which forwards purely erc20 calls
     // to this contract
-    bytes32 immutable linkerCodeHash;
+    bytes32 public immutable linkerCodeHash;
 
     /// @notice Runs the initial deployment code
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
@@ -198,7 +198,7 @@ contract MultiToken is IMultiToken {
     /// @param to The address who's balance to increase
     /// @param amount The number of tokens to create
     /// @dev Must be used from inheriting contracts
-    function mint(
+    function _mint(
         uint256 tokenID,
         address to,
         uint256 amount
@@ -212,30 +212,35 @@ contract MultiToken is IMultiToken {
     /// @param source The address who's balance to decrease
     /// @param amount The number of tokens to remove
     /// @dev Must be used from inheriting contracts
-    function burn(
+    function _burn(
         uint256 tokenID,
         address source,
         uint256 amount
     ) internal {
-        uint256 current = balanceOf[tokenID][source];
+        // Decrement from the source and supply
         balanceOf[tokenID][source] -= amount;
-        
         totalSupply[tokenID] -= amount;
     }
 
-    /// @notice Returns the amount of tokens in existence
-    /// @param tokenID The asset to query supply of
-    function totalSupply(uint256 tokenID) external view returns (uint256) {
-        return totalSupply[tokenID];
-    }
-
-    function batchTransferFrom(address _from, address _to, uint256[] calldata _ids, uint256[] calldata _values, bytes calldata _data) external {
-        require(_from != address(0), "transfer from the zero address");
-        require(_to != address(0), "transfer to the zero address");
-        require(_ids.length == _values.length, "ids and values length mismatch");
-
-        for (uint256 i = 0; i < _ids.length; i++) {
-            _transferFrom(_ids[id], _from, _to, _values[i], msg.sender);
+    /// @notice Transfers several assets from one account to another
+    /// @param from the source account
+    /// @param to the destination account
+    /// @param ids The array of token ids of the asset to transfer
+    /// @param values The amount of each token to transfer
+    function batchTransferFrom(
+        address from,
+        address to,
+        uint256[] calldata ids,
+        uint256[] calldata values
+    ) external {
+        // Checks for inconsistent addresses
+        require(from != address(0), "transfer from the zero address");
+        require(to != address(0), "transfer to the zero address");
+        // Check for inconsistent length
+        require(ids.length == values.length, "ids and values length mismatch");
+        // Call internal transfer for each asset
+        for (uint256 i = 0; i < ids.length; i++) {
+            _transferFrom(ids[i], from, to, values[i], msg.sender);
         }
     }
 }
