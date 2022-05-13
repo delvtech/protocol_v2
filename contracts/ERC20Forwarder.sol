@@ -4,7 +4,6 @@ pragma solidity ^0.8.12;
 import "./interfaces/IERC20.sol";
 import "./interfaces/IMultiToken.sol";
 import "./interfaces/IForwarderFactory.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 // This ERC20 forwarder forwards calls through an ERC20 compliant interface
 // to move the sub tokens in our multi token contract. This enables our
@@ -17,8 +16,14 @@ contract ERC20Forwarder is IERC20 {
     IMultiToken public immutable token;
     // The ID for this contract's 'ERC20' as a sub token of the main token
     uint256 public immutable tokenId;
-    //
+    // A mapping to track the permit signature nonces
     mapping(address => uint256) public nonces;
+    // EIP712
+    bytes32 public DOMAIN_SEPARATOR;
+    bytes32 public constant PERMIT_TYPEHASH =
+        keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
 
     /// @notice Constructs this contract by initializing the immutables
     /// @dev To give the contract a constant deploy code hash we call back
@@ -28,6 +33,21 @@ contract ERC20Forwarder is IERC20 {
         IForwarderFactory factory = IForwarderFactory(msg.sender);
         // We load the data we need to init
         (token, tokenId) = factory.getDeployDetails();
+
+        // Computes the EIP 712 domain separator which prevents user signed messages for
+        // this contract to be replayed in other contracts.
+        // https://eips.ethereum.org/EIPS/eip-712
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
+                keccak256(bytes(token.name(tokenId))),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(this)
+            )
+        );
     }
 
     /// @notice Returns the decimals for this 'ERC20', we are opinionated
@@ -141,6 +161,18 @@ contract ERC20Forwarder is IERC20 {
         return true;
     }
 
+    /// @notice This function allows a caller who is not the owner of an account to execute the functionality of 'approve' with the owners signature.
+    /// @param owner the owner of the account which is having the new approval set
+    /// @param spender the address which will be allowed to spend owner's tokens
+    /// @param value the new allowance value
+    /// @param deadline the timestamp which the signature must be submitted by to be valid
+    /// @param v Extra ECDSA data which allows public key recovery from signature assumed to be 27 or 28
+    /// @param r The r component of the ECDSA signature
+    /// @param s The s component of the ECDSA signature
+    /// @dev The signature for this function follows EIP 712 standard and should be generated with the
+    ///      eth_signTypedData JSON RPC call instead of the eth_sign JSON RPC call. If using out of date
+    ///      parity signing libraries the v component may need to be adjusted. Also it is very rare but possible
+    ///      for v to be other values, those values are not supported.
     function permit(
         address owner,
         address spender,
@@ -150,15 +182,36 @@ contract ERC20Forwarder is IERC20 {
         bytes32 r,
         bytes32 s
     ) external {
+        // Require that the signature is not expired
         require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
+        // Require that the owner is not zero
+        require(owner != address(0), "ERC20: invalid-address-0");
 
         bytes32 structHash = keccak256(
-            abi.encodePacked(owner, spender, value, nonces[owner]++, deadline)
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR,
+                keccak256(
+                    abi.encode(
+                        PERMIT_TYPEHASH,
+                        owner,
+                        spender,
+                        value,
+                        nonces[owner],
+                        deadline
+                    )
+                )
+            )
         );
 
-        address signer = ECDSA.recover(structHash, v, r, s);
+        // Check that the signature is valid
+        address signer = ecrecover(structHash, v, r, s);
         require(signer == owner, "ERC20Permit: invalid signature");
 
+        // Increment the signature nonce
+        nonces[owner]++;
+        // Set the approval to the new value
         token.setApproval(tokenId, owner, value);
+        emit Approval(owner, spender, value);
     }
 }
