@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.14;
 
 interface IMultiToken {
     function name(uint256 id) external view returns (string memory);
