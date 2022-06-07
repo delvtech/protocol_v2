@@ -17,6 +17,16 @@ interface ITerm {
         uint256 expiration
     ) external returns (uint256, uint256);
 
+    /// @notice creates a YT spanning from current date to the end of the term
+    /// @param destination the address to send the tokens to
+    /// @param tokenID the ID of the YT to convert
+    /// @param amount the amount of YT to convert
+    function convertYT(
+        address destination,
+        uint256 tokenID,
+        uint256 amount
+    ) external;
+
     /// @notice removes all PTs and YTS input
     /// @param destination the address to send unlocked tokens to
     /// @param tokenIDs the IDs of the tokens to unlock
