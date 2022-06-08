@@ -4,16 +4,10 @@ pragma solidity ^0.8.14;
 import "./MultiToken.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/ITerm.sol";
-import "./libraries/FixedPoint.sol";
-import "./libraries/LogExpMath.sol";
 
 // LP is a multitoken [ie fake 1155] contract which accepts deposits and withdraws
 // from the AMM.
 contract LP is MultiToken {
-    // Use the fixed point libraries on uin256s
-    using FixedPoint for uint256;
-    using LogExpMath for uint256;
-
     // The token standard indexes each token by an ID which for these LP
     // tokens will be the expiration time of the token which matures.
     // Deposits input the underlying asset and a proportion will be locked
@@ -57,9 +51,18 @@ contract LP is MultiToken {
         term = _term;
     }
 
+    /// @notice Accepts a deposit from an LP in terms of the underlying and deposit it into the yield
+    ///         source then locks the correct proportion to match pool. The YT from the locked amount
+    ///         are credited to the user. This is the main user friendly way of depositing.
+    /// @param amount The amount of underlying tokens to deposit
+    /// @param poolId The identifier of the LP pool to deposit into, in this version it's expiration time.
+    /// @param destination The destination which gets credited with LP token.
+    /// @param minOutput The call will revert if the caller does not receive at least this many LP token.
+    /// @return The shares created.
     function depositUnderlying(
         uint256 amount,
         uint256 poolId,
+        address destination,
         uint256 minOutput
     ) external returns (uint256) {
         // No minting after expiration
@@ -77,7 +80,7 @@ contract LP is MultiToken {
             empty,
             amount,
             // there's no yt from this
-            msg.sender,
+            address(this),
             address(this),
             0,
             unlockedTermID
@@ -92,15 +95,20 @@ contract LP is MultiToken {
             uint256(reserves[poolId].bonds),
             depositedShares,
             pricePerShare,
-            msg.sender
+            destination
         );
         // Check enough has been made and return that amount
         require(newLpToken >= minOutput, "Todo nice errors");
         return (newLpToken);
     }
 
-    // Intentionally unfriendly, user says they have pts, also transfers in shares to ratio
-    // should be used with weiroll
+    /// @notice Allows a user to deposit and equal amount of bonds and yielding shares to match reserves.
+    ///         Naturally unfriendly and should be called in weiroll bundle.
+    /// @param ptDeposited The number of principal tokens deposited, this will set the ratio and
+    ///                    the correct reserve matching percent of shares will be transferred from the user
+    /// @param destination The address which will be credited with shares
+    /// @param minLpOut This call will revert if the LP produced is not at least this much
+    /// @return The shares created.
     function depositBonds(
         uint256 poolId,
         uint256 ptDeposited,
@@ -135,6 +143,11 @@ contract LP is MultiToken {
         return (lpCreated);
     }
 
+    /// @notice Withdraws LP from the pool, resulting in either a proportional withdraw before expiration
+    ///         or a withdraw of only underlying afterwords.
+    /// @param poolId The id of the LP token to withdraw
+    /// @param amount The number of LP tokens to remove
+    /// @param destination The address to credit the underlying too.
     function withdraw(
         uint256 poolId,
         uint256 amount,
@@ -166,6 +179,13 @@ contract LP is MultiToken {
         }
     }
 
+    /// @notice Allows a user to withdraw from an expired term and then deposit into a new one in one transaction
+    /// @param fromPoolId The identifier of the LP token which will be burned by this call
+    /// @param toPoolId The identifier of the to LP token which will be created by this call
+    /// @param amount The number of LP tokens to burn from the user
+    /// @param destination The address which will be credited with the output
+    /// @param minOutput The minimum number of new LP tokens created, otherwise will revert.
+    /// @return The number of LP token created
     function rollover(
         uint256 fromPoolId,
         uint256 toPoolId,
@@ -201,8 +221,15 @@ contract LP is MultiToken {
         return (newLpToken);
     }
 
-    // Should be called after a user has yielding shares from the term and needs to put them into
-    // a term, such as when they rollover or when they deposit single sided.
+    /// @notice Should be called after a user has yielding shares from the term and needs to put them into
+    ///         a term, such as when they rollover or when they deposit single sided.
+    /// @param poolId The pool the user is depositing into
+    /// @param currentShares The number of shares in the LP pool which is deposited to
+    /// @param currentBonds The number of bonds in the LP pool which is deposited to
+    /// @param depositedShares The number of yielding shares which the user has deposited
+    /// @param pricePerShare A multiplier which converts yielding shares to their net value.
+    /// @param to The address to credit the LP token to.
+    /// @return The number of LP tokens created by this action
     function depositFromShares(
         uint256 poolId,
         uint256 currentShares,
@@ -259,6 +286,12 @@ contract LP is MultiToken {
         return (newLpToken);
     }
 
+    /// @notice Deletes LP tokens from a user and then returns how many yielding shares and bonds are released
+    ///         Will also finalize [meaning convert bonds to shares] a pool if it is expired.
+    /// @param poolId The id of the LP token which is deleted from
+    /// @param amount The number of LP tokens to remove
+    /// @param source The address who's tokens will be deleted.
+    /// @return The number of shares and bonds the user should receive
     function withdrawToShares(
         uint256 poolId,
         uint256 amount,
