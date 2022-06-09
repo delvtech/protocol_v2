@@ -380,5 +380,68 @@ describe("MultiToken Tests", async () => {
         );
       await expect(tx).to.be.revertedWith("ERC20Permit: invalid signature");
     });
+
+    it("Nonce increases with successive permits", async () => {
+      const [wallet] = provider.getWallets();
+      const domainSeparator = await erc20.DOMAIN_SEPARATOR();
+      // new wallet so nonce should always be 0
+      let nonce = 0;
+      const digest1 = getDigest(
+        "USD Coin",
+        domainSeparator,
+        erc20.address,
+        wallet.address,
+        erc20.address,
+        ethers.constants.MaxUint256,
+        nonce,
+        ethers.constants.MaxUint256
+      );
+      let sigBuffer = ecsign(
+        Buffer.from(digest1.slice(2), "hex"),
+        Buffer.from(wallet.privateKey.slice(2), "hex")
+      );
+      // impersonate wallet to get Signer for connection
+      impersonate(wallet.address);
+      const walletSigner = ethers.provider.getSigner(wallet.address);
+      await erc20
+        .connect(walletSigner)
+        .permit(
+          wallet.address,
+          erc20.address,
+          ethers.constants.MaxUint256,
+          ethers.constants.MaxUint256,
+          sigBuffer.v,
+          sigBuffer.r,
+          sigBuffer.s
+        );
+      // nonce should increase after first permit call
+      nonce++;
+      const digest2 = getDigest(
+        "USD Coin",
+        domainSeparator,
+        erc20.address,
+        wallet.address,
+        erc20.address,
+        ethers.constants.MaxUint256,
+        nonce,
+        ethers.constants.MaxUint256
+      );
+      sigBuffer = ecsign(
+        Buffer.from(digest2.slice(2), "hex"),
+        Buffer.from(wallet.privateKey.slice(2), "hex")
+      );
+      // next permit call with increased nonce should succeed
+      await erc20
+        .connect(walletSigner)
+        .permit(
+          wallet.address,
+          erc20.address,
+          ethers.constants.MaxUint256,
+          ethers.constants.MaxUint256,
+          sigBuffer.v,
+          sigBuffer.r,
+          sigBuffer.s
+        );
+    });
   });
 });
