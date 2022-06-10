@@ -222,22 +222,25 @@ contract MultiToken is IMultiToken {
         totalSupply[tokenID] -= amount;
     }
 
+    /// @notice Transfers several assets from one account to another
+    /// @param from the source account
+    /// @param to the destination account
+    /// @param ids The array of token ids of the asset to transfer
+    /// @param values The amount of each token to transfer
     function batchTransferFrom(
-        address _from,
-        address _to,
-        uint256[] calldata _ids,
-        uint256[] calldata _values,
-        bytes calldata _data
+        address from,
+        address to,
+        uint256[] calldata ids,
+        uint256[] calldata values
     ) external {
-        require(_from != address(0), "transfer from the zero address");
-        require(_to != address(0), "transfer to the zero address");
-        require(
-            _ids.length == _values.length,
-            "ids and values length mismatch"
-        );
-
-        for (uint256 i = 0; i < _ids.length; i++) {
-            _transferFrom(_ids[i], _from, _to, _values[i], msg.sender);
+        // Checks for inconsistent addresses
+        require(from != address(0), "transfer from the zero address");
+        require(to != address(0), "transfer to the zero address");
+        // Check for inconsistent length
+        require(ids.length == values.length, "ids and values length mismatch");
+        // Call internal transfer for each asset
+        for (uint256 i = 0; i < ids.length; i++) {
+            _transferFrom(ids[i], from, to, values[i], msg.sender);
         }
     }
 }
