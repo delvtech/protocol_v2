@@ -339,7 +339,10 @@ describe("MultiToken Tests", async () => {
         );
       // check that nonce increases
       expect(await erc20.nonces(wallet.address)).to.eq(1);
-      // expect(erc20.approval(spender, user)).to.eq(amount)
+      // check the approval
+      expect(await erc20.allowance(wallet.address, erc20.address)).to.eq(
+        ethers.constants.MaxUint256
+      );
     });
 
     it("Fails invalid permit", async () => {
