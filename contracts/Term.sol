@@ -2,10 +2,10 @@
 pragma solidity ^0.8.12;
 
 import "./MultiToken.sol";
-import "./interfaces/IYieldSource.sol";
+import "./interfaces/IYieldAdapter.sol";
 import "./interfaces/ITerm.sol";
 
-contract Term is ITerm, MultiToken, IYieldSource {
+contract Term is ITerm, MultiToken, IYieldAdapter {
     // a mapping of unlock timestamps to number of shares
     mapping(uint256 => uint256) public timestampShares;
 

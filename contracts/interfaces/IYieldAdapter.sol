@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.12;
 
-interface IYieldSource {
+interface IYieldAdapter {
     /// @return tuple (shares minted, amount underlying used)
     function deposit() external returns (uint256, uint256);
 
