@@ -304,7 +304,7 @@ describe("MultiToken Tests", async () => {
       expect(await erc20.decimals()).to.be.eq(18);
     });
 
-    it.only("Successful permit call", async () => {
+    it("Successful permit call", async () => {
       const [wallet] = provider.getWallets();
       const domainSeparator = await erc20.DOMAIN_SEPARATOR();
       // new wallet so nonce should always be 0
