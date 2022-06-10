@@ -222,12 +222,6 @@ contract MultiToken is IMultiToken {
         totalSupply[tokenID] -= amount;
     }
 
-    /// @notice Returns the amount of tokens in existence
-    /// @param tokenID The asset to query supply of
-    function totalSupply(uint256 tokenID) external view returns (uint256) {
-        return tokenTotalSupply[tokenID];
-    }
-
     function batchTransferFrom(
         address _from,
         address _to,
