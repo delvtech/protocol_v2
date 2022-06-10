@@ -337,13 +337,9 @@ describe("MultiToken Tests", async () => {
           r,
           s
         );
-      // check that approval was set
-      const potato = await erc20.allowance(wallet.address, erc20.address);
-      console.log(potato);
-      //   const id = await erc20.tokenId();
-      //   expect(
-      //     await token.perTokenApprovals(id, signers[0].address, erc20.address)
-      //     ).to.be.eq(1);
+      // check that nonce increases
+      expect(await erc20.nonces(wallet.address)).to.eq(1);
+      // expect(erc20.approval(spender, user)).to.eq(amount)
     });
 
     it("Fails invalid permit", async () => {
@@ -381,124 +377,5 @@ describe("MultiToken Tests", async () => {
         );
       await expect(tx).to.be.revertedWith("ERC20Permit: invalid signature");
     });
-
-    it("Nonce increases with successive permits", async () => {
-      const [wallet] = provider.getWallets();
-      const domainSeparator = await erc20.DOMAIN_SEPARATOR();
-      // new wallet so nonce should always be 0
-      let nonce = 0;
-      const digest1 = getDigest(
-        "USD Coin",
-        domainSeparator,
-        erc20.address,
-        wallet.address,
-        erc20.address,
-        ethers.constants.MaxUint256,
-        nonce,
-        ethers.constants.MaxUint256
-      );
-      let sigBuffer = ecsign(
-        Buffer.from(digest1.slice(2), "hex"),
-        Buffer.from(wallet.privateKey.slice(2), "hex")
-      );
-      // impersonate wallet to get Signer for connection
-      impersonate(wallet.address);
-      const walletSigner = ethers.provider.getSigner(wallet.address);
-      await erc20
-        .connect(walletSigner)
-        .permit(
-          wallet.address,
-          erc20.address,
-          ethers.constants.MaxUint256,
-          ethers.constants.MaxUint256,
-          sigBuffer.v,
-          sigBuffer.r,
-          sigBuffer.s
-        );
-      // nonce should increase after first permit call
-      nonce++;
-      const digest2 = getDigest(
-        "USD Coin",
-        domainSeparator,
-        erc20.address,
-        wallet.address,
-        erc20.address,
-        ethers.constants.MaxUint256,
-        nonce,
-        ethers.constants.MaxUint256
-      );
-      sigBuffer = ecsign(
-        Buffer.from(digest2.slice(2), "hex"),
-        Buffer.from(wallet.privateKey.slice(2), "hex")
-      );
-      // next permit call with increased nonce should succeed
-      await erc20
-        .connect(walletSigner)
-        .permit(
-          wallet.address,
-          erc20.address,
-          ethers.constants.MaxUint256,
-          ethers.constants.MaxUint256,
-          sigBuffer.v,
-          sigBuffer.r,
-          sigBuffer.s
-        );
-    });
-
-    // it("Permit sets ERC20 approval correctly", async () => {
-    //   // give some balance to test the transfer after permit
-    //   await token.setBalance(await erc20.tokenId(), signers[0].address, ten);
-
-    //   const [wallet] = provider.getWallets();
-    //   const domainSeparator = await erc20.DOMAIN_SEPARATOR();
-    //   // new wallet so nonce should always be 0
-    //   const nonce = 0;
-    //   const digest = getDigest(
-    //     "USD Coin",
-    //     domainSeparator,
-    //     erc20.address,
-    //     wallet.address,
-    //     erc20.address,
-    //     five,
-    //     nonce,
-    //     ethers.constants.MaxUint256
-    //   );
-    //   const { v, r, s } = ecsign(
-    //     Buffer.from(digest.slice(2), "hex"),
-    //     Buffer.from(wallet.privateKey.slice(2), "hex")
-    //   );
-    //   // impersonate wallet to get Signer for connection
-    //   impersonate(wallet.address);
-    //   const walletSigner = ethers.provider.getSigner(wallet.address);
-    //   // execute the permit
-    //   await erc20
-    //     .connect(walletSigner)
-    //     .permit(
-    //       wallet.address,
-    //       erc20.address,
-    //       five,
-    //       ethers.constants.MaxUint256,
-    //       v,
-    //       r,
-    //       s
-    //     );
-    //   const id = await erc20.tokenId();
-    //   // transfer succeeds from permit's approval
-    //   await token
-    //     .connect(erc20.signer)
-    //     .transferFrom(id, signers[0].address, erc20.address, five.sub(1));
-    //   // subsequent transfer fails
-    // //   const tx = token
-    // //     .connect(erc20.signer)
-    // //     .transferFrom(id, signers[0].address, erc20.address, 10);
-    // //   await expect(tx).to.be.reverted;
-    //   expect(
-    //     await token.perTokenApprovals(id, wallet.address, erc20.address)
-    //   ).to.be.eq(1);
-    //   expect(await token.balanceOf(id, wallet.address)).to.be.eq(five.sub(1));
-    //   expect(await token.balanceOf(id, signers[0].address)).to.be.eq(
-    //     five.add(1)
-    //   );
-    // });
   });
 });
