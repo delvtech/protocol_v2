@@ -145,7 +145,7 @@ contract MultiToken is IMultiToken {
     /// @notice Allows a user to approve an operator to use all of their assets
     /// @param _operator The eth address which can access the caller's assets
     /// @param _approved True to approve, false to remove approval
-    function setApprovalForAll(address _operator, bool _approved) external {
+    function setApprovalForAll(address _operator, bool _approved) public {
         // set the appropriate state
         isApprovedForAll[msg.sender][_operator] = _approved;
     }
@@ -242,5 +242,47 @@ contract MultiToken is IMultiToken {
         for (uint256 i = 0; i < ids.length; i++) {
             _transferFrom(ids[i], from, to, values[i], msg.sender);
         }
+    }
+
+    // regular permit() has a value param
+    // do we want a bool param so permitForAll both permits & un-permits or can it just permit
+    function permitForAll(
+        address owner,
+        address spender,
+        bool _approved,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external {
+        // Require that the signature is not expired
+        require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
+        // Require that the owner is not zero
+        require(owner != address(0), "ERC20: invalid-address-0");
+
+        // will be different from regular permit
+        bytes32 structHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                //DOMAIN_SEPARATOR,
+                keccak256(
+                    abi.encode(
+                        //PERMIT_TYPEHASH,
+                        owner,
+                        spender,
+                        //value,
+                        //nonces[owner],
+                        deadline
+                    )
+                )
+            )
+        );
+
+        // Check that the signature is valid
+        address signer = ecrecover(structHash, v, r, s);
+        require(signer == owner, "ERC20Permit: invalid signature");
+
+        // set the state
+        isApprovedForAll[owner][spender] = _approved;
     }
 }
