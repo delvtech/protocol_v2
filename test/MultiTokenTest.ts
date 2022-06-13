@@ -368,7 +368,7 @@ describe("MultiToken Tests", async () => {
       impersonate(wallet.address);
       const walletSigner = ethers.provider.getSigner(wallet.address);
       const tx = erc20
-        .connect(walletSigner)
+        .connect(signers[0])
         .permit(
           wallet.address,
           erc20.address,
