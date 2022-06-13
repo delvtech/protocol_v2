@@ -7,6 +7,9 @@ import {
 } from "typechain-types";
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { getDigest } from "./helpers/signatures";
+import { impersonate } from "./helpers/impersonate";
+import { ecsign } from "ethereumjs-util";
 
 const { provider } = waffle;
 
@@ -299,6 +302,83 @@ describe("MultiToken Tests", async () => {
       expect(await erc20.name()).to.be.eq("Test Token");
       expect(await erc20.symbol()).to.be.eq("TEST");
       expect(await erc20.decimals()).to.be.eq(18);
+    });
+
+    it("Successful permit call", async () => {
+      const [wallet] = provider.getWallets();
+      const domainSeparator = await erc20.DOMAIN_SEPARATOR();
+      // new wallet so nonce should always be 0
+      const nonce = 0;
+      const digest = getDigest(
+        "USD Coin",
+        domainSeparator,
+        erc20.address,
+        wallet.address,
+        erc20.address,
+        ethers.constants.MaxUint256,
+        nonce,
+        ethers.constants.MaxUint256
+      );
+      const { v, r, s } = ecsign(
+        Buffer.from(digest.slice(2), "hex"),
+        Buffer.from(wallet.privateKey.slice(2), "hex")
+      );
+      // impersonate wallet to get Signer for connection
+      impersonate(wallet.address);
+      const walletSigner = ethers.provider.getSigner(wallet.address);
+      await erc20
+        .connect(signers[0])
+        .permit(
+          wallet.address,
+          erc20.address,
+          ethers.constants.MaxUint256,
+          ethers.constants.MaxUint256,
+          v,
+          r,
+          s
+        );
+      // check that nonce increases
+      expect(await erc20.nonces(wallet.address)).to.eq(1);
+      // check the approval
+      expect(await erc20.allowance(wallet.address, erc20.address)).to.eq(
+        ethers.constants.MaxUint256
+      );
+    });
+
+    it("Fails invalid permit", async () => {
+      const [wallet] = provider.getWallets();
+      const domainSeparator = await erc20.DOMAIN_SEPARATOR();
+      // new wallet so nonce should always be 0
+      const nonce = 0;
+      const digest = getDigest(
+        "USD Coin",
+        domainSeparator,
+        erc20.address,
+        wallet.address,
+        erc20.address,
+        ethers.constants.MaxUint256,
+        nonce,
+        ethers.constants.MaxUint256
+      );
+      const { v, r, s } = ecsign(
+        Buffer.from(digest.slice(2), "hex"),
+        Buffer.from(wallet.privateKey.slice(2), "hex")
+      );
+      // impersonate wallet to get Signer for connection
+      impersonate(wallet.address);
+      const walletSigner = ethers.provider.getSigner(wallet.address);
+      const tx = erc20
+        .connect(walletSigner)
+        .permit(
+          wallet.address,
+          erc20.address,
+          ethers.constants.MaxUint256,
+          ethers.constants.MaxUint256,
+          v + 2,
+          r,
+          s
+        );
+      await expect(tx).to.be.revertedWith("ERC20Permit: invalid signature");
     });
   });
 });

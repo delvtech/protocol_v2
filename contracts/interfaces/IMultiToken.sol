@@ -49,6 +49,4 @@ interface IMultiToken {
         uint256 amount,
         address caller
     ) external;
-
-    function totalSupply(uint256 id) external view returns (uint256);
 }
