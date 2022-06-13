@@ -211,7 +211,7 @@ contract ERC20Forwarder is IERC20 {
         // Increment the signature nonce
         nonces[owner]++;
         // Set the approval to the new value
-        token.setApprovalBridge(tokenId, spender, value, msg.sender);
+        token.setApprovalBridge(tokenId, spender, value, owner);
         emit Approval(owner, spender, value);
     }
 }
