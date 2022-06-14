@@ -214,6 +214,10 @@ describe("MultiToken Tests", async () => {
     });
   });
 
+  describe("PermitForAll", async () => {
+    console.log();
+  });
+
   describe("ERC20 Link Tests", async () => {
     let erc20: ERC20Forwarder;
 
@@ -325,7 +329,6 @@ describe("MultiToken Tests", async () => {
       );
       // impersonate wallet to get Signer for connection
       impersonate(wallet.address);
-      const walletSigner = ethers.provider.getSigner(wallet.address);
       await erc20
         .connect(signers[0])
         .permit(

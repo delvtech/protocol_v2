@@ -39,6 +39,18 @@ contract MultiToken is IMultiToken {
     // to this contract
     bytes32 public immutable linkerCodeHash;
 
+    // EIP712
+    // DOMAIN_SEPARATOR changes based on token name
+    bytes32 public DOMAIN_SEPARATOR;
+    // PERMIT_TYPEHASH changes based on function inputs
+    bytes32 public constant PERMIT_TYPEHASH =
+        keccak256(
+            "PermitForAll(address owner,address spender,bool _approved,uint256 nonce,uint256 deadline"
+        );
+
+    // A mapping to track the permitForAll signature nonces
+    mapping(address => uint256) public nonces;
+
     /// @notice Runs the initial deployment code
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
@@ -46,6 +58,21 @@ contract MultiToken is IMultiToken {
         // Set the immutables
         factory = _factory;
         linkerCodeHash = _linkerCodeHash;
+
+        // Computes the EIP 712 domain separator which prevents user signed messages for
+        // this contract to be replayed in other contracts.
+        // https://eips.ethereum.org/EIPS/eip-712
+        // TODO: I believe it is okay to get rid of name field
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
+                ),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(this)
+            )
+        );
     }
 
     //  Our architecture maintains ERC20 compatibility by allowing the option
@@ -264,14 +291,13 @@ contract MultiToken is IMultiToken {
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 "\x19\x01",
-                //DOMAIN_SEPARATOR,
+                DOMAIN_SEPARATOR,
                 keccak256(
                     abi.encode(
-                        //PERMIT_TYPEHASH,
+                        PERMIT_TYPEHASH,
                         owner,
                         spender,
-                        //value,
-                        //nonces[owner],
+                        nonces[owner],
                         deadline
                     )
                 )
@@ -282,7 +308,10 @@ contract MultiToken is IMultiToken {
         address signer = ecrecover(structHash, v, r, s);
         require(signer == owner, "ERC20Permit: invalid signature");
 
+        // Increment the signature nonce
+        nonces[owner]++;
         // set the state
         isApprovedForAll[owner][spender] = _approved;
+        // need to emit an approval event?
     }
 }
