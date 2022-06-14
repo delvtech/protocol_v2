@@ -2,6 +2,7 @@
 pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "../interfaces/ITerm.sol";
 
 abstract contract YieldAdapter {
     /// This is the address of an arbitrary "vault" contract which implicitly
@@ -18,14 +19,19 @@ abstract contract YieldAdapter {
     // This points to the token which the source contract "vault" wraps, e.g DAI
     IERC20 public immutable assetToken;
 
+    // associated term contract
+    ITerm public immutable term;
+
     constructor(
+        address _term,
         address _vault,
-        IERC20 _shareToken,
-        IERC20 _assetToken
+        address _shareToken,
+        address _assetToken
     ) {
+        term = ITerm(_term);
         vault = _vault;
-        shareToken = _shareToken;
-        assetToken = _assetToken;
+        shareToken = IERC20(_shareToken);
+        assetToken = IERC20(_assetToken);
     }
 
     function deposit() external virtual returns (uint256, uint256);

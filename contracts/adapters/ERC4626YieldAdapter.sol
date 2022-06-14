@@ -6,12 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20TokenizedVault.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract ERC4626YieldAdapter is YieldAdapter {
-    constructor(address _vault)
-        YieldAdapter(
-            _vault,
-            IERC20(_vault),
-            IERC20(ERC20TokenizedVault(_vault).asset())
-        )
+    constructor(address _term, address _vault)
+        YieldAdapter(_term, _vault, _vault, ERC20TokenizedVault(_vault).asset())
     {}
 
     function deposit() external override returns (uint256, uint256) {
