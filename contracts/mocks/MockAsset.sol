@@ -7,7 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract MockAsset is ERC20 {
     address public owner;
 
-    constructor(uint256 _initialSupply, address _receiver) ERC20("MockAssetToken", "MAT") {
+    constructor(uint256 _initialSupply, address _receiver)
+        ERC20("MockAssetToken", "MAT")
+    {
         owner = msg.sender;
         _mint(_receiver, _initialSupply);
     }

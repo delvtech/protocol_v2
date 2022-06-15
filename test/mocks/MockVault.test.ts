@@ -1,6 +1,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers, waffle } from "hardhat";
+import { mine, YEAR } from "test/helpers/time";
 import {
   MockAsset,
   MockAsset__factory,
@@ -10,7 +11,6 @@ import {
 import { createSnapshot, restoreSnapshot } from "../helpers/snapshots";
 import {
   MOCK_ASSET_TOKEN_NAME,
-  MOCK_ASSET_TOKEN_SUPPLY,
   MOCK_ASSET_TOKEN_SYMBOL,
 } from "./MockAsset.test";
 
@@ -20,6 +20,7 @@ export const MOCK_SHARE_TOKEN_NAME = "MockShareToken";
 export const MOCK_SHARE_TOKEN_SYMBOL = "xMAT";
 
 const ONE_MILLION_ETHER = ethers.utils.parseEther("1000000");
+const TEN_THOUSAND_ETHER = ethers.utils.parseEther("10000");
 
 describe.only("MockVault", async () => {
   let asset: MockAsset;
@@ -43,11 +44,6 @@ describe.only("MockVault", async () => {
 
   afterEach(async () => {
     await restoreSnapshot(provider);
-  });
-
-  it(`should have correct owner`, async () => {
-    const _owner = await vault.owner();
-    expect(_owner).to.be.eq(owner.address);
   });
 
   describe("deployment", async () => {
@@ -103,7 +99,58 @@ describe.only("MockVault", async () => {
       expect(sharesPerAsset).to.be.eq(ethers.constants.One);
       expect(assetsPerShare).to.be.eq(ethers.constants.One);
     });
+
+    it(`should initialise interest rates correctly`, async () => {
+      const apr = await vault.apr();
+      const apy = await vault.apy();
+
+      expect(apr).to.be.eq(ethers.utils.parseEther("0.05")); // 5%
+      expect(apy).to.be.eq(ethers.utils.parseEther("0.051271096350458156")); // 5.1271096350458156 %
+    });
   });
 
-  describe;
+  // describe.only("deposit", async () => {
+  //   const depositAmount = ethers.utils.parseEther("1");
+
+  //   it("should revert depositing if vault is not collateralized", async () => {
+  //     const tx = await vault
+  //       .connect(user.address)
+  //       .deposit(depositAmount, user.address);
+  //     expect(tx).to.be.reverted;
+  //   });
+  // });
+
+  //it("should approve asset with vault address")
+
+  // describe("accrue", async () => {
+  //   const depositAmount = ethers.utils.parseEther("1");
+
+  //   before(async () => {
+  //     await asset.connect(user.address).approve(vault.address, depositAmount);
+  //     await vault.connect(user.address).deposit(depositAmount, user.address);
+  //   });
+
+  //   it(`should have ${ethers.utils.formatEther(
+  //     depositAmount
+  //   )} assets deposited and ${ethers.utils.formatEther(
+  //     depositAmount
+  //   )} shares issued`, async () => {
+  //     const totalAssets = await vault.totalAssets();
+  //     const totalShares = await vault.totalSupply();
+
+  //     expect(totalAssets).to.be.eq(depositAmount);
+  //     expect(totalShares).to.be.eq(depositAmount);
+  //   });
+
+  //   it("should accrue interest correctly", async () => {
+  //     const currentBlock = await ethers.provider.getBlock("latest");
+  //     console.log(currentBlock);
+  //     const x = await mine(YEAR);
+  //     // console.log(x.previous, x.latest, x.interval);
+  //     // await vault.accrue();
+
+  //     // const totalAssets = await vault.totalAssets();
+  //     // expect(totalAssets).to.be.eq(depositAmount.add("0.051271096350458156"));
+  //   });
+  // });
 });
