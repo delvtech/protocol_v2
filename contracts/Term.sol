@@ -23,7 +23,7 @@ abstract contract Term is ITerm, MultiToken, YieldAdapter {
     mapping(uint256 => FinalizedState) finalizedTerms;
 
     // // The underlying token
-    // IERC20 immutable token;
+    IERC20 immutable token;
     // The decimals and decimal adjusted constant 1
     uint8 immutable decimals;
     uint256 immutable one;
@@ -41,8 +41,8 @@ abstract contract Term is ITerm, MultiToken, YieldAdapter {
         bytes32 _linkerCodeHash,
         address _factory,
         IERC20 _token,
-        address _yieldSource
-    ) MultiToken(_linkerCodeHash, _factory) YieldAdapter(_token, _yieldSource) {
+    ) MultiToken(_linkerCodeHash, _factory) {
+        token = _token;
         uint8 _decimals = _token.decimals();
         decimals = _decimals;
         one = 1 << decimals;
