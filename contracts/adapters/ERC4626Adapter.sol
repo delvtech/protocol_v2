@@ -7,7 +7,9 @@ import "../interfaces/IERC4626.sol";
 contract ERC4626YieldAdapter is YieldAdapter {
     IERC4626 immutable vault;
 
-    constructor(IERC4626 _vault) {}
+    constructor(IERC4626 _vault) {
+        vault = _vault;
+    }
 
     /// @notice Makes deposit into vault
     function _deposit(ShareState)
