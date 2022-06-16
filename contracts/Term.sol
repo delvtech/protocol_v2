@@ -2,11 +2,11 @@
 pragma solidity ^0.8.12;
 
 import "./MultiToken.sol";
-import "./interfaces/IYieldAdapter.sol";
+import "./YieldAdapter.sol";
 import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 
-abstract contract Term is ITerm, MultiToken, IYieldAdapter {
+abstract contract Term is ITerm, MultiToken, YieldAdapter {
     struct YieldState {
         uint128 shares;
         uint128 pt;
@@ -21,8 +21,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     mapping(uint256 => uint256) sharesPerExpiry;
     mapping(uint256 => YieldState) yieldTerms;
     mapping(uint256 => FinalizedState) finalizedTerms;
-    // The underlying token
-    IERC20 immutable token;
+
+    // // The underlying token
+    // IERC20 immutable token;
     // The decimals and decimal adjusted constant 1
     uint8 immutable decimals;
     uint256 immutable one;
@@ -35,12 +36,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
     /// @param _token The ERC20 which is deposited into this contract
+    /// @param _yieldSource The contract which manages and accounts yield accrual for `token`
     constructor(
         bytes32 _linkerCodeHash,
         address _factory,
-        IERC20 _token
-    ) MultiToken(_linkerCodeHash, _factory) {
-        token = _token;
+        IERC20 _token,
+        address _yieldSource
+    ) MultiToken(_linkerCodeHash, _factory) YieldAdapter(_token, _yieldSource) {
         uint8 _decimals = _token.decimals();
         decimals = _decimals;
         one = 1 << decimals;

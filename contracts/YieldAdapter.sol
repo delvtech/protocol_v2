@@ -1,7 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.12;
 
-abstract contract IYieldAdapter {
+import "./interfaces/IERC20.sol";
+
+abstract contract YieldAdapter {
+    address immutable yieldSource;
+
+    // The underlying token
+    IERC20 immutable token;
+
+    constructor(IERC20 _token, address _yieldSource) {
+        token = _token;
+        yieldSource = _yieldSource;
+    }
+
     /// Yield sources should have two share types, easily withdrawable unlocked shares and
     /// possibly hard to withdraw yield sources [only redeemed at expiry]
     enum ShareState {
