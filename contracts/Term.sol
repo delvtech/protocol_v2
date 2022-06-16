@@ -65,7 +65,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256 expiration
     ) external returns (uint256, uint256) {
         // If the user enters something larger than the current timestamp we set the yt
-        // expiry to the current timestamp\
+        // expiry to the current timestamp
         ytBeginDate = ytBeginDate >= block.timestamp
             ? block.timestamp
             : ytBeginDate;
