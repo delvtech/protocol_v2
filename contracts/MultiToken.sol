@@ -62,7 +62,6 @@ contract MultiToken is IMultiToken {
         // Computes the EIP 712 domain separator which prevents user signed messages for
         // this contract to be replayed in other contracts.
         // https://eips.ethereum.org/EIPS/eip-712
-        // TODO: I believe it is okay to get rid of name field
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256(
@@ -271,8 +270,19 @@ contract MultiToken is IMultiToken {
         }
     }
 
-    // regular permit() has a value param
-    // do we want a bool param so permitForAll both permits & un-permits or can it just permit
+    /// @notice Allows a caller who is not the owner of an account to execute 
+    ///         the functionality of 'approve' for all assets with the owners signature.
+    /// @param owner the owner of the account which is having the new approval set
+    /// @param spender the address which will be allowed to spend owner's tokens
+    /// @param _approved a boolean of the approval status to set to
+    /// @param deadline the timestamp which the signature must be submitted by to be valid
+    /// @param v Extra ECDSA data which allows public key recovery from signature assumed to be 27 or 28
+    /// @param r The r component of the ECDSA signature
+    /// @param s The s component of the ECDSA signature
+    /// @dev The signature for this function follows EIP 712 standard and should be generated with the
+    ///      eth_signTypedData JSON RPC call instead of the eth_sign JSON RPC call. If using out of date
+    ///      parity signing libraries the v component may need to be adjusted. Also it is very rare but possible
+    ///      for v to be other values, those values are not supported.
     function permitForAll(
         address owner,
         address spender,
@@ -287,7 +297,6 @@ contract MultiToken is IMultiToken {
         // Require that the owner is not zero
         require(owner != address(0), "ERC20: invalid-address-0");
 
-        // will be different from regular permit
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -312,6 +321,5 @@ contract MultiToken is IMultiToken {
         nonces[owner]++;
         // set the state
         isApprovedForAll[owner][spender] = _approved;
-        // need to emit an approval event?
     }
 }

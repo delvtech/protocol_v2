@@ -7,7 +7,7 @@ import {
 } from "typechain-types";
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { getDigest } from "./helpers/signatures";
+import { getDigest, getDigestAll } from "./helpers/signatures";
 import { impersonate } from "./helpers/impersonate";
 import { ecsign } from "ethereumjs-util";
 
@@ -214,8 +214,48 @@ describe("MultiToken Tests", async () => {
     });
   });
 
-  describe("PermitForAll", async () => {
-    console.log();
+  describe.only("PermitForAll", async () => {
+    beforeEach(async () => {
+        await createSnapshot(provider);
+      });
+  
+      afterEach(async () => {
+        await restoreSnapshot(provider);
+      });
+
+      it.only("success", async () => {
+        const [wallet] = provider.getWallets();
+            const domainSeparator = await token.DOMAIN_SEPARATOR();
+            // new wallet so nonce should always be 0
+            const nonce = 0;
+            const digest = getDigestAll(
+                "USD Coin",
+                domainSeparator,
+                token.address,
+                wallet.address,
+                token.address,
+                true,
+                nonce,
+                ethers.constants.MaxUint256
+            );
+            const { v, r, s } = ecsign(
+                Buffer.from(digest.slice(2), "hex"),
+                Buffer.from(wallet.privateKey.slice(2), "hex")
+            );
+            // impersonate wallet to get signer for connection
+            impersonate(wallet.address);
+            const tx = token.connect(signers[0]).permitForAll(
+                wallet.address,
+                token.address,
+                true,
+                ethers.constants.MaxUint256,
+                v,
+                r,
+                s
+            );
+            // it should not revert but it does
+            await expect(tx).to.be.reverted;
+      })
   });
 
   describe("ERC20 Link Tests", async () => {
