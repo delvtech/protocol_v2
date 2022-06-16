@@ -16,6 +16,7 @@ const testConfig: HardhatUserConfig = {
     ...config.networks,
     hardhat: {
       ...config?.networks?.hardhat,
+      gas: 8000000,
       allowUnlimitedContractSize: true,
     },
   },

@@ -22,7 +22,7 @@ export const MOCK_SHARE_TOKEN_SYMBOL = "xMAT";
 const ONE_MILLION_ETHER = ethers.utils.parseEther("1000000");
 const TEN_THOUSAND_ETHER = ethers.utils.parseEther("10000");
 
-describe.only("MockVault", async () => {
+describe("MockVault", async () => {
   let asset: MockAsset;
   let vault: MockVault;
   let owner: SignerWithAddress;
@@ -113,10 +113,10 @@ describe.only("MockVault", async () => {
   //   const depositAmount = ethers.utils.parseEther("1");
 
   //   it("should revert depositing if vault is not collateralized", async () => {
-  //     const tx = await vault
-  //       .connect(user.address)
-  //       .deposit(depositAmount, user.address);
-  //     expect(tx).to.be.reverted;
+  //     //await asset.connect(user).approve(vault.address, depositAmount);
+
+  //     const tx = await vault.connect(user).deposit(depositAmount, user.address);
+  //     expect(tx).to.be.revertedWith();
   //   });
   // });
 

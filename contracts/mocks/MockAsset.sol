@@ -24,6 +24,6 @@ contract MockAsset is ERC20 {
     }
 
     function burn(uint256 _amount) external onlyOwner {
-        _burn(address(0x0), _amount);
+        _burn(msg.sender, _amount);
     }
 }
