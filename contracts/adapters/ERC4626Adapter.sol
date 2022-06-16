@@ -5,32 +5,38 @@ import "../YieldAdapter.sol";
 import "../interfaces/IERC4626.sol";
 
 contract ERC4626YieldAdapter is YieldAdapter {
-    constructor(IERC4626 _yieldSource) YieldAdapter(IERC20(_yieldSource.asset()), address(_yieldSource)) {}
+    IERC4626 immutable vault;
 
-    function _deposit(ShareState) internal override returns (uint256, uint256) {
-        return (0, 0);
+    constructor(IERC4626 _vault) {}
+
+    /// @notice Makes deposit into vault
+    function _deposit(ShareState)
+        internal
+        override
+        returns (uint256 amount, uint256 shares)
+    {
+        amount = IERC20(vault.asset()).balanceOf(address(this));
+        shares = vault.deposit(amount, address(this));
+    }
+
+    function _withdraw(
+        uint256 _amountShares,
+        address _dest,
+        ShareState _state
+    ) internal override returns (uint256 amountAssets) {
+        amountAssets = vault.redeem(_amountShares, _dest, address(this));
     }
 
     function _convert(ShareState, uint256) internal override returns (uint256) {
         return 0;
     }
 
-    /// @return the amount produced
-    function _withdraw(
-        uint256,
-        address,
-        ShareState
-    ) internal override returns (uint256) {
-        return 0;
-    }
-
-    /// @return The amount of underlying the input is worth
-    function _underlying(uint256, ShareState)
+    function _underlying(uint256 _amountShares, ShareState)
         internal
         view
         override
         returns (uint256)
     {
-        return 0;
+        return vault.previewRedeem(_amountShares);
     }
 }

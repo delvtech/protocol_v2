@@ -36,11 +36,10 @@ abstract contract Term is ITerm, MultiToken, YieldAdapter {
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
     /// @param _token The ERC20 which is deposited into this contract
-    /// @param _yieldSource The contract which manages and accounts yield accrual for `token`
     constructor(
         bytes32 _linkerCodeHash,
         address _factory,
-        IERC20 _token,
+        IERC20 _token
     ) MultiToken(_linkerCodeHash, _factory) {
         token = _token;
         uint8 _decimals = _token.decimals();
