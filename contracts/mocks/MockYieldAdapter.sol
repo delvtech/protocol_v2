@@ -28,7 +28,7 @@ contract MockYieldAdapter is IYieldAdapter, Term {
 
         uint256 returnShares = state == ShareState.Unlocked
             ? shares * 2
-            : shares / 2;
+            : shares;
 
         return (returnShares, amount);
     }
