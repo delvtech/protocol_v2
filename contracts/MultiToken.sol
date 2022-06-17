@@ -306,6 +306,7 @@ contract MultiToken is IMultiToken {
                         PERMIT_TYPEHASH,
                         owner,
                         spender,
+                        _approved,
                         nonces[owner],
                         deadline
                     )

@@ -60,8 +60,9 @@ export function getDigestAll(
 ) {
     return keccak256(
         solidityPack(
-            ["bytes1", "bytes32", "bytes32"],
+            ["bytes1", "bytes1", "bytes32", "bytes32"],
             [
+                "0x19",
                 "0x01",
                 domainSeparator,
                 keccak256(

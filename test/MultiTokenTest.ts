@@ -214,48 +214,156 @@ describe("MultiToken Tests", async () => {
     });
   });
 
-  describe.only("PermitForAll", async () => {
+  describe("PermitForAll", async () => {
     beforeEach(async () => {
-        await createSnapshot(provider);
-      });
-  
-      afterEach(async () => {
-        await restoreSnapshot(provider);
-      });
+      await createSnapshot(provider);
+    });
 
-      it.only("success", async () => {
-        const [wallet] = provider.getWallets();
-            const domainSeparator = await token.DOMAIN_SEPARATOR();
-            // new wallet so nonce should always be 0
-            const nonce = 0;
-            const digest = getDigestAll(
-                "USD Coin",
-                domainSeparator,
-                token.address,
-                wallet.address,
-                token.address,
-                true,
-                nonce,
-                ethers.constants.MaxUint256
-            );
-            const { v, r, s } = ecsign(
-                Buffer.from(digest.slice(2), "hex"),
-                Buffer.from(wallet.privateKey.slice(2), "hex")
-            );
-            // impersonate wallet to get signer for connection
-            impersonate(wallet.address);
-            const tx = token.connect(signers[0]).permitForAll(
-                wallet.address,
-                token.address,
-                true,
-                ethers.constants.MaxUint256,
-                v,
-                r,
-                s
-            );
-            // it should not revert but it does
-            await expect(tx).to.be.reverted;
-      })
+    afterEach(async () => {
+      await restoreSnapshot(provider);
+    });
+
+    it("Successful permit all", async () => {
+      const [wallet] = provider.getWallets();
+      const domainSeparator = await token.DOMAIN_SEPARATOR();
+      // new wallet so nonce should always be 0
+      const nonce = 0;
+      const digest = getDigestAll(
+        "USD Coin",
+        domainSeparator,
+        token.address,
+        wallet.address,
+        signers[2].address,
+        true,
+        nonce,
+        ethers.constants.MaxUint256
+      );
+      const { v, r, s } = ecsign(
+        Buffer.from(digest.slice(2), "hex"),
+        Buffer.from(wallet.privateKey.slice(2), "hex")
+      );
+      await token
+        .connect(signers[1])
+        .permitForAll(
+          wallet.address,
+          signers[2].address,
+          true,
+          ethers.constants.MaxUint256,
+          v,
+          r,
+          s
+        );
+      // check that nonce increases
+      expect(await token.nonces(wallet.address)).to.eq(1);
+      // check that approval allows transfer of both tokens
+      await token
+        .connect(signers[2])
+        .transferFrom(token1, wallet.address, signers[2].address, ten);
+      await token
+        .connect(signers[2])
+        .transferFrom(token2, wallet.address, signers[2].address, five);
+      expect(await token.balanceOf(token1, wallet.address)).to.be.eq(0);
+      expect(await token.balanceOf(token1, signers[2].address)).to.be.eq(ten);
+      expect(await token.balanceOf(token2, wallet.address)).to.be.eq(0);
+      expect(await token.balanceOf(token2, signers[2].address)).to.be.eq(five);
+    });
+    it("Fails invalid signature", async () => {
+      const [wallet] = provider.getWallets();
+      const domainSeparator = await token.DOMAIN_SEPARATOR();
+      // new wallet so nonce should always be 0
+      const nonce = 0;
+      const digest = getDigestAll(
+        "USD Coin",
+        domainSeparator,
+        token.address,
+        wallet.address,
+        signers[2].address,
+        true,
+        nonce,
+        ethers.constants.MaxUint256
+      );
+      const { v, r, s } = ecsign(
+        Buffer.from(digest.slice(2), "hex"),
+        Buffer.from(wallet.privateKey.slice(2), "hex")
+      );
+      const tx = token
+        .connect(signers[1])
+        .permitForAll(
+          wallet.address,
+          signers[2].address,
+          true,
+          ethers.constants.MaxUint256,
+          v + 2,
+          r,
+          s
+        );
+      await expect(tx).to.be.revertedWith("ERC20Permit: invalid signature");
+    });
+    it("Fails invalid deadline", async () => {
+      const badDeadline = 0;
+      const [wallet] = provider.getWallets();
+      const domainSeparator = await token.DOMAIN_SEPARATOR();
+      // new wallet so nonce should always be 0
+      const nonce = 0;
+      const digest = getDigestAll(
+        "USD Coin",
+        domainSeparator,
+        token.address,
+        wallet.address,
+        signers[2].address,
+        true,
+        nonce,
+        badDeadline
+      );
+      const { v, r, s } = ecsign(
+        Buffer.from(digest.slice(2), "hex"),
+        Buffer.from(wallet.privateKey.slice(2), "hex")
+      );
+      const tx = token
+        .connect(signers[1])
+        .permitForAll(
+          wallet.address,
+          signers[2].address,
+          true,
+          badDeadline,
+          v,
+          r,
+          s
+        );
+      await expect(tx).to.be.revertedWith("ERC20Permit: expired deadline");
+    });
+    it("Fails for zero address", async () => {
+      const [wallet] = provider.getWallets();
+      const domainSeparator = await token.DOMAIN_SEPARATOR();
+      // new wallet so nonce should always be 0
+      const nonce = 0;
+      const digest = getDigestAll(
+        "USD Coin",
+        domainSeparator,
+        token.address,
+        wallet.address,
+        signers[2].address,
+        true,
+        nonce,
+        ethers.constants.MaxUint256
+      );
+      const { v, r, s } = ecsign(
+        Buffer.from(digest.slice(2), "hex"),
+        Buffer.from(wallet.privateKey.slice(2), "hex")
+      );
+      const tx = token
+        .connect(signers[1])
+        .permitForAll(
+          "0x0000000000000000000000000000000000000000",
+          signers[2].address,
+          true,
+          ethers.constants.MaxUint256,
+          v,
+          r,
+          s
+        );
+      await expect(tx).to.be.revertedWith("ERC20: invalid-address-0");
+    });
   });
 
   describe("ERC20 Link Tests", async () => {
@@ -367,8 +475,6 @@ describe("MultiToken Tests", async () => {
         Buffer.from(digest.slice(2), "hex"),
         Buffer.from(wallet.privateKey.slice(2), "hex")
       );
-      // impersonate wallet to get Signer for connection
-      impersonate(wallet.address);
       await erc20
         .connect(signers[0])
         .permit(
