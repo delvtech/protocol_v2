@@ -270,7 +270,7 @@ contract MultiToken is IMultiToken {
         }
     }
 
-    /// @notice Allows a caller who is not the owner of an account to execute 
+    /// @notice Allows a caller who is not the owner of an account to execute
     ///         the functionality of 'approve' for all assets with the owners signature.
     /// @param owner the owner of the account which is having the new approval set
     /// @param spender the address which will be allowed to spend owner's tokens
