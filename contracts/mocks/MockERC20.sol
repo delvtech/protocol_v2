@@ -5,33 +5,21 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockERC20 is ERC20 {
-
     uint8 private immutable _decimals;
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        uint8 decimals_
-    ) ERC20(name_, symbol_) {
+    constructor(uint8 decimals_) ERC20("MockAssetToken", "MAT") {
         _decimals = decimals_;
     }
 
-    function decimals() public view  override returns (uint8) {
-        return 18;
-    }
-
-    function setBalance(address destination, uint256 amount) external {
-        _burn(destination, balanceOf(destination));
-        _mint(destination, amount);
-        emit Transfer(address(0), destination, amount);
-    }
-
-    function uncheckedTransfer(address destination, uint256 amount) external {
-        _mint(destination, amount);
-        emit Transfer(address(0), destination, amount);
+    function decimals() public view override returns (uint8) {
+        return _decimals;
     }
 
     function mint(address account, uint256 amount) public {
         _mint(account, amount);
+    }
+
+    function burn(address account, uint256 amount) public {
+        _burn(account, amount);
     }
 }

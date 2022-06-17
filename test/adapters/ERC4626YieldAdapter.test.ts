@@ -14,12 +14,6 @@ describe("ERC4626YieldAdapter", async () => {
 
   before(async () => {
     [deployer] = await ethers.getSigners();
-
-    token = await new ERC20__factory()
-      .connect(deployer)
-      .deploy("MockAssetToken", "MAT");
-
-    return 0;
   });
 
   beforeEach(async () => {

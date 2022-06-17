@@ -13,13 +13,19 @@ contract ERC4626YieldAdapter is YieldAdapter {
     }
 
     /// @notice Makes deposit into vault
-    function _deposit(ShareState)
+    function _deposit(ShareState _state)
         internal
         override
         returns (uint256 amount, uint256 shares)
     {
-        amount = IERC20(vault.asset()).balanceOf(address(this));
-        shares = vault.deposit(amount, address(this));
+        if (_state == ShareState.Unlocked) {
+            // todo
+            amount = 0;
+            shares = 0;
+        } else {
+            amount = IERC20(vault.asset()).balanceOf(address(this));
+            shares = vault.deposit(amount, address(this));
+        }
     }
 
     function _withdraw(
@@ -27,7 +33,12 @@ contract ERC4626YieldAdapter is YieldAdapter {
         address _dest,
         ShareState _state
     ) internal override returns (uint256 amountAssets) {
-        amountAssets = vault.redeem(_amountShares, _dest, address(this));
+        if (_state == ShareState.Unlocked) {
+            // todo
+            amountAssets = 0;
+        } else {
+            amountAssets = vault.redeem(_amountShares, _dest, address(this));
+        }
     }
 
     function _convert(ShareState, uint256) internal override returns (uint256) {
