@@ -71,7 +71,6 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.7.0-rc.0",
-    "@prb/math": "^2.5.0",
     "ethereumjs-util": "^7.1.5",
     "module-alias": "^2.2.2"
   }
