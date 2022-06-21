@@ -1,4 +1,5 @@
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity ^0.8.15;
 import "../libraries/Authorizable.sol";
 import "../libraries/ERC20Permit.sol";
 import "../interfaces/IYearnVault.sol";

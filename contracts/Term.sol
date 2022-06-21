@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.15;
 
 import "./MultiToken.sol";
 import "./interfaces/IYieldAdapter.sol";
@@ -329,7 +329,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     /// @notice Before any PT/YT can be withdrawn from an expired timestamp the market interest rate is
     ///         cached. This call stores that price cache plus the implied outstanding interest.
     /// @param expiry The term's expiration time
-    /// @return The finalized term state for this expiry.
+    /// @return finalState The finalized term state for this expiry.
     function _finalizeTerm(uint256 expiry)
         internal
         returns (FinalizedState memory finalState)
