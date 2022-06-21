@@ -20,23 +20,23 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     }
 
     // Maps expiration timestamps to the shares held backing the PT/YT at that timestamp
-    mapping(uint256 => uint256) sharesPerExpiry;
+    mapping(uint256 => uint256) public sharesPerExpiry;
     // Maps the YT ID packed as [1][start time][expiry] to the shares and principal tokens
     // which exist for this yield start point
-    mapping(uint256 => YieldState) yieldTerms;
+    mapping(uint256 => YieldState) public yieldTerms;
     // When terms are finalized we cache the final price per share and outstanding total interest
-    mapping(uint256 => FinalizedState) finalizedTerms;
+    mapping(uint256 => FinalizedState) public finalizedTerms;
 
     // The underlying token
-    IERC20 immutable token;
+    IERC20 public immutable token;
     // The decimals and decimal adjusted constant 1
-    uint8 immutable decimals;
-    uint256 immutable one;
+    uint8 public immutable decimals;
+    uint256 public immutable one;
 
     // The unlocked term details
     // Note - No PT should ever exist with this ID
-    uint256 constant UNLOCKED_PT_ID = 0;
-    uint256 constant UNLOCKED_YT_ID = 1 << 255;
+    uint256 public constant UNLOCKED_PT_ID = 0;
+    uint256 public constant UNLOCKED_YT_ID = 1 << 255;
 
     /// @notice Runs the initial deployment code
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
