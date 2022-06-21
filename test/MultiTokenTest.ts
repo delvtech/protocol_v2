@@ -1,10 +1,12 @@
 import { expect } from "chai";
 import { ethers, waffle } from "hardhat";
-import { MockMultiToken } from "../typechain/MockMultiToken";
-import { ERC20Forwarder } from "../typechain/ERC20Forwarder";
-import { ForwarderFactory } from "../typechain/ForwarderFactory";
+import {
+  MockMultiToken,
+  ForwarderFactory,
+  ERC20Forwarder,
+} from "typechain-types";
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 const { provider } = waffle;
 

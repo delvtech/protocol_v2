@@ -11,7 +11,7 @@ import { HardhatUserConfig } from "hardhat/config";
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   typechain: {
-    outDir: "typechain/",
+    outDir: "typechain-types/",
     target: "ethers-v5",
     alwaysGenerateOverloads: true,
     externalArtifacts: ["externalArtifacts/*.json"],
