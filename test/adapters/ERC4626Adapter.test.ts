@@ -1,10 +1,11 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { zeroAddress } from "ethereumjs-util";
-import { ContractReceipt, Event } from "ethers";
+import { ContractReceipt } from "ethers";
 import { ethers, waffle } from "hardhat";
 import {
   FIFTY_THOUSAND_ETHER,
+  MAX_UINT256,
+  ONE_HUNDRED_THOUSAND_ETHER,
   ONE_MILLION_ETHER,
   ONE_THOUSAND_ETHER,
   ZERO,
@@ -26,17 +27,16 @@ enum ShareState {
   LOCKED,
 }
 
-describe("ERC4626Adapter", () => {
+describe.only("ERC4626Adapter", () => {
   let token: MockERC20;
   let vault: MockERC4626;
   let adapter: MockERC4626Adapter;
 
   let deployer: SignerWithAddress;
   let user: SignerWithAddress;
-  let whale: SignerWithAddress;
 
   before(async () => {
-    [deployer, user, whale] = await ethers.getSigners();
+    [deployer, user] = await ethers.getSigners();
     token = await new MockERC20__factory()
       .connect(deployer)
       .deploy("MockERC20Token", "MET", 18);
@@ -49,10 +49,6 @@ describe("ERC4626Adapter", () => {
       .connect(deployer)
       .deploy(vault.address, FIFTY_THOUSAND_ETHER);
 
-    token.connect(user);
-    vault.connect(user);
-    adapter.connect(user);
-
     await createSnapshot(provider);
   });
 
@@ -64,111 +60,126 @@ describe("ERC4626Adapter", () => {
   //   await restoreSnapshot(provider);
   // });
 
-  // describe("deployment", () => {
-  //   it("should set the correct limit", async () => {
-  //     expect(await adapter.reserveLimit()).to.be.eq(FIFTY_THOUSAND_ETHER);
-  //   });
-  //   it("should set the correct vault address", async () => {
-  //     expect(await adapter.vault()).to.be.eq(vault.address);
-  //   });
-  // });
+  describe("deployment", () => {
+    it("should set the initial state correctly", async () => {
+      expect(await adapter.vault()).to.be.eq(vault.address);
+      expect(await adapter.unlockedUnderlyingReserve()).to.be.eq(ZERO);
+      expect(await adapter.unlockedShareReserve()).to.be.eq(ZERO);
+
+      expect(await adapter.targetUnderlyingReserve()).to.be.eq(
+        FIFTY_THOUSAND_ETHER
+      );
+      expect(await adapter.maxUnderlyingReserve()).to.be.eq(
+        ONE_HUNDRED_THOUSAND_ETHER
+      );
+
+      expect(await token.balanceOf(adapter.address)).to.be.eq(ZERO);
+      expect(await vault.balanceOf(adapter.address)).to.be.eq(ZERO);
+
+      expect(await vault.totalAssets()).to.be.eq(ZERO);
+      expect(await vault.totalSupply()).to.be.eq(ZERO);
+    });
+  });
 
   describe("_deposit", () => {
-    describe.only("LOCKED", () => {
+    describe("ShareState.Locked", () => {
       let receipt: ContractReceipt;
 
       before(async () => {
         // Issue underlying to the to the adapter contract
-        await token.mint(adapter.address, ONE_THOUSAND_ETHER);
+        await token.mint(user.address, ONE_THOUSAND_ETHER);
+        await token.connect(user).approve(adapter.address, MAX_UINT256);
       });
 
       after(async () => {
         await restoreSnapshot(provider);
       });
 
-      // it("should be an initial balance of underlying for the adapter", async () => {
-      //   expect(await token.balanceOf(adapter.address)).to.be.eq(
-      //     ONE_THOUSAND_ETHER
-      //   );
-      // });
-
-      // it("should be no deposits or shares issued by the vault", async () => {
-      //   expect(await vault.totalAssets()).to.be.eq(ZERO);
-      //   expect(await vault.totalSupply()).to.be.eq(ZERO);
-      // });
-
-      it.only("should deposit from adapter into vault successfully", async () => {
+      it("should deposit from adapter into vault successfully", async () => {
         // deposit - mock internally calls adapter._deposit
         receipt = await adapter
-          .deposit(ShareState.LOCKED)
+          .connect(user)
+          .deposit(ShareState.LOCKED, ONE_THOUSAND_ETHER)
           .then(async (tx) => await tx.wait(1));
 
         expect(receipt.status).to.be.eq(1);
       });
 
-      // it("should have transferred balance of underlying out of the adapter", async () => {
-      //   expect(await token.balanceOf(adapter.address)).to.be.eq(ZERO);
-      // });
+      it("should have empty user balance", async () => {
+        expect(await token.balanceOf(user.address)).to.be.eq(ZERO);
+      });
 
-      // it("should be an equal amount of underlying asset deposited and shares issued", async () => {
-      //   expect(await vault.totalAssets()).to.be.eq(ONE_THOUSAND_ETHER);
-      //   expect(await vault.totalSupply()).to.be.eq(ONE_THOUSAND_ETHER);
-      // });
+      it("should have equal amounts of assets and shares on the vault", async () => {
+        expect(await vault.totalAssets()).to.be.eq(ONE_THOUSAND_ETHER);
+        expect(await vault.totalSupply()).to.be.eq(ONE_THOUSAND_ETHER);
+      });
 
-      // it("should be a balance of vault shares for the adapter", async () => {
-      //   expect(await vault.balanceOf(adapter.address)).to.be.eq(
-      //     ONE_THOUSAND_ETHER
-      //   );
-      // });
+      it("should be an amount of vault shares on the adapter", async () => {
+        expect(await vault.balanceOf(adapter.address)).to.be.eq(
+          ONE_THOUSAND_ETHER
+        );
+      });
 
-      // it("should have emitted the underlying token's transfer event", async () => {
-      //   const transferEvents = await token.queryFilter(
-      //     token.filters.Transfer(adapter.address, vault.address),
-      //     receipt.blockHash
-      //   );
-      //   expect(transferEvents.length).to.be.eq(1);
-      //   expect(transferEvents[0].args.from).to.be.eq(adapter.address);
-      //   expect(transferEvents[0].args.to).to.be.eq(vault.address);
-      //   expect(transferEvents[0].args.value).to.be.eq(ONE_THOUSAND_ETHER);
-      // });
+      it("should have emitted the underlying token's transfer event", async () => {
+        const transferEvents = await token.queryFilter(
+          token.filters.Transfer(adapter.address, vault.address),
+          receipt.blockHash
+        );
+        expect(transferEvents.length).to.be.eq(1);
+        expect(transferEvents[0].args.from).to.be.eq(adapter.address);
+        expect(transferEvents[0].args.to).to.be.eq(vault.address);
+        expect(transferEvents[0].args.value).to.be.eq(ONE_THOUSAND_ETHER);
+      });
 
-      // it("should have emitted the vault's deposit event", async () => {
-      //   const depositEvents = await vault.queryFilter(
-      //     vault.filters.Deposit(adapter.address, adapter.address),
-      //     receipt.blockHash
-      //   );
-      //   expect(depositEvents.length).to.be.eq(1);
-      //   expect(depositEvents[0].args.caller).to.be.eq(adapter.address);
-      //   expect(depositEvents[0].args.owner).to.be.eq(adapter.address);
-      //   expect(depositEvents[0].args.assets).to.be.eq(ONE_THOUSAND_ETHER);
-      //   expect(depositEvents[0].args.shares).to.be.eq(ONE_THOUSAND_ETHER);
-      // });
+      it("should have emitted the vault's deposit event", async () => {
+        const depositEvents = await vault.queryFilter(
+          vault.filters.Deposit(adapter.address, adapter.address),
+          receipt.blockHash
+        );
+        expect(depositEvents.length).to.be.eq(1);
+        expect(depositEvents[0].args.caller).to.be.eq(adapter.address);
+        expect(depositEvents[0].args.owner).to.be.eq(adapter.address);
+        expect(depositEvents[0].args.assets).to.be.eq(ONE_THOUSAND_ETHER);
+        expect(depositEvents[0].args.shares).to.be.eq(ONE_THOUSAND_ETHER);
+      });
 
-      // it("should have emitted the vault's transfer event", async () => {
-      //   const transferEvents = await vault.queryFilter(
-      //     vault.filters.Transfer(ethers.constants.AddressZero, adapter.address),
-      //     receipt.blockHash
-      //   );
-      //   expect(transferEvents.length).to.be.eq(1);
-      //   expect(transferEvents[0].args.from).to.be.eq(
-      //     ethers.constants.AddressZero
-      //   );
-      //   expect(transferEvents[0].args.to).to.be.eq(adapter.address);
-      //   expect(transferEvents[0].args.value).to.be.eq(ONE_THOUSAND_ETHER);
-      // });
+      it("should have emitted the vault's transfer event", async () => {
+        const transferEvents = await vault.queryFilter(
+          vault.filters.Transfer(ethers.constants.AddressZero, adapter.address),
+          receipt.blockHash
+        );
+        expect(transferEvents.length).to.be.eq(1);
+        expect(transferEvents[0].args.from).to.be.eq(
+          ethers.constants.AddressZero
+        );
+        expect(transferEvents[0].args.to).to.be.eq(adapter.address);
+        expect(transferEvents[0].args.value).to.be.eq(ONE_THOUSAND_ETHER);
+      });
     });
 
-    describe("UNLOCKED", () => {
+    // When reserves are empty the user deposits directly into the vault
+    describe.only("UNLOCKED - empty reserves", () => {
+      let receipt: ContractReceipt;
+
       before(async () => {
         // Issue underlying to the to the adapter contract
-        await token.mint(whale.address, ONE_MILLION_ETHER);
+        await token.mint(user.address, ONE_THOUSAND_ETHER);
+        await token.connect(user).approve(adapter.address, MAX_UINT256);
       });
 
       after(async () => {
         await restoreSnapshot(provider);
       });
 
-      it("should be a balance of vault shares exceeding the vault reserve limit", async () => {});
+      it("should deposit from adapter into vault successfully", async () => {
+        // deposit - mock internally calls adapter._deposit
+        receipt = await adapter
+          .connect(user)
+          .deposit(ShareState.UNLOCKED, ONE_THOUSAND_ETHER)
+          .then(async (tx) => await tx.wait(1));
+
+        expect(receipt.status).to.be.eq(1);
+      });
     });
   });
 
