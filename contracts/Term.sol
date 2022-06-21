@@ -107,16 +107,19 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < assetIds.length; i++) {
+            // helps the stack
+            uint256 id = assetIds[i];
+            uint256 amount = assetAmounts[i];
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
             (uint256 shares, uint256 value) = _releaseAsset(
-                assetIds[i],
+                id,
                 msg.sender,
-                assetAmounts[i]
+                amount
             );
 
             // Record the shares which were released
-            if (assetIds[i] == 0) {
+            if (id == UNLOCKED_YT_ID) {
                 releasedSharesUnlocked += shares;
             } else {
                 releasedSharesLocked += shares;
