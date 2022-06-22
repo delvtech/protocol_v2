@@ -158,7 +158,7 @@ describe.only("ERC4626Adapter", () => {
     });
 
     // When reserves are empty the user deposits directly into the vault
-    describe.only("UNLOCKED - empty reserves", () => {
+    describe.only("UNLOCKED", () => {
       let receipt: ContractReceipt;
 
       before(async () => {
@@ -175,7 +175,7 @@ describe.only("ERC4626Adapter", () => {
         // deposit - mock internally calls adapter._deposit
         receipt = await adapter
           .connect(user)
-          .deposit(ShareState.UNLOCKED, ONE_THOUSAND_ETHER)
+          .deposit(ShareState.UNLOCKED, ONE_HUNDRED_THOUSAND_ETHER)
           .then(async (tx) => await tx.wait(1));
 
         expect(receipt.status).to.be.eq(1);
