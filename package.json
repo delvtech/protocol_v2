@@ -16,9 +16,7 @@
     "test:quick": "npx hardhat test --config hardhat.config.test.ts ./test/*.ts --no-compile",
     "unit:test": "npx hardhat test --no-compile --config hardhat.config.test.ts",
     "postinstall": "patch-package --patch-dir .patches",
-    "prepare": "husky install",
-    "lint-contracts": "npx prettier contracts/**/*.sol --write",
-    "lint-js": "npx prettier --write ./**/*.{js,ts,json,md} && eslint --fix"
+    "prepare": "husky install"
   },
   "_moduleAliases": {
     "test": "./test"
