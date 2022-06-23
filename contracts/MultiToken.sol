@@ -39,6 +39,18 @@ contract MultiToken is IMultiToken {
     // to this contract
     bytes32 public immutable linkerCodeHash;
 
+    // EIP712
+    // DOMAIN_SEPARATOR changes based on token name
+    bytes32 public DOMAIN_SEPARATOR;
+    // PERMIT_TYPEHASH changes based on function inputs
+    bytes32 public constant PERMIT_TYPEHASH =
+        keccak256(
+            "PermitForAll(address owner,address spender,bool _approved,uint256 nonce,uint256 deadline"
+        );
+
+    // A mapping to track the permitForAll signature nonces
+    mapping(address => uint256) public nonces;
+
     /// @notice Runs the initial deployment code
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
@@ -46,6 +58,20 @@ contract MultiToken is IMultiToken {
         // Set the immutables
         factory = _factory;
         linkerCodeHash = _linkerCodeHash;
+
+        // Computes the EIP 712 domain separator which prevents user signed messages for
+        // this contract to be replayed in other contracts.
+        // https://eips.ethereum.org/EIPS/eip-712
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
+                ),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(this)
+            )
+        );
     }
 
     //  Our architecture maintains ERC20 compatibility by allowing the option
@@ -145,7 +171,7 @@ contract MultiToken is IMultiToken {
     /// @notice Allows a user to approve an operator to use all of their assets
     /// @param _operator The eth address which can access the caller's assets
     /// @param _approved True to approve, false to remove approval
-    function setApprovalForAll(address _operator, bool _approved) external {
+    function setApprovalForAll(address _operator, bool _approved) public {
         // set the appropriate state
         isApprovedForAll[msg.sender][_operator] = _approved;
     }
@@ -242,5 +268,59 @@ contract MultiToken is IMultiToken {
         for (uint256 i = 0; i < ids.length; i++) {
             _transferFrom(ids[i], from, to, values[i], msg.sender);
         }
+    }
+
+    /// @notice Allows a caller who is not the owner of an account to execute
+    ///         the functionality of 'approve' for all assets with the owners signature.
+    /// @param owner the owner of the account which is having the new approval set
+    /// @param spender the address which will be allowed to spend owner's tokens
+    /// @param _approved a boolean of the approval status to set to
+    /// @param deadline the timestamp which the signature must be submitted by to be valid
+    /// @param v Extra ECDSA data which allows public key recovery from signature assumed to be 27 or 28
+    /// @param r The r component of the ECDSA signature
+    /// @param s The s component of the ECDSA signature
+    /// @dev The signature for this function follows EIP 712 standard and should be generated with the
+    ///      eth_signTypedData JSON RPC call instead of the eth_sign JSON RPC call. If using out of date
+    ///      parity signing libraries the v component may need to be adjusted. Also it is very rare but possible
+    ///      for v to be other values, those values are not supported.
+    function permitForAll(
+        address owner,
+        address spender,
+        bool _approved,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external {
+        // Require that the signature is not expired
+        require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
+        // Require that the owner is not zero
+        require(owner != address(0), "ERC20: invalid-address-0");
+
+        bytes32 structHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR,
+                keccak256(
+                    abi.encode(
+                        PERMIT_TYPEHASH,
+                        owner,
+                        spender,
+                        _approved,
+                        nonces[owner],
+                        deadline
+                    )
+                )
+            )
+        );
+
+        // Check that the signature is valid
+        address signer = ecrecover(structHash, v, r, s);
+        require(signer == owner, "ERC20Permit: invalid signature");
+
+        // Increment the signature nonce
+        nonces[owner]++;
+        // set the state
+        isApprovedForAll[owner][spender] = _approved;
     }
 }

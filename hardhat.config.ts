@@ -11,7 +11,7 @@ import { HardhatUserConfig } from "hardhat/config";
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   typechain: {
-    outDir: "typechain/",
+    outDir: "typechain-types/",
     target: "ethers-v5",
     alwaysGenerateOverloads: true,
     externalArtifacts: ["externalArtifacts/*.json"],
@@ -30,13 +30,13 @@ const config: HardhatUserConfig = {
       {
         version: "0.8.14",
         settings: {
-          viaIR: true,
           optimizer: {
             enabled: true,
             runs: 7500,
           },
-        },
-      },
+          viaIR: false
+        }
+      }
     ],
     overrides: {
       "contracts/balancer-core-v2/vault/Vault.sol": {
