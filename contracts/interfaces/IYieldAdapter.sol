@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-abstract contract IYieldAdapter {
+import "./ITerm.sol";
+
+abstract contract IYieldAdapter is ITerm {
     /// Yield sources should have two share types, easily withdrawable unlocked shares and
     /// possibly hard to withdraw yield sources [only redeemed at expiry]
     enum ShareState {

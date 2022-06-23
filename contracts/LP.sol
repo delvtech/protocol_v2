@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.14;
+pragma solidity ^0.8.15;
 
 import "./MultiToken.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/ITerm.sol";
+import "./interfaces/IYieldAdapter.sol";
 
 // LP is a multitoken [ie fake 1155] contract which accepts deposits and withdraws
 // from the AMM.
@@ -30,8 +31,8 @@ contract LP is MultiToken {
     // One expressed in the native token math
     uint256 immutable one;
 
-    // The id for the unlocked deposit into the term
-    uint256 constant unlockedTermID = 0;
+    // The id for the unlocked deposit into the term, this is YT at expiry and start time 0
+    uint256 constant unlockedTermID = 1 << 255;
 
     /// @notice Runs the initial deployment code
     /// @param _token The token which is deposited into this contract
@@ -79,8 +80,8 @@ contract LP is MultiToken {
             empty,
             empty,
             amount,
-            // there's no yt from this
             address(this),
+            // There's no PT for this
             address(this),
             0,
             unlockedTermID
@@ -166,7 +167,7 @@ contract LP is MultiToken {
 
         // Create the arrays for a withdraw from term
         uint256[] memory ids = new uint256[](1);
-        ids[0] = poolId;
+        ids[0] = unlockedTermID;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = userShares;
         // Do the withdraw to user account
@@ -291,7 +292,7 @@ contract LP is MultiToken {
     /// @param poolId The id of the LP token which is deleted from
     /// @param amount The number of LP tokens to remove
     /// @param source The address who's tokens will be deleted.
-    /// @return The number of shares and bonds the user should receive
+    /// @return userShares The number of shares and bonds the user should receive
     function withdrawToShares(
         uint256 poolId,
         uint256 amount,

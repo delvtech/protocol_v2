@@ -228,6 +228,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         return (valueFromLocked + valueFromUnlocked);
     }
 
+    /// @notice Quotes the price per share for unlocked tokens
+    /// @return the price per share of unlocked shares
+    function unlockedSharePrice() external override returns(uint256) {
+        return(_underlying(one, ShareState.Unlocked));
+    }
+
     /// @notice creates yield tokens
     /// @param destination the address the YTs belong to
     /// @param value the value of YTs to create
