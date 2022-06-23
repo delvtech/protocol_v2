@@ -39,19 +39,21 @@ contract ERC4626Term is Term {
     function _deposit(ShareState _state)
         internal
         override
-        returns (uint256, uint256) {
-            return _state == ShareState.Locked ? _depositLocked() : _depositUnlocked();
+        returns (uint256, uint256)
+    {
+        return
+            _state == ShareState.Locked ? _depositLocked() : _depositUnlocked();
     }
 
     function _depositLocked()
         internal
-        returns (uint256 amountDeposited, uint256 mintedShares)
+        returns (uint256 underlyingDeposited, uint256 vaultShares)
     {
-        amountDeposited =
-            IERC20(vault.asset()).balanceOf(address(this)) -
+        underlyingDeposited =
+            token.balanceOf(address(this)) -
             unlockedUnderlyingReserve;
 
-        mintedShares = vault.deposit(amountDeposited, address(this));
+        vaultShares = vault.deposit(amountDeposited, address(this));
     }
 
     function _depositUnlocked() internal returns (uint256, uint256) {
@@ -62,10 +64,11 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = _getUnlockedReserveDetails();
 
-        uint256 underlyingDeposited = token.balanceOf(address(this)) - underlyingReserve;
+        uint256 underlyingDeposited = token.balanceOf(address(this)) -
+            underlyingReserve;
 
-        uint256 unlockTokensToBeMinted = (underlyingDeposited *
-            totalSupply[UNLOCKED_YT_ID]) / impliedUnderlyingReserve;
+        uint256 shares = (underlyingDeposited * totalSupply[UNLOCKED_YT_ID]) /
+            impliedUnderlyingReserve;
 
         uint256 proposedUnderlyingReserve = underlyingReserve +
             underlyingDeposited;
@@ -83,28 +86,30 @@ contract ERC4626Term is Term {
             _setUnlockedReserves(proposedUnderlyingReserve, vaultShareReserve);
         }
 
-        return (underlyingDeposited, unlockTokensToBeMinted);
+        return (underlyingDeposited, shares);
     }
 
+    // as we are deciding between locked and unlocked states, "shares" means
+    // both vaultShares and shares as per the note on the top of the file
     function _withdraw(
-        uint256 _amountUnlockTokens,
+        uint256 _shares,
         address _dest,
         ShareState _state
     ) internal override returns (uint256) {
         return
             _state == ShareState.Locked
-                ? _withdrawLocked(_amountUnlockTokens, _dest)
-                : _withdrawUnlocked(_amountUnlockTokens, _dest);
+                ? _withdrawLocked(_shares, _dest)
+                : _withdrawUnlocked(_shares, _dest);
     }
 
-    function _withdrawLocked(uint256 _amountUnlockTokens, address _dest)
+    function _withdrawLocked(uint256 _vaultShares, address _dest)
         internal
         returns (uint256)
     {
-        return vault.redeem(_amountUnlockTokens, _dest, address(this));
+        return vault.redeem(_vaultShares, _dest, address(this));
     }
 
-    function _withdrawUnlocked(uint256 _amountUnlockTokens, address _dest)
+    function _withdrawUnlocked(uint256 _shares, address _dest)
         internal
         returns (uint256)
     {
@@ -115,8 +120,8 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = _getUnlockedReserveDetails();
 
-        uint256 underlyingDue = (_amountUnlockTokens *
-            impliedUnderlyingReserve) / totalSupply[UNLOCKED_YT_ID];
+        uint256 underlyingDue = (_shares * impliedUnderlyingReserve) /
+            totalSupply[UNLOCKED_YT_ID];
 
         if (underlyingDue <= underlyingReserve) {
             _setUnlockedReserves(
@@ -176,9 +181,7 @@ contract ERC4626Term is Term {
     {
         (underlyingReserve, vaultShareReserve) = _getUnlockedReserves();
 
-        vaultShareReserveAsUnderlying = vault.previewRedeem(
-            vaultShareReserve
-        );
+        vaultShareReserveAsUnderlying = vault.previewRedeem(vaultShareReserve);
 
         impliedUnderlyingReserve = (underlyingReserve +
             vaultShareReserveAsUnderlying);
