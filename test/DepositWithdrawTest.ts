@@ -43,6 +43,11 @@ describe("Deposit Tests", async () => {
       factory.address,
       token.address
     );
+
+    // mint some tokens
+    await token.mint(signers[0].address, 7e6);
+    // set an allowance
+    await token.connect(signers[0]).approve(yieldAdapter.address, 12e6);
   });
 
   beforeEach(async () => {
@@ -51,5 +56,22 @@ describe("Deposit Tests", async () => {
 
   afterEach(async () => {
     await restoreSnapshot(provider);
+  });
+
+  describe.only("Lock", async () => {
+    it("empty arrays, only underlying", async () => {
+      const now = Math.floor(Date.now() / 1000);
+      const expiration = now + 2629800;
+      console.log("done");
+      const tokensCreated = await yieldAdapter.lock(
+        [],
+        [],
+        5,
+        signers[0].address,
+        signers[0].address,
+        now,
+        expiration
+      );
+    });
   });
 });
