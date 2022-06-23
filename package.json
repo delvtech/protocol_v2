@@ -15,7 +15,8 @@
     "coverage": "COVERAGE=true NODE_OPTIONS=--max_old_space_size=8192 npx hardhat coverage --solcoverjs \".solcover.js\" --testfiles \"./test/*.ts\"",
     "test:quick": "npx hardhat test --config hardhat.config.test.ts ./test/*.ts --no-compile",
     "unit:test": "npx hardhat test --no-compile --config hardhat.config.test.ts",
-    "postinstall": "patch-package --patch-dir .patches"
+    "postinstall": "patch-package --patch-dir .patches",
+    "prepare": "husky install"
   },
   "_moduleAliases": {
     "test": "./test"
@@ -58,7 +59,7 @@
     "hardhat": "^2.9.7",
     "hardhat-gas-reporter": "^1.0.8",
     "hardhat-tracer": "^1.1.0-rc.6",
-    "husky": "^8.0.1",
+    "husky": "^8.0.0",
     "lint-staged": "^13.0.0",
     "prettier": "^2.6.2",
     "prettier-plugin-solidity": "^1.0.0-beta.19",
