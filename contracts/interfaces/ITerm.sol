@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.15;
 
 interface ITerm {
     /// @notice sums inputs to create new PTs and YTs from the deposit amount
