@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.15;
 
-import "../YieldAdapter.sol";
+import "../Term.sol";
 import "../interfaces/IERC4626.sol";
 import "../interfaces/IERC20.sol";
 import "hardhat/console.sol";
@@ -11,36 +11,23 @@ contract ERC4626Adapter is Term {
     // The ERC4626 vault the protocol wishes to interface with
     IERC4626 public immutable vault;
 
-    // These variables store the token balances of this contract and
-    // should be packed by solidity into a single slot.
-    // They are used in copmn
     uint128 public unlockedUnderlyingReserve;
     uint128 public unlockedVaultShareReserve;
 
-    //
-    uint256 public maxUnderlyingReserve;
+    uint256 public maxReserve;
+    uint256 public targetReserve;
 
-    // amount of underlying we hold in reserve rather than depositing for more
-    // efficient deposits of small holders
-    uint256 public targetUnderlyingReserve;
-
-    uint256 public immutable SCALE;
-
-    // The reserve limit is a upper bound for deposits and withdrawals which
-    // if not met, will make those deposits and withdrawals using the internal
-    // cash reserves
-    // uint256 public immutable reserveLimit;
-
-    // This is the total amount of reserve deposits
-    // uint256 public reserveSupply;
-
-    constructor(IERC4626 _vault, uint256 _maxUnderlyingReserve) {
+    constructor(
+        IERC4626 _vault,
+        uint256 _maxReserve,
+        bytes32 _linkerCodeHash,
+        address _factory,
+        IERC20 _token
+    ) Term(_linkerCodeHash, _factory, _token) {
         vault = _vault;
-        maxUnderlyingReserve = _maxUnderlyingReserve;
-        targetUnderlyingReserve = _maxUnderlyingReserve / 2;
-
+        maxReserve = _maxReserve;
+        targetReserve = _maxReserve / 2;
         IERC20(_vault.asset()).approve(address(_vault), type(uint256).max);
-        SCALE = 10**IERC20(_vault.asset()).decimals();
     }
 
     /// @notice Makes deposit into vault
@@ -67,16 +54,14 @@ contract ERC4626Adapter is Term {
     function _depositUnlocked() internal returns (uint256, uint256) {
         // load the current cash reserves of both underlying and shares
         (
-            uint256 unlockedUnderlying,
-            uint256 unlockedYearnShares
+            uint256 underlyingReserve,
+            uint256 vaultShareReserve
         ) = _getUnlockedReserves();
 
         // Get the amount deposited
-        uint256 amountDeposited = IERC20(vault.asset()).balanceOf(
+        uint256 underlyingDeposited = IERC20(vault.asset()).balanceOf(
             address(this)
-        ) - unlockedUnderlying;
-
-
+        ) - underlyingReserve;
 
         // unlockTokens - infinitely large erc20 tokens in these, the unlockToken corresponds to
         // ownership of the combination of unlocked u8nderlying and unlocked yearn shares e.g usdc & yusdc
@@ -92,56 +77,66 @@ contract ERC4626Adapter is Term {
         // 2.1 over the max - 2 ^^
         // 2.2 under the max - store added user amount to unlocked reserves
 
-
         // numUnlockTokens = amountToDeposit * totalSupply / totalValue : totalValue = unlockedUnderlying + previewRedeem(unlockedYearnShares):
         // accumulation fn
+        //
+        //
+        uint256 vaultShareReserveAsUnderlying = vault.previewRedeem(
+            vaultShareReserve
+        );
 
-        uint256 numer = amountToDeposit * totalSupply[UNLOCKED_YT_ID]
-        uint256 underlyingForYearnShares = vault.previewRedeem(unlockedYearnShares);
-        uint256 unlockTokensToBeMinted = numer / (unlockedUnderlying + underlyingForYearnShares);
+        // gets total amount of underlying including the underelying value of
+        // vaultShares at current market price
+        //
+        uint256 impliedUnderlyingReserve = (underlyingReserve +
+            vaultShareReserveAsUnderlying);
+        uint256 unlockTokensToBeMinted = (underlyingDeposited *
+            totalSupply[UNLOCKED_YT_ID]) / impliedUnderlyingReserve;
 
         // summate the reserve and amount of underlying deposited
-        uint256 totalUnderlying = unlockedUnderlying + amountDeposited;
+        uint256 positedUnderlyingReserve = underlyingReserve +
+            underlyingDeposited;
 
         // If the totalUnderlying is greater than the max reserve the contract
         // allows we fill the underlying reserve
-        if (totalUnderlying > maxUnderlyingReserve) {
+        if (positedUnderlyingReserve > maxReserve) {
             // The amount of mintedShares should be marginally less than the
             // calculatedShares amount. This is because the amount deposited
             // here should always be marginally less than the depositAmount
-           uint256 mintedShares = vault.deposit(
-                totalUnderlying - targetUnderlyingReserve,
+            uint256 issuedVaultShares = vault.deposit(
+                positedUnderlyingReserve - targetReserve,
                 address(this)
             );
 
             // As we are depositing the current underlying reserve +
             // amountDeposited less the target, we can set the reserve to the
             // target
-            _setUnlockedReserves(targetUnderlyingReserve, unlockedShares + mintedShares);
-       } else {
-            _setUnlockedReserves(totalUnderlying, unlockedShares);
+            _setUnlockedReserves(
+                targetReserve,
+                vaultShareReserve + issuedVaultShares
+            );
+        } else {
+            _setUnlockedReserves(positedUnderlyingReserve, vaultShareReserve);
         }
-
-        return (amountDeposited, unlockTokensToBeMinted);
-   }
+        return (underlyingDeposited, unlockTokensToBeMinted);
+    }
 
     function _withdraw(
-        uint256 _amountShares,
+        uint256 _amountUnlockTokens,
         address _dest,
         ShareState _state
     ) internal override returns (uint256) {
         return
             _state == ShareState.Locked
-                ? _withdrawLocked()
-                : _withdrawUnlocked();
+                ? _withdrawLocked(_amountUnlockTokens, _dest)
+                : _withdrawUnlocked(_amountUnlockTokens, _dest);
     }
 
-    function _withdrawLocked(uint256 _amountShares, address _dest)
+    function _withdrawLocked(uint256 _amountUnlockTokens, address _dest)
         internal
-        override
         returns (uint256)
     {
-        return vault.redeem(_amountShares, _dest, address(this));
+        return vault.redeem(_amountUnlockTokens, _dest, address(this));
     }
 
     // Withdraw unlock:
@@ -153,13 +148,11 @@ contract ERC4626Adapter is Term {
     // 3.2 if not enough, withdraw enough shares to fulfill user request and leave end balance of underlying at target
     function _withdrawUnlocked(uint256 _amountUnlockTokens, address _dest)
         internal
-        override
         returns (uint256)
     {
-
         (
-            uint256 unlockedUnderlying,
-            uint256 unlockedYearnShares
+            uint256 underlyingReserve,
+            uint256 vaultShareReserve
         ) = _getUnlockedReserves();
 
         // uint256 numer = amountToDeposit * totalSupply[UNLOCKED_YT_ID]
@@ -168,25 +161,60 @@ contract ERC4626Adapter is Term {
 
         // (userClaimPercentage) * (unlockedUnderlying + redeemableAmount(unlockYearnShares))
         //
-        uint256 underlyingForYearnShares = vault.previewRedeem(unlockYearnShares);
+        // uint256 underlyingForYearnShares = vault.previewRedeem(unlockYearnShares);
 
+        // uint256 vaultShareReserveAsUnderlying = vault.previewRedeem(vaultShareReserve);
 
-        uint256 unlockReservesAsUnderlying =  unlockedUnderlying + underlyingForYearnShares // vault.previewRedeem(unlockYearnShares)
-        uint256 underlyingDue = _amountUnlockTokens * unlockReservesAsUnderlying / (totalSupply[UNLOCKED_YT_ID])
+        // uint256 unlockReservesAsUnderlying =  unlockedUnderlying + underlyingForYearnShares // vault.previewRedeem(unlockYearnShares)
 
-        if (underlyingDue <= unlockedUnderlying) {
-            _setUnlockedReserves(totalUnderlying - underlyingDue, unlockedYearnShares);
-            IERC20().transferFrom(address(this), _dest, underlyingDue);
+        uint256 vaultShareReserveAsUnderlying = vault.previewRedeem(
+            vaultShareReserve
+        );
+
+        // // gets total amount of underlying including the underelying value of
+        // // vaultShares at current market price
+        // //
+        uint256 impliedUnderlyingReserve = (underlyingReserve +
+            vaultShareReserveAsUnderlying);
+
+        uint256 underlyingDue = (_amountUnlockTokens *
+            impliedUnderlyingReserve) / totalSupply[UNLOCKED_YT_ID];
+
+        if (underlyingDue <= underlyingReserve) {
+            _setUnlockedReserves(
+                underlyingReserve - underlyingDue,
+                vaultShareReserve
+            );
+            IERC20(vault.asset()).transferFrom(
+                address(this),
+                _dest,
+                underlyingDue
+            );
         } else {
-            uint256 neededYearnSharesForWithdraw = unlockYearnShares * underlyingDue / underlyingForYearnShares // amount of shares
+            uint256 underlyingDueAsVaultShares = (vaultShareReserve *
+                underlyingDue) / vaultShareReserveAsUnderlying; // amount of shares
 
-            if (neededYearnSharesForWithdraw > unlockYearnShares) {
-                uint256 underlyingToCoverNeededShares = vault.withdraw(unlockYearnShares, address(this)) // withdraw to all shares to this contract
-                IERC20().transferFrom(address(this), _dest, underlyingDue);
-                _setUnlockedReserves(totalUnderlying + underlyingToCoverNeededShares - underlyingDue, 0);
+            if (underlyingDueAsVaultShares > vaultShareReserve) {
+                // The returned amount of underlying redeem from vault shares
+                // ought to be accounted for in vaultShareReserveAsUnderlying
+                vault.redeem(vaultShareReserve, address(this), address(this));
+
+                IERC20(vault.asset()).transferFrom(
+                    address(this),
+                    _dest,
+                    underlyingDue
+                );
+
+                _setUnlockedReserves(
+                    impliedUnderlyingReserve - underlyingDue,
+                    0
+                );
             } else {
-                vault.withdraw(neededYearnSharesForWithdraw, _dest);
-                _setUnlockedReserves(totalUnderlying - underlyingDue, unlockedYearnShares - neededYearnSharesForWithdraw);
+                vault.redeem(underlyingDueAsVaultShares, _dest, address(this));
+                _setUnlockedReserves(
+                    underlyingReserve - underlyingDue,
+                    vaultShareReserve - underlyingDueAsVaultShares
+                );
             }
         }
 
@@ -195,7 +223,7 @@ contract ERC4626Adapter is Term {
 
     // converts unlockedTokens to lockedTokens
     function _convert(ShareState, uint256) internal override returns (uint256) {
-        return
+        return 0;
     }
 
     // TODO rename sharesForUnderlying and also provide inverse function
@@ -210,22 +238,22 @@ contract ERC4626Adapter is Term {
     }
 
     /// @notice Helper to get the reserves with one sload
-    /// @return Tuple (reserve underlying, reserve shares)
+    /// @return Tuple (reserve underlying, reserve vault shares)
     function _getUnlockedReserves() internal view returns (uint256, uint256) {
         return (
             uint256(unlockedUnderlyingReserve),
-            uint256(unlockedShareReserve)
+            uint256(unlockedVaultShareReserve)
         );
     }
 
     /// @notice Helper to set reserves using one sstore
     /// @param _newReserveUnderlying The new reserve of underlying
-    /// @param _newReserveShares The new reserve of wrapped position shares
+    /// @param _newReserveVaultShares The new reserve of wrapped position shares
     function _setUnlockedReserves(
         uint256 _newReserveUnderlying,
-        uint256 _newReserveShares
+        uint256 _newReserveVaultShares
     ) internal {
         unlockedUnderlyingReserve = uint128(_newReserveUnderlying);
-        unlockedShareReserve = uint128(_newReserveShares);
+        unlockedVaultShareReserve = uint128(_newReserveVaultShares);
     }
 }
