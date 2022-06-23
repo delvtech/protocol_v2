@@ -28,55 +28,16 @@ const config: HardhatUserConfig = {
         },
       },
       {
-        version: "0.8.0",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 7500,
-          },
-        },
-      },
-      {
         version: "0.8.15",
         settings: {
           optimizer: {
             enabled: true,
             runs: 7500,
           },
-          viaIR: false,
-        },
-      },
+          viaIR: true
+        }
+      }
     ],
-    overrides: {
-      "contracts/balancer-core-v2/vault/Vault.sol": {
-        version: "0.7.1",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 400,
-          },
-        },
-      },
-      "contracts/balancer-core-v2/pools/weighted/WeightedPoolFactory.sol": {
-        version: "0.7.1",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 800,
-          },
-        },
-      },
-      "contracts/balancer-core-v2/pools/weighted/WeightedPool2TokensFactory.sol":
-        {
-          version: "0.7.1",
-          settings: {
-            optimizer: {
-              enabled: true,
-              runs: 800,
-            },
-          },
-        },
-    },
   },
   mocha: { timeout: 0 },
   networks: {
