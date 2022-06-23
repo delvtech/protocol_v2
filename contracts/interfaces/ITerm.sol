@@ -4,7 +4,6 @@ pragma solidity ^0.8.15;
 import "./IMultiToken.sol";
 
 interface ITerm is IMultiToken {
-
     /// @notice sums inputs to create new PTs and YTs from the deposit amount
     /// @param internalAmount how much of each asset to burn
     /// @param internalAssets an array of token IDs
@@ -31,6 +30,5 @@ interface ITerm is IMultiToken {
         uint256[] memory amount
     ) external returns (uint256);
 
-
-    function unlockedSharePrice() external returns(uint256);
+    function unlockedSharePrice() external returns (uint256);
 }
