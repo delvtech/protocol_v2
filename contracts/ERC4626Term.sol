@@ -159,8 +159,7 @@ contract ERC4626Term is Term {
         return 0;
     }
 
-    // TODO rename
-    function _underlying(uint256 _amountShares, ShareState)
+    function _underlying(uint256 _shares, ShareState)
         internal
         view
         override
