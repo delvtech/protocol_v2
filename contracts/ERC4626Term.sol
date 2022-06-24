@@ -14,6 +14,8 @@ import "hardhat/console.sol";
 // and vaultShares inclusive of withheld reserves for both which aid
 //
 // Would be good to have a direct definition of above ^^
+//
+//
 
 contract ERC4626Term is Term {
     IERC4626 public immutable vault;
@@ -120,7 +122,10 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = _getUnlockedReserveDetails();
 
+        // NOTE: Shares MUST be burnt/removed from accounting for term before
+        // calling withdraw unlocked. Not doing so will cause the the shares
         uint256 underlyingDue = (_shares * impliedUnderlyingReserve) /
+            _shares +
             totalSupply[UNLOCKED_YT_ID];
 
         if (underlyingDue <= underlyingReserve) {
@@ -150,22 +155,87 @@ contract ERC4626Term is Term {
                 );
             }
         }
-
         return underlyingDue;
     }
 
     // converts unlockedTokens to lockedTokens
-    function _convert(ShareState, uint256) internal override returns (uint256) {
-        return 0;
+    function _convert(ShareState _state, uint256 _shares)
+        internal
+        override
+        returns (uint256)
+    {
+        return
+            _state == ShareState.Locked
+                ? _convertLocked(_shares)
+                : _convertUnlocked(_shares);
     }
 
-    function _underlying(uint256 _shares, ShareState)
+    // Locked -> Unlocked means adding the Locked shares to the unlocked
+    // reserve and minting UnlockedTokens for the value
+    function _convertLocked(uint256 _vaultShares)
+        internal
+        returns (uint256 shares)
+    {
+        (
+            uint256 underlyingReserve,
+            uint256 vaultShareReserve,
+            uint256 vaultShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        ) = _getUnlockedReserveDetails();
+
+        vaultSharesAsUnderlying = vault.previewRedeem(_vaultShares);
+
+        shares =
+            (vaultSharesAsUnderlying * totalSupply[UNLOCKED_YT_ID]) /
+            impliedUnderlyingReserve;
+
+        _setUnlockedReserves(
+            underlyingReserve,
+            vaultShareReserve + _vaultShares
+        );
+    }
+
+    function _convertUnlocked(uint256 _shares)
+        internal
+        returns (uint256 vaultShares)
+    {
+        (
+            uint256 underlyingReserve,
+            uint256 vaultShareReserve,
+            uint256 vaultShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        ) = _getUnlockedReserveDetails();
+
+        uint256 _sharesAsUnderlying = (_shares * impliedUnderlyingReserve) / totalSupply[UNLOCKED_YT_ID];
+
+        vaultShares = vault.previewWithdraw(_sharesAsUnderlying);
+
+        require(_vaultShares <= vaultShareReserve, "not enough vault shares");
+
+        _setUnlockedReserves(
+            underlyingReserve,
+            vaultShareReserve - vaultShares
+        );
+    }
+
+    function _underlying(uint256 _shares, ShareState _state)
         internal
         view
         override
         returns (uint256)
     {
-        return vault.previewRedeem(_amountShares);
+        if (_state == ShareState.Locked) {
+            return vault.previewRedeem(_amountShares);
+        } else {
+        (
+            uint256 underlyingReserve,
+            uint256 vaultShareReserve,
+            uint256 vaultShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        ) = _getUnlockedReserveDetails();
+
+        return (_shares * impliedUnderlyingReserve) / totalSupply[UNLOCKED_YT_ID];
+        }
     }
 
     function _getUnlockedReserveDetails()
