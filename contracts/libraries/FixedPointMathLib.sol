@@ -1,46 +1,67 @@
 /// SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.14;
 
 type UFixedPoint is uint256;
 type Exponent is uint256;
-
 
 /// @notice Typed arithmetic library with operations for fixed-point numbers.
 /// @author Inspired by Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/FixedPointMathLib.sol)
 /// @author Element Finance convert the solmate `FixedPointMathLib.sol` into the typed library.
 library FixedPointMathLib {
-
     /*//////////////////////////////////////////////////////////////
                     SIMPLIFIED FIXED POINT OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
-    uint256 internal constant WAD = 1e18; // The scalar of ETH and most ERC20s.
+    uint256 internal constant _WAD = 1e18; // The scalar of ETH and most ERC20s.
 
-    function mulWadDown(UFixedPoint a, UFixedPoint b) internal pure returns (UFixedPoint) {
-        return UFixedPoint.wrap(mulDivDown(a, b, UFixedPoint.wrap(WAD))); // Equivalent to (a * b) / WAD rounded down.
+    function mulWadDown(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return UFixedPoint.wrap(mulDivDown(a, b, UFixedPoint.wrap(_WAD))); // Equivalent to (a * b) / WAD rounded down.
     }
 
-    function mulWadUp(UFixedPoint a, UFixedPoint b) internal pure returns (UFixedPoint) {
-        return UFixedPoint.wrap(mulDivUp(a, b, UFixedPoint.wrap(WAD))); // Equivalent to (a * b) / WAD rounded up.
+    function mulWadUp(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return UFixedPoint.wrap(mulDivUp(a, b, UFixedPoint.wrap(_WAD))); // Equivalent to (a * b) / WAD rounded up.
     }
 
-    function divWadDown(UFixedPoint a, UFixedPoint b) internal pure returns (UFixedPoint) {
-        return UFixedPoint.wrap(mulDivDown(a, UFixedPoint.wrap(WAD), b)); // Equivalent to (a * WAD) / b rounded down.
+    function divWadDown(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return UFixedPoint.wrap(mulDivDown(a, UFixedPoint.wrap(_WAD), b)); // Equivalent to (a * WAD) / b rounded down.
     }
 
-    function divWadUp(UFixedPoint a, UFixedPoint b) internal pure returns (UFixedPoint) {
-        return UFixedPoint.wrap(mulDivUp(a, UFixedPoint.wrap(WAD), b)); // Equivalent to (a * WAD) / b rounded up.
+    function divWadUp(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return UFixedPoint.wrap(mulDivUp(a, UFixedPoint.wrap(_WAD), b)); // Equivalent to (a * WAD) / b rounded up.
     }
 
-    function pow(UFixedPoint a, Exponent n) internal pure returns (UFixedPoint) {
-        return UFixedPoint.wrap(rpow(UFixedPoint.unwrap(a), Exponent.unwrap(n), WAD));
+    function pow(UFixedPoint a, Exponent n)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return
+            UFixedPoint.wrap(
+                rpow(UFixedPoint.unwrap(a), Exponent.unwrap(n), _WAD)
+            );
     }
 
-    function toUFixedPoint(uint256 a) internal pure returns(UFixedPoint) {
-        return UFixedPoint.wrap(a * WAD);
+    function toUFixedPoint(uint256 a) internal pure returns (UFixedPoint) {
+        return UFixedPoint.wrap(a * _WAD);
     }
 
-    function toExponent(uint256 a) internal pure returns(Exponent) {
+    function toExponent(uint256 a) internal pure returns (Exponent) {
         return Exponent.wrap(a);
     }
 
@@ -242,5 +263,4 @@ library FixedPointMathLib {
             }
         }
     }
-
 }
