@@ -1,11 +1,14 @@
-/// SPDX-License-Identifier: MIT
-
+/// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
 type UFixedPoint is uint256;
 type Exponent is uint256;
 
-library TypedFixedPointMathLib {
+
+/// @notice Typed arithmetic library with operations for fixed-point numbers.
+/// @author Inspired by Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/FixedPointMathLib.sol)
+/// @author Element Finance convert the solmate `FixedPointMathLib.sol` into the typed library.
+library FixedPointMathLib {
 
     /*//////////////////////////////////////////////////////////////
                     SIMPLIFIED FIXED POINT OPERATIONS
