@@ -54,18 +54,4 @@ contract MockERC4626Term is ERC4626Term {
     function setTotalSupply(uint256 _supply) external {
         totalSupply[UNLOCKED_YT_ID] = _supply;
     }
-
-    function setUnderlyingReserves(
-        uint256 _underlyingReserve,
-        uint256 _vaultShareReserve
-    ) external {
-        IERC20Mint(address(token)).mint(
-            address(this),
-            _underlyingReserve + _vaultShareReserve
-        );
-        vault.deposit(_vaultShareReserve, address(this));
-
-        underlyingReserve = uint128(_underlyingReserve);
-        vaultShareReserve = uint128(_vaultShareReserve);
-    }
 }

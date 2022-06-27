@@ -66,7 +66,6 @@ contract ERC4626Term is Term {
             underlyingReserve;
 
         uint256 impliedUnderlyingReserve = _impliedUnderlyingReserve();
-
         if (impliedUnderlyingReserve == 0) {
             shares = underlyingDeposited;
         } else {
@@ -117,8 +116,7 @@ contract ERC4626Term is Term {
         // NOTE: Shares MUST be burnt/removed from accounting for term before
         // calling withdraw unlocked.
         uint256 underlyingDue = (_shares * impliedUnderlyingReserve) /
-            _shares +
-            totalSupply[UNLOCKED_YT_ID];
+            (_shares + totalSupply[UNLOCKED_YT_ID]);
 
         if (underlyingDue <= underlyingReserve) {
             underlyingReserve -= underlyingDue;
@@ -126,11 +124,12 @@ contract ERC4626Term is Term {
         } else {
             uint256 underlyingDueAsVaultShares = (vaultShareReserve *
                 underlyingDue) / _vaultShareReserveAsUnderlying();
+
             if (underlyingDueAsVaultShares > vaultShareReserve) {
                 vault.redeem(vaultShareReserve, address(this), address(this));
                 token.transferFrom(address(this), _dest, underlyingDue);
 
-                impliedUnderlyingReserve -= underlyingDue;
+                underlyingReserve -= underlyingDue;
                 vaultShareReserve = 0;
             } else {
                 vault.redeem(underlyingDueAsVaultShares, _dest, address(this));
