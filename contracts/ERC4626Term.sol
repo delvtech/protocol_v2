@@ -122,14 +122,12 @@ contract ERC4626Term is Term {
             underlyingReserve -= underlyingDue;
             token.transferFrom(address(this), _dest, underlyingDue);
         } else {
-            uint256 vaultShareReserveAsUnderlying = vault.previewRedeem(vaultShareReserve);
-
             if (underlyingDue > vaultShareReserveAsUnderlying) {
-                vault.redeem(vaultShareReserve, address(this), address(this));
+                uint256 underlyingRedeemed = vault.redeem(vaultShareReserve, address(this), address(this));
 
                 token.transferFrom(address(this), _dest, underlyingDue); // POSSIBLE ROUNDING ISSUES
 
-                underlyingReserve -= (underlyingDue - vaultShareReserveAsUnderlying);
+                underlyingReserve -= (underlyingDue - underlyingRedeemed);
                 vaultShareReserve = 0;
             } else {
                 uint256 withdrawnVaultShares = vault.withdraw(underlyingDue, _dest, address(this));
