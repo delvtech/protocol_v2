@@ -265,10 +265,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 // Initiate a new term
                 _mint(ytTokenId, destination, value);
                 // Increase recorded share data
-                yieldTerms[ytTokenId] = YieldState(
-                    uint128(totalShares),
-                    uint128(value)
-                );
+                yieldTerms[ytTokenId].shares += uint128(totalShares);
+                yieldTerms[ytTokenId].pt += uint128(value);
                 sharesPerExpiry[expiration] += totalShares;
                 // No interest earned and no discount.
                 return 0;
