@@ -22,8 +22,8 @@ contract ERC4626Term is Term {
     uint256 public underlyingReserve;
     uint256 public vaultShareReserve;
 
-    uint256 public maxReserve;
-    uint256 public targetReserve;
+    uint256 public immutable maxReserve;
+    uint256 public immutable targetReserve;
 
     constructor(
         IERC4626 _vault,
@@ -122,19 +122,19 @@ contract ERC4626Term is Term {
             underlyingReserve -= underlyingDue;
             token.transferFrom(address(this), _dest, underlyingDue);
         } else {
-            uint256 underlyingDueAsVaultShares = (vaultShareReserve *
-                underlyingDue) / _vaultShareReserveAsUnderlying();
+            uint256 vaultShareReserveAsUnderlying = vault.previewRedeem(vaultShareReserve);
 
-            if (underlyingDueAsVaultShares > vaultShareReserve) {
+            if (underlyingDue > vaultShareReserveAsUnderlying) {
                 vault.redeem(vaultShareReserve, address(this), address(this));
-                token.transferFrom(address(this), _dest, underlyingDue);
 
-                underlyingReserve -= underlyingDue;
+                token.transferFrom(address(this), _dest, underlyingDue); // POSSIBLE ROUNDING ISSUES
+
+                underlyingReserve -= (underlyingDue - vaultShareReserveAsUnderlying);
                 vaultShareReserve = 0;
             } else {
-                vault.redeem(underlyingDueAsVaultShares, _dest, address(this));
+                uint256 withdrawnVaultShares = vault.withdraw(underlyingDue, _dest, address(this));
                 underlyingReserve -= underlyingDue;
-                vaultShareReserve -= underlyingDueAsVaultShares;
+                vaultShareReserve -= withdrawnVaultShares;
             }
         }
         return underlyingDue;
