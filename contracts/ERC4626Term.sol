@@ -13,15 +13,14 @@ import "hardhat/console.sol";
 // protocol are representative of a pro rata ownership of underlying deposits
 // and vaultShares inclusive of withheld reserves for both which aid
 //
-// Would be good to have a direct definition of above ^^
-//
+// Would be good to have a final definition of above ^^
 //
 
 contract ERC4626Term is Term {
     IERC4626 public immutable vault;
 
-    uint128 public unlockedUnderlyingReserve;
-    uint128 public unlockedVaultShareReserve;
+    uint256 public underlyingReserve;
+    uint256 public vaultShareReserve;
 
     uint256 public maxReserve;
     uint256 public targetReserve;
@@ -53,24 +52,28 @@ contract ERC4626Term is Term {
     {
         underlyingDeposited =
             token.balanceOf(address(this)) -
-            unlockedUnderlyingReserve;
-
-        vaultShares = vault.deposit(amountDeposited, address(this));
-    }
-
-    function _depositUnlocked() internal returns (uint256, uint256) {
-        (
-            uint256 underlyingReserve,
-            uint256 vaultShareReserve,
-            uint256 vaultShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve
-        ) = _getUnlockedReserveDetails();
-
-        uint256 underlyingDeposited = token.balanceOf(address(this)) -
             underlyingReserve;
 
-        uint256 shares = (underlyingDeposited * totalSupply[UNLOCKED_YT_ID]) /
-            impliedUnderlyingReserve;
+        vaultShares = vault.deposit(underlyingDeposited, address(this));
+    }
+
+    function _depositUnlocked()
+        internal
+        returns (uint256 underlyingDeposited, uint256 shares)
+    {
+        underlyingDeposited =
+            token.balanceOf(address(this)) -
+            underlyingReserve;
+
+        uint256 impliedUnderlyingReserve = _impliedUnderlyingReserve();
+
+        if (impliedUnderlyingReserve == 0) {
+            shares = underlyingDeposited;
+        } else {
+            shares =
+                (underlyingDeposited * totalSupply[UNLOCKED_YT_ID]) /
+                impliedUnderlyingReserve;
+        }
 
         uint256 proposedUnderlyingReserve = underlyingReserve +
             underlyingDeposited;
@@ -80,19 +83,13 @@ contract ERC4626Term is Term {
                 proposedUnderlyingReserve - targetReserve,
                 address(this)
             );
-            _setUnlockedReserves(
-                targetReserve,
-                vaultShareReserve + issuedVaultShares
-            );
+            underlyingReserve = targetReserve;
+            vaultShareReserve += issuedVaultShares;
         } else {
-            _setUnlockedReserves(proposedUnderlyingReserve, vaultShareReserve);
+            underlyingReserve = proposedUnderlyingReserve;
         }
-
-        return (underlyingDeposited, shares);
     }
 
-    // as we are deciding between locked and unlocked states, "shares" means
-    // both vaultShares and shares as per the note on the top of the file
     function _withdraw(
         uint256 _shares,
         address _dest,
@@ -115,50 +112,35 @@ contract ERC4626Term is Term {
         internal
         returns (uint256)
     {
-        (
-            uint256 underlyingReserve,
-            uint256 vaultShareReserve,
-            uint256 vaultShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve
-        ) = _getUnlockedReserveDetails();
+        uint256 impliedUnderlyingReserve = _impliedUnderlyingReserve();
 
         // NOTE: Shares MUST be burnt/removed from accounting for term before
-        // calling withdraw unlocked. Not doing so will cause the the shares
+        // calling withdraw unlocked.
         uint256 underlyingDue = (_shares * impliedUnderlyingReserve) /
             _shares +
             totalSupply[UNLOCKED_YT_ID];
 
         if (underlyingDue <= underlyingReserve) {
-            _setUnlockedReserves(
-                underlyingReserve - underlyingDue,
-                vaultShareReserve
-            );
-
+            underlyingReserve -= underlyingDue;
             token.transferFrom(address(this), _dest, underlyingDue);
         } else {
             uint256 underlyingDueAsVaultShares = (vaultShareReserve *
-                underlyingDue) / vaultShareReserveAsUnderlying;
-
+                underlyingDue) / _vaultShareReserveAsUnderlying();
             if (underlyingDueAsVaultShares > vaultShareReserve) {
                 vault.redeem(vaultShareReserve, address(this), address(this));
                 token.transferFrom(address(this), _dest, underlyingDue);
 
-                _setUnlockedReserves(
-                    impliedUnderlyingReserve - underlyingDue,
-                    0
-                );
+                impliedUnderlyingReserve -= underlyingDue;
+                vaultShareReserve = 0;
             } else {
                 vault.redeem(underlyingDueAsVaultShares, _dest, address(this));
-                _setUnlockedReserves(
-                    underlyingReserve - underlyingDue,
-                    vaultShareReserve - underlyingDueAsVaultShares
-                );
+                underlyingReserve -= underlyingDue;
+                vaultShareReserve -= underlyingDueAsVaultShares;
             }
         }
         return underlyingDue;
     }
 
-    // converts unlockedTokens to lockedTokens
     function _convert(ShareState _state, uint256 _shares)
         internal
         override
@@ -170,52 +152,30 @@ contract ERC4626Term is Term {
                 : _convertUnlocked(_shares);
     }
 
-    // Locked -> Unlocked means adding the Locked shares to the unlocked
-    // reserve and minting UnlockedTokens for the value
     function _convertLocked(uint256 _vaultShares)
         internal
         returns (uint256 shares)
     {
-        (
-            uint256 underlyingReserve,
-            uint256 vaultShareReserve,
-            uint256 vaultShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve
-        ) = _getUnlockedReserveDetails();
-
-        vaultSharesAsUnderlying = vault.previewRedeem(_vaultShares);
-
+        uint256 vaultSharesAsUnderlying = vault.previewRedeem(_vaultShares);
         shares =
             (vaultSharesAsUnderlying * totalSupply[UNLOCKED_YT_ID]) /
-            impliedUnderlyingReserve;
+            _impliedUnderlyingReserve();
 
-        _setUnlockedReserves(
-            underlyingReserve,
-            vaultShareReserve + _vaultShares
-        );
+        vaultShareReserve += _vaultShares;
     }
 
     function _convertUnlocked(uint256 _shares)
         internal
         returns (uint256 vaultShares)
     {
-        (
-            uint256 underlyingReserve,
-            uint256 vaultShareReserve,
-            uint256 vaultShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve
-        ) = _getUnlockedReserveDetails();
-
-        uint256 _sharesAsUnderlying = (_shares * impliedUnderlyingReserve) / totalSupply[UNLOCKED_YT_ID];
+        uint256 _sharesAsUnderlying = (_shares * _impliedUnderlyingReserve()) /
+            totalSupply[UNLOCKED_YT_ID];
 
         vaultShares = vault.previewWithdraw(_sharesAsUnderlying);
 
-        require(_vaultShares <= vaultShareReserve, "not enough vault shares");
+        require(vaultShares <= vaultShareReserve, "not enough vault shares");
 
-        _setUnlockedReserves(
-            underlyingReserve,
-            vaultShareReserve - vaultShares
-        );
+        vaultShareReserve -= vaultShares;
     }
 
     function _underlying(uint256 _shares, ShareState _state)
@@ -225,54 +185,39 @@ contract ERC4626Term is Term {
         returns (uint256)
     {
         if (_state == ShareState.Locked) {
-            return vault.previewRedeem(_amountShares);
+            return vault.previewRedeem(_shares);
         } else {
-        (
-            uint256 underlyingReserve,
-            uint256 vaultShareReserve,
-            uint256 vaultShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve
-        ) = _getUnlockedReserveDetails();
-
-        return (_shares * impliedUnderlyingReserve) / totalSupply[UNLOCKED_YT_ID];
+            return
+                (_shares * _impliedUnderlyingReserve()) /
+                totalSupply[UNLOCKED_YT_ID];
         }
     }
 
-    function _getUnlockedReserveDetails()
+    function _vaultShareReserveAsUnderlying()
         internal
         view
-        returns (
-            uint256 underlyingReserve,
-            uint256 vaultShareReserve,
-            uint256 vaultShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve
-        )
+        returns (uint256 vaultShareReserveAsUnderlying)
     {
-        (underlyingReserve, vaultShareReserve) = _getUnlockedReserves();
-
         vaultShareReserveAsUnderlying = vault.previewRedeem(vaultShareReserve);
-
-        impliedUnderlyingReserve = (underlyingReserve +
-            vaultShareReserveAsUnderlying);
     }
 
-    /// @notice Helper to get the reserves with one sload
-    /// @return Tuple (reserve underlying, reserve vault shares)
-    function _getUnlockedReserves() internal view returns (uint256, uint256) {
-        return (
-            uint256(unlockedUnderlyingReserve),
-            uint256(unlockedVaultShareReserve)
-        );
+    function _impliedUnderlyingReserve()
+        internal
+        view
+        returns (uint256 impliedUnderlyingReserve)
+    {
+        impliedUnderlyingReserve = (underlyingReserve +
+            _vaultShareReserveAsUnderlying());
     }
 
     /// @notice Helper to set reserves using one sstore
     /// @param _newReserveUnderlying The new reserve of underlying
     /// @param _newReserveVaultShares The new reserve of wrapped position shares
-    function _setUnlockedReserves(
-        uint256 _newReserveUnderlying,
-        uint256 _newReserveVaultShares
-    ) internal {
-        unlockedUnderlyingReserve = uint128(_newReserveUnderlying);
-        unlockedVaultShareReserve = uint128(_newReserveVaultShares);
-    }
+    // function _setUnlockedReserves(
+    //     uint256 _underlyingReserve,
+    //     uint256 _vaultShareReserve
+    // ) internal {
+    //     underlyingReserve = uint128(_underlyingReserve);
+    //     vaultShareReserve = uint128(_vaultShareReserve);
+    // }
 }

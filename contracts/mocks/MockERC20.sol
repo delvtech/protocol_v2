@@ -30,7 +30,7 @@ contract MockERC20 is ERC20 {
         emit Transfer(address(0), destination, amount);
     }
 
-    function mint(address account, uint256 amount) public {
+    function mint(address account, uint256 amount) external {
         _mint(account, amount);
     }
 }
