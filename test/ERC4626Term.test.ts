@@ -39,6 +39,8 @@ enum ShareState {
   Unlocked,
 }
 
+// TEST two deposits and two withdraws in one block
+// Refactor to use lock/unlock
 const MAX_RESERVE = FIFTY_THOUSAND_ETHER;
 const TARGET_RESERVE = TWENTY_FIVE_THOUSAND_ETHER;
 const VAULT_SHARE_PRICE = ethers.utils.parseEther("0.9");
