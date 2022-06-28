@@ -173,6 +173,7 @@ describe.only("ERC4626Term", () => {
               .connect(user)
               .deposit(ShareState.Unlocked, ONE_HUNDRED_THOUSAND_ETHER)
           ).wait(1);
+
           expect(receipt.status).to.be.eq(1);
 
           // As it is the initial deposit, shares issued should match amount of

@@ -30,6 +30,14 @@ contract ERC4626Term is Term {
         token.approve(address(_vault), type(uint256).max);
     }
 
+    function underlyingReserve() public view returns (uint256) {
+        return uint256(_underlyingReserve);
+    }
+
+    function vaultShareReserve() public view returns (uint256) {
+        return uint256(_vaultShareReserve);
+    }
+
     function _deposit(ShareState _state)
         internal
         override
@@ -134,7 +142,7 @@ contract ERC4626Term is Term {
                     address(this)
                 );
 
-                token.transferFrom(address(this), _dest, underlyingDue); // POSSIBLE ROUNDING ISSUES
+                token.transferFrom(address(this), _dest, underlyingDue);
                 _setReserves(
                     underlyingReserve - (underlyingDue - underlyingRedeemed),
                     0
@@ -232,19 +240,11 @@ contract ERC4626Term is Term {
         )
     {
         (underlyingReserve, vaultShareReserve) = _getReserves();
+
         vaultShareReserveAsUnderlying = vault.previewRedeem(vaultShareReserve);
+
         impliedUnderlyingReserve = (underlyingReserve +
             vaultShareReserveAsUnderlying);
-    }
-
-    // helper fn
-    function underlyingReserve() external view returns (uint256) {
-        return uint256(_underlyingReserve);
-    }
-
-    // helper fn
-    function vaultShareReserve() external view returns (uint256) {
-        return uint256(_vaultShareReserve);
     }
 
     function _getReserves() internal view returns (uint256, uint256) {
