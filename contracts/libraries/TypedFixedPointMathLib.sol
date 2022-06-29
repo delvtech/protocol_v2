@@ -23,7 +23,7 @@ library TypedFixedPointMathLib {
                     UFixedPoint.unwrap(b),
                     _ONE_18
                 )
-            ); // Equivalent to (a * b) / WAD rounded down.
+            ); // Equivalent to (a * b) / 1e18 rounded down.
     }
 
     function mulUp(UFixedPoint a, UFixedPoint b)
@@ -38,7 +38,7 @@ library TypedFixedPointMathLib {
                     UFixedPoint.unwrap(b),
                     _ONE_18
                 )
-            ); // Equivalent to (a * b) / WAD rounded up.
+            ); // Equivalent to (a * b) / 1e18 rounded up.
     }
 
     function divDown(UFixedPoint a, UFixedPoint b)
@@ -53,7 +53,7 @@ library TypedFixedPointMathLib {
                     _ONE_18,
                     UFixedPoint.unwrap(b)
                 )
-            ); // Equivalent to (a * WAD) / b rounded down.
+            ); // Equivalent to (a * 1e18) / b rounded down.
     }
 
     function divUp(UFixedPoint a, UFixedPoint b)
@@ -68,7 +68,7 @@ library TypedFixedPointMathLib {
                     _ONE_18,
                     UFixedPoint.unwrap(b)
                 )
-            ); // Equivalent to (a * WAD) / b rounded up.
+            ); // Equivalent to (a * 1e18) / b rounded up.
     }
 
     function pow(UFixedPoint x, Exponent y)
