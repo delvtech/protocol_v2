@@ -3,6 +3,8 @@ pragma solidity ^0.8.15;
 
 // solhint-disable
 
+// Code was adapted from Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/interfaces/contracts/solidity-utils/helpers/BalancerErrors.sol)
+
 /**
  * @dev Reverts if `condition` is false, with a revert reason containing `errorCode`. Only codes up to 999 are
  * supported.
