@@ -9,7 +9,7 @@ type Exponent is uint256; // TODO: Why do we need this?
 /// @notice Typed arithmetic library with operations for fixed-point numbers.
 /// @author Element Finance
 library TypedFixedPointMathLib {
-    uint256 internal constant ONE_18 = 1e18; // The scalar of ETH and most ERC20s.
+    uint256 internal constant _ONE_18 = 1e18; // The scalar of ETH and most ERC20s.
 
     function mulDown(UFixedPoint a, UFixedPoint b)
         internal
@@ -21,7 +21,7 @@ library TypedFixedPointMathLib {
                 FixedPointMathLib.mulDivDown(
                     UFixedPoint.unwrap(a),
                     UFixedPoint.unwrap(b),
-                    ONE_18
+                    _ONE_18
                 )
             ); // Equivalent to (a * b) / WAD rounded down.
     }
@@ -36,7 +36,7 @@ library TypedFixedPointMathLib {
                 FixedPointMathLib.mulDivUp(
                     UFixedPoint.unwrap(a),
                     UFixedPoint.unwrap(b),
-                    ONE_18
+                    _ONE_18
                 )
             ); // Equivalent to (a * b) / WAD rounded up.
     }
@@ -50,7 +50,7 @@ library TypedFixedPointMathLib {
             UFixedPoint.wrap(
                 FixedPointMathLib.mulDivDown(
                     UFixedPoint.unwrap(a),
-                    ONE_18,
+                    _ONE_18,
                     UFixedPoint.unwrap(b)
                 )
             ); // Equivalent to (a * WAD) / b rounded down.
@@ -65,7 +65,7 @@ library TypedFixedPointMathLib {
             UFixedPoint.wrap(
                 FixedPointMathLib.mulDivUp(
                     UFixedPoint.unwrap(a),
-                    ONE_18,
+                    _ONE_18,
                     UFixedPoint.unwrap(b)
                 )
             ); // Equivalent to (a * WAD) / b rounded up.
@@ -81,7 +81,7 @@ library TypedFixedPointMathLib {
     }
 
     function toUFixedPoint(uint256 a) internal pure returns (UFixedPoint) {
-        return UFixedPoint.wrap(a * ONE_18);
+        return UFixedPoint.wrap(a * _ONE_18);
     }
 
     function toExponent(uint256 a) internal pure returns (Exponent) {
