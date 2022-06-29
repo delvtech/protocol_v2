@@ -71,13 +71,22 @@ library TypedFixedPointMathLib {
             ); // Equivalent to (a * WAD) / b rounded up.
     }
 
-    // TODO: Implement this
-    function pow(UFixedPoint a, Exponent n)
+    function pow(UFixedPoint x, Exponent y)
         internal
         pure
         returns (UFixedPoint)
     {
-        return UFixedPoint.wrap(0);
+        return
+            UFixedPoint.wrap(_pow(UFixedPoint.unwrap(x), Exponent.unwrap(y)));
+    }
+
+    function pow2(UFixedPoint x, Exponent y)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return
+            UFixedPoint.wrap(_pow2(UFixedPoint.unwrap(x), Exponent.unwrap(y)));
     }
 
     function toUFixedPoint(uint256 a) internal pure returns (UFixedPoint) {
