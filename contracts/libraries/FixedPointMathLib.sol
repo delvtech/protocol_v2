@@ -5,9 +5,6 @@ import "contracts/libraries/Errors.sol";
 
 /// @notice Arithmetic library with operations for fixed-point numbers.
 /// @author Element Finance
-/// @author Inspired by: Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
-/// @author Inspired by: Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/FixedPointMathLib.sol)
-/// @author Inspired by: Remco (https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol)
 library FixedPointMathLib {
     int256 constant ONE_18 = 1e18;
 
@@ -62,6 +59,7 @@ library FixedPointMathLib {
     int256 constant x11 = 6250000000000000000; // 2ˆ-4
     int256 constant a11 = 106449445891785942956; // eˆ(x11)
 
+    /// @dev Credit to Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/FixedPointMathLib.sol)
     function mulDivDown(
         uint256 x,
         uint256 y,
@@ -81,6 +79,7 @@ library FixedPointMathLib {
         }
     }
 
+    /// @dev Credit to Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/FixedPointMathLib.sol)
     function mulDivUp(
         uint256 x,
         uint256 y,
@@ -104,7 +103,7 @@ library FixedPointMathLib {
 
     /**
      * @dev Exponentiation (x^y) with unsigned 18 decimal fixed point base and exponent.
-     *
+     * @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
      * Reverts if ln(x) * y is smaller than `MIN_NATURAL_EXPONENT`, or larger than `MAX_NATURAL_EXPONENT`.
      */
     function pow(uint256 x, uint256 y) internal pure returns (uint256) {
@@ -161,7 +160,7 @@ library FixedPointMathLib {
 
     /**
      * @dev Exponentiation (x^y) with unsigned 18 decimal fixed point base and exponent.
-     *
+     * @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
      * Reverts if ln(x) * y is smaller than `MIN_NATURAL_EXPONENT`, or larger than `MAX_NATURAL_EXPONENT`.
      */
     function pow2(uint256 x, uint256 y) internal pure returns (uint256) {
@@ -216,7 +215,8 @@ library FixedPointMathLib {
         return uint256(_exp2(logx_times_y));
     }
 
-    // Computes e^x in 1e18 fixed point.
+    /// Computes e^x in 1e18 fixed point.
+    /// @dev Credit to Remco (https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol)
     function _exp(int256 x) private pure returns (int256 r) {
         unchecked {
             // Input x is in fixed point format, with scale factor 1/1e18.
@@ -283,7 +283,7 @@ library FixedPointMathLib {
 
     /**
      * @dev Natural exponentiation (e^x) with signed 18 decimal fixed point exponent.
-     *
+     * @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
      * Reverts if `x` is smaller than MIN_NATURAL_EXPONENT, or larger than `MAX_NATURAL_EXPONENT`.
      */
     function _exp2(int256 x) internal pure returns (int256) {
@@ -428,6 +428,7 @@ library FixedPointMathLib {
 
     /**
      * @dev Internal natural logarithm (ln(a)) with signed 18 decimal fixed point argument.
+     * @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
      */
     function _ln(int256 a) private pure returns (int256) {
         if (a < ONE_18) {
@@ -566,7 +567,7 @@ library FixedPointMathLib {
     /**
      * @dev Intrnal high precision (36 decimal places) natural logarithm (ln(x)) with signed 18 decimal fixed point argument,
      * for x close to one.
-     *
+     * @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
      * Should only be used if x is between LN_36_LOWER_BOUND and LN_36_UPPER_BOUND.
      */
     function _ln_36(int256 x) private pure returns (int256) {
