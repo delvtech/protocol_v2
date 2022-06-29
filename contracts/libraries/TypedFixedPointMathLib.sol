@@ -77,7 +77,9 @@ library TypedFixedPointMathLib {
         returns (UFixedPoint)
     {
         return
-            UFixedPoint.wrap(_pow(UFixedPoint.unwrap(x), Exponent.unwrap(y)));
+            UFixedPoint.wrap(
+                FixedPointMathLib.pow(UFixedPoint.unwrap(x), Exponent.unwrap(y))
+            );
     }
 
     function pow2(UFixedPoint x, Exponent y)
@@ -86,7 +88,12 @@ library TypedFixedPointMathLib {
         returns (UFixedPoint)
     {
         return
-            UFixedPoint.wrap(_pow2(UFixedPoint.unwrap(x), Exponent.unwrap(y)));
+            UFixedPoint.wrap(
+                FixedPointMathLib.pow2(
+                    UFixedPoint.unwrap(x),
+                    Exponent.unwrap(y)
+                )
+            );
     }
 
     function toUFixedPoint(uint256 a) internal pure returns (UFixedPoint) {
