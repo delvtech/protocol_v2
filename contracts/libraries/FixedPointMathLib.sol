@@ -138,7 +138,7 @@ library FixedPointMathLib {
             // ln_36_x has 36 decimal places, so multiplying by y_int256 isn't as straightforward, since we can't just
             // bring y_int256 to 36 decimal places, as it might overflow. Instead, we perform two 18 decimal
             // multiplications and add the results: one with the first 18 decimals of ln_36_x, and one with the
-            // (downscaled) last 18 decimals.
+            // (down scaled) last 18 decimals.
             logx_times_y = ((ln_36_x / _ONE_18) *
                 y_int256 +
                 ((ln_36_x % _ONE_18) * y_int256) /
@@ -195,7 +195,7 @@ library FixedPointMathLib {
             // ln_36_x has 36 decimal places, so multiplying by y_int256 isn't as straightforward, since we can't just
             // bring y_int256 to 36 decimal places, as it might overflow. Instead, we perform two 18 decimal
             // multiplications and add the results: one with the first 18 decimals of ln_36_x, and one with the
-            // (downscaled) last 18 decimals.
+            // (down scaled) last 18 decimals.
             logx_times_y = ((ln_36_x / _ONE_18) *
                 y_int256 +
                 ((ln_36_x % _ONE_18) * y_int256) /
@@ -270,7 +270,7 @@ library FixedPointMathLib {
             // We now need to multiply r by
             //  * the scale factor s = ~6.031367120...,
             //  * the 2**k factor from the range reduction, and
-            //  * the 1e18 / 2**96 factor for base converison.
+            //  * the 1e18 / 2**96 factor for base conversion.
             // We do all of this at once, with an intermediate result in 2**213 basis
             // so the final right shift is always by a positive amount.
             r = int256(
@@ -286,7 +286,7 @@ library FixedPointMathLib {
      * @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
      * Reverts if `x` is smaller than _MIN_NATURAL_EXPONENT, or larger than `_MAX_NATURAL_EXPONENT`.
      */
-    function _exp2(int256 x) internal pure returns (int256) {
+    function _exp2(int256 x) private pure returns (int256) {
         _require(
             x >= _MIN_NATURAL_EXPONENT && x <= _MAX_NATURAL_EXPONENT,
             Errors.INVALID_EXPONENT
@@ -565,7 +565,7 @@ library FixedPointMathLib {
     }
 
     /**
-     * @dev Intrnal high precision (36 decimal places) natural logarithm (ln(x)) with signed 18 decimal fixed point argument,
+     * @dev Internal high precision (36 decimal places) natural logarithm (ln(x)) with signed 18 decimal fixed point argument,
      * for x close to one.
      * @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
      * Should only be used if x is between _LN_36_LOWER_BOUND and _LN_36_UPPER_BOUND.
