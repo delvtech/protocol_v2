@@ -16,8 +16,6 @@ contract ERC4626Term is Term {
     uint256 public immutable maxReserve;
     uint256 public immutable targetReserve;
 
-    uint256 public constant priceUpdateInterval = 21600; // 6 hours
-
     constructor(
         IERC4626 _vault,
         bytes32 _linkerCodeHash,
