@@ -59,6 +59,7 @@
         "rpow",
         "rebalance",
         "reentrancy",
+        "remco",
         "returndata",
         "returndatacopy",
         "returndatasize",
