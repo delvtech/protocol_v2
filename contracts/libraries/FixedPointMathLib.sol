@@ -215,6 +215,49 @@ library FixedPointMathLib {
         return uint256(_exp2(logx_times_y));
     }
 
+    /**
+     * @dev Exponentiation (x^y) with unsigned 18 decimal fixed point base and exponent.
+     * Reverts if y*ln(x) is smaller than `_MIN_NATURAL_EXPONENT`, or larger than `_MAX_NATURAL_EXPONENT`.
+     */
+    function pow3(uint256 x, uint256 y) internal pure returns (uint256) {
+        // Using properties of logarithms we calculate x^y:
+        // -> ln(x^y) = y * ln(x)
+        // -> e^(y * ln(x)) = x^y
+
+        if (y == 0) {
+            // Anything to the power of 0 returns 1
+            return uint256(_ONE_18);
+        }
+
+        if (x == 0) {
+            return 0;
+        }
+
+        // The ln function takes a signed value, so we need to make sure x fits in the signed 256 bit range.
+        _require((x >> 255) == 0, Errors.X_OUT_OF_BOUNDS);
+        int256 x_int256 = int256(x);
+
+        // This prevents y * ln(x) from overflowing, and at the same time guarantees y fits in the signed 256 bit range.
+        _require(y < _MILD_EXPONENT_BOUND, Errors.Y_OUT_OF_BOUNDS);
+        int256 y_int256 = int256(y);
+
+        // Compute y*ln(x)
+        int256 lnx = _lnremco(x_int256);
+        int256 ylnx;
+        assembly {
+            ylnx := mul(y_int256, lnx)
+        }
+        ylnx /= _ONE_18;
+
+        _require(
+            _MIN_NATURAL_EXPONENT <= ylnx && ylnx <= _MAX_NATURAL_EXPONENT,
+            Errors.PRODUCT_OUT_OF_BOUNDS
+        );
+
+        // Calculate exp(y * ln(x)) to get x^y
+        return uint256(_exp(ylnx));
+    }
+
     /// Computes e^x in 1e18 fixed point.
     /// @dev Credit to Remco (https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol)
     function _exp(int256 x) private pure returns (int256 r) {
@@ -617,5 +660,86 @@ library FixedPointMathLib {
 
         // All that remains is multiplying by 2 (non fixed point).
         return seriesSum * 2;
+    }
+
+    // Computes ln(x) in 1e18 fixed point.
+    // Reverts if x is negative or zero.
+    // Consumes 670 gas.
+    function _lnremco(int256 x) private pure returns (int256 r) {
+        unchecked {
+            _require(x >= 1, Errors.X_OUT_OF_BOUNDS);
+
+            // We want to convert x from 10**18 fixed point to 2**96 fixed point.
+            // We do this by multiplying by 2**96 / 10**18.
+            // But since ln(x * C) = ln(x) + ln(C), we can simply do nothing here
+            // and add ln(2**96 / 10**18) at the end.
+
+            // Reduce range of x to (1, 2) * 2**96
+            // ln(2^k * x) = k * ln(2) + ln(x)
+            // Note: inlining ilog2 saves 8 gas.
+            int256 k = int256(_ilog2(uint256(x))) - 96;
+            x <<= uint256(159 - k);
+            x = int256(uint256(x) >> 159);
+
+            // Evaluate using a (8, 8)-term rational approximation
+            // p is made monic, we will multiply by a scale factor later
+            int256 p = x + 3273285459638523848632254066296;
+            p = ((p * x) >> 96) + 24828157081833163892658089445524;
+            p = ((p * x) >> 96) + 43456485725739037958740375743393;
+            p = ((p * x) >> 96) - 11111509109440967052023855526967;
+            p = ((p * x) >> 96) - 45023709667254063763336534515857;
+            p = ((p * x) >> 96) - 14706773417378608786704636184526;
+            p = p * x - (795164235651350426258249787498 << 96);
+            //emit log_named_int("p", p);
+            // We leave p in 2**192 basis so we don't need to scale it back up for the division.
+            // q is monic by convention
+            int256 q = x + 5573035233440673466300451813936;
+            q = ((q * x) >> 96) + 71694874799317883764090561454958;
+            q = ((q * x) >> 96) + 283447036172924575727196451306956;
+            q = ((q * x) >> 96) + 401686690394027663651624208769553;
+            q = ((q * x) >> 96) + 204048457590392012362485061816622;
+            q = ((q * x) >> 96) + 31853899698501571402653359427138;
+            q = ((q * x) >> 96) + 909429971244387300277376558375;
+            assembly {
+                // Div in assembly because solidity adds a zero check despite the `unchecked`.
+                // The q polynomial is known not to have zeros in the domain. (All roots are complex)
+                // No scaling required because p is already 2**96 too large.
+                r := sdiv(p, q)
+            }
+            // r is in the range (0, 0.125) * 2**96
+
+            // Finalization, we need to
+            // * multiply by the scale factor s = 5.549…
+            // * add ln(2**96 / 10**18)
+            // * add k * ln(2)
+            // * multiply by 10**18 / 2**96 = 5**18 >> 78
+            // mul s * 5e18 * 2**96, base is now 5**18 * 2**192
+            r *= 1677202110996718588342820967067443963516166;
+            // add ln(2) * k * 5e18 * 2**192
+            r +=
+                16597577552685614221487285958193947469193820559219878177908093499208371 *
+                k;
+            // add ln(2**96 / 10**18) * 5e18 * 2**192
+            r += 600920179829731861736702779321621459595472258049074101567377883020018308;
+            // base conversion: mul 2**18 / 2**192
+            r >>= 174;
+        }
+    }
+
+    // Integer log2
+    // @returns floor(log2(x)) if x is nonzero, otherwise 0. This is the same
+    //          as the location of the highest set bit.
+    // Consumes 232 gas. This could have been an 3 gas EVM opcode though.
+    function _ilog2(uint256 x) private pure returns (uint256 r) {
+        assembly {
+            r := shl(7, lt(0xffffffffffffffffffffffffffffffff, x))
+            r := or(r, shl(6, lt(0xffffffffffffffff, shr(r, x))))
+            r := or(r, shl(5, lt(0xffffffff, shr(r, x))))
+            r := or(r, shl(4, lt(0xffff, shr(r, x))))
+            r := or(r, shl(3, lt(0xff, shr(r, x))))
+            r := or(r, shl(2, lt(0xf, shr(r, x))))
+            r := or(r, shl(1, lt(0x3, shr(r, x))))
+            r := or(r, lt(0x1, shr(r, x)))
+        }
     }
 }
