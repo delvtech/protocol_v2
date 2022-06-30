@@ -4,7 +4,6 @@ pragma solidity ^0.8.15;
 import "./FixedPointMathLib.sol";
 
 type UFixedPoint is uint256;
-type Exponent is uint256; // TODO: Why do we need this?
 
 /// @notice A typed fixed-point math library.
 /// @author Element Finance
@@ -71,22 +70,21 @@ library TypedFixedPointMathLib {
             ); // Equivalent to (a * 1e18) / b rounded up.
     }
 
-    function pow(UFixedPoint x, Exponent y)
+    function pow(UFixedPoint x, UFixedPoint y)
         internal
         pure
         returns (UFixedPoint)
     {
         return
             UFixedPoint.wrap(
-                FixedPointMathLib.pow(UFixedPoint.unwrap(x), Exponent.unwrap(y))
+                FixedPointMathLib.pow(
+                    UFixedPoint.unwrap(x),
+                    UFixedPoint.unwrap(y)
+                )
             );
     }
 
     function toUFixedPoint(uint256 a) internal pure returns (UFixedPoint) {
         return UFixedPoint.wrap(a * _ONE_18);
-    }
-
-    function toExponent(uint256 a) internal pure returns (Exponent) {
-        return Exponent.wrap(a);
     }
 }

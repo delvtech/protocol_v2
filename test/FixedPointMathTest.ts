@@ -57,8 +57,8 @@ describe("FixedPointMath Tests", function () {
       async function (x: string, y: string) {
         const expected = fp(pow(x, y));
         const result = await MockFixedPointMath.pow(fp(x), fp(y));
-        console.log(Number(ethers.utils.formatEther(result)));
-        console.log(Number(ethers.utils.formatEther(expected)));
+        //console.log(Number(ethers.utils.formatEther(result)));
+        //console.log(Number(ethers.utils.formatEther(expected)));
         expect(Number(ethers.utils.formatEther(result))).to.be.equal(
           Number(ethers.utils.formatEther(expected))
         );

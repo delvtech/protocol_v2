@@ -5,7 +5,7 @@ import "hardhat/console.sol";
 import "contracts/libraries/TypedFixedPointMathLib.sol";
 
 contract MockFixedPointMath {
-    function pow(UFixedPoint x, Exponent y)
+    function pow(UFixedPoint x, UFixedPoint y)
         public
         view
         returns (UFixedPoint result)
