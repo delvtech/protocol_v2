@@ -63,10 +63,9 @@ library FixedPointMathLib {
         }
     }
 
-    /**
-     * @dev Exponentiation (x^y) with unsigned 18 decimal fixed point base and exponent.
-     * Reverts if y*ln(x) is smaller than `_MIN_NATURAL_EXPONENT`, or larger than `_MAX_NATURAL_EXPONENT`.
-     */
+    /// @dev Exponentiation (x^y) with unsigned 18 decimal fixed point base and exponent.
+    /// Reverts if y*ln(x) is smaller than `_MIN_NATURAL_EXPONENT`, or larger than `_MAX_NATURAL_EXPONENT`.
+    /// @dev Partially inspired by Balancer LogExpMath library (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
     function pow(uint256 x, uint256 y) internal pure returns (uint256) {
         // Using properties of logarithms we calculate x^y:
         // -> ln(x^y) = y * ln(x)
