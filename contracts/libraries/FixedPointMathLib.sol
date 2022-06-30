@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import "contracts/libraries/Errors.sol";
 
-/// @notice Arithmetic library with operations for fixed-point numbers.
+/// @notice A fixed-point math library.
 /// @author Element Finance
 library FixedPointMathLib {
     int256 private constant _ONE_18 = 1e18;

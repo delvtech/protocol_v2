@@ -6,7 +6,7 @@ import "./FixedPointMathLib.sol";
 type UFixedPoint is uint256;
 type Exponent is uint256; // TODO: Why do we need this?
 
-/// @notice Typed arithmetic library with operations for fixed-point numbers.
+/// @notice A typed fixed-point math library.
 /// @author Element Finance
 library TypedFixedPointMathLib {
     uint256 internal constant _ONE_18 = 1e18; // The scalar of ETH and most ERC20s.
