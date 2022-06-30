@@ -38,6 +38,7 @@
         "i",
         "IEIP",
         "IERC",
+        "ilog",
         "in",
         "iszero",
         "IWETH",
@@ -94,6 +95,7 @@
         "weth",
         "withdrawweth",
         "Yasset",
+        "ylnx",
         "ytoken",
         "yusdc",
         "yweth"

@@ -14,24 +14,4 @@ contract MockFixedPointMath {
         result = TypedFixedPointMathLib.pow(x, y);
         console.log("gasUsed", startGas - gasleft());
     }
-
-    function pow2(UFixedPoint x, Exponent y)
-        public
-        view
-        returns (UFixedPoint result)
-    {
-        uint256 startGas = gasleft();
-        result = TypedFixedPointMathLib.pow2(x, y);
-        console.log("gasUsed", startGas - gasleft());
-    }
-
-    function pow3(UFixedPoint x, Exponent y)
-        public
-        view
-        returns (UFixedPoint result)
-    {
-        uint256 startGas = gasleft();
-        result = TypedFixedPointMathLib.pow3(x, y);
-        console.log("gasUsed", startGas - gasleft());
-    }
 }

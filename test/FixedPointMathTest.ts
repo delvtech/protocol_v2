@@ -51,38 +51,12 @@ describe("FixedPointMath Tests", function () {
     ["340282366920938463463374607431768211455", "0.0021"], // 2^128 - 1
   ];
 
-  describe("Balancer", function () {
-    forEach(testSets).it(
-      "handles %s^%s",
-      async function (x: string, y: string) {
-        const expected = fp(pow(x, y));
-        const result = await MockFixedPointMath.pow2(fp(x), fp(y));
-        expect(Number(ethers.utils.formatEther(result))).to.be.equal(
-          Number(ethers.utils.formatEther(expected))
-        );
-      }
-    );
-  });
-
-  describe("Frankenstein", function () {
-    forEach(testSets).it(
-      "handles %s^%s",
-      async function (x: string, y: string) {
-        const expected = fp(pow(x, y));
-        const result = await MockFixedPointMath.pow(fp(x), fp(y));
-        expect(Number(ethers.utils.formatEther(result))).to.be.equal(
-          Number(ethers.utils.formatEther(expected))
-        );
-      }
-    );
-  });
-
-  describe("Bride of Frankenstein", function () {
+  describe("pow()", function () {
     forEach(testSets).it(
       "handles %s^(%s)",
       async function (x: string, y: string) {
         const expected = fp(pow(x, y));
-        const result = await MockFixedPointMath.pow3(fp(x), fp(y));
+        const result = await MockFixedPointMath.pow(fp(x), fp(y));
         console.log(Number(ethers.utils.formatEther(result)));
         console.log(Number(ethers.utils.formatEther(expected)));
         expect(Number(ethers.utils.formatEther(result))).to.be.equal(
