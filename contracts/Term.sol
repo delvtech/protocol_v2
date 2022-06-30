@@ -5,6 +5,7 @@ import "./MultiToken.sol";
 import "./interfaces/IYieldAdapter.sol";
 import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
+import "hardhat/console.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     // Struct to store packed yield term info, packed into one sstore
@@ -80,8 +81,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         ytBeginDate = ytBeginDate >= block.timestamp
             ? block.timestamp
             : ytBeginDate;
+
         // Next check the validity of the requested expiry
-        require(expiration > block.timestamp, "todo nice error");
+        require(expiration > block.timestamp || expiration == 0, "todo nice error");
         // The yt can't start after
         // Running tally of the added value
         uint256 totalValue = 0;
@@ -167,6 +169,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             ytBeginDate,
             expiration
         );
+
         // Mint the user principal tokens
         // Note - Reverts if the user is trying to enter a term where they have not supplied enough
         //        value to pay for accumulated interest, the user should choose a more recent term.
@@ -187,6 +190,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256[] memory tokenIds,
         uint256[] memory amounts
     ) external returns (uint256) {
+
+        console.log("zxzzz");
         // To release shares we delete any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
@@ -194,10 +199,11 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < tokenIds.length; i++) {
-            // Requiring strict sorting is a cheap way to check for uniqueness
-            require(previousId < tokenIds[i], "Todo: Not unique or not sorted");
-            previousId = tokenIds[i];
-            // Burns the tokens from the user account and returns how much they were worth
+
+            /// REMOVED LOGIC HERE
+
+            console.log("zxzzz");
+           // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
             (uint256 shares, ) = _releaseAsset(
                 tokenIds[i],
@@ -205,6 +211,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 amounts[i]
             );
 
+            console.log("ssss");
             // Record the shares which were released
             if (tokenIds[i] == 0) {
                 releasedSharesUnlocked += shares;
@@ -213,6 +220,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             }
         }
 
+        console.log("zxzzz");
         // Withdraw the released shares
         uint256 valueFromLocked = 0;
         uint256 valueFromUnlocked = 0;
@@ -232,6 +240,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 ShareState.Unlocked
             );
         }
+
 
         // Return the total value released
         return (valueFromLocked + valueFromUnlocked);
@@ -321,7 +330,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
         // If the term's final interest rate has not been recorded we record it
-        if (finalState.interest == 0) {
+        if (assetId != UNLOCKED_YT_ID && finalState.interest == 0) {
             finalState = _finalizeTerm(expiry);
         }
 
@@ -350,6 +359,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256 totalValue = _underlying(termShares, ShareState.Locked);
         // The interest is the value minus pt supply
         uint256 totalInterest = totalValue - totalSupply[expiry];
+        console.log("bjbjbjb. %s", termShares);
         // The shares needed to release this value at this point are calculated from the
         // implied price per share
         uint256 pricePerShare = (totalValue * one) / termShares;

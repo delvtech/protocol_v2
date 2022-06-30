@@ -2,15 +2,15 @@
 
 pragma solidity ^0.8.12;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20TokenizedVault.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract MockERC4626 is ERC20TokenizedVault {
+contract MockERC4626 is ERC4626 {
     uint8 private immutable _decimals;
 
     constructor(ERC20 _asset)
         ERC20("MockERC4626 Token", "xERC4626")
-        ERC20TokenizedVault(_asset)
+        ERC4626(_asset)
     {
         _decimals = _asset.decimals();
     }

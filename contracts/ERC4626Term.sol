@@ -47,7 +47,7 @@ contract ERC4626Term is Term {
 
     function _depositLocked()
         internal
-        returns (uint256 underlyingDeposited, uint256 vaultShares)
+        returns (uint256 vaultShares, uint256 underlyingDeposited)
     {
         (uint256 underlyingReserve, , , ) = reserveDetails();
         underlyingDeposited =
@@ -59,7 +59,7 @@ contract ERC4626Term is Term {
 
     function _depositUnlocked()
         internal
-        returns (uint256 underlyingDeposited, uint256 shares)
+        returns (uint256 shares, uint256 underlyingDeposited)
     {
         (
             uint256 underlyingReserve,
@@ -124,10 +124,12 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
 
+        console.log("hhhh");
         // NOTE: Shares MUST be burnt/removed from accounting for term before
         // calling withdraw unlocked.
         uint256 underlyingDue = (_shares * impliedUnderlyingReserve) /
             (_shares + totalSupply[UNLOCKED_YT_ID]);
+        console.log("hhhh");
 
         if (underlyingDue <= underlyingReserve) {
             _setReserves(underlyingReserve - underlyingDue, vaultShareReserve);
