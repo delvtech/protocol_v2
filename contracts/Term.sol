@@ -83,7 +83,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             : ytBeginDate;
 
         // Next check the validity of the requested expiry
-        require(expiration > block.timestamp || expiration == 0, "todo nice error");
+        require(
+            expiration > block.timestamp || expiration == 0,
+            "todo nice error"
+        );
         // The yt can't start after
         // Running tally of the added value
         uint256 totalValue = 0;
@@ -190,8 +193,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256[] memory tokenIds,
         uint256[] memory amounts
     ) external returns (uint256) {
-
-        console.log("zxzzz");
         // To release shares we delete any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
@@ -199,11 +200,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < tokenIds.length; i++) {
-
-            /// REMOVED LOGIC HERE
-
-            console.log("zxzzz");
-           // Burns the tokens from the user account and returns how much they were worth
+            // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
             (uint256 shares, ) = _releaseAsset(
                 tokenIds[i],
@@ -211,16 +208,14 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 amounts[i]
             );
 
-            console.log("ssss");
             // Record the shares which were released
-            if (tokenIds[i] == 0) {
+            if (tokenIds[i] == UNLOCKED_YT_ID) {
                 releasedSharesUnlocked += shares;
             } else {
                 releasedSharesLocked += shares;
             }
         }
 
-        console.log("zxzzz");
         // Withdraw the released shares
         uint256 valueFromLocked = 0;
         uint256 valueFromUnlocked = 0;
@@ -240,7 +235,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 ShareState.Unlocked
             );
         }
-
 
         // Return the total value released
         return (valueFromLocked + valueFromUnlocked);
@@ -325,10 +319,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     ) internal returns (uint256, uint256) {
         // Note for both yt and pt the first 128 bits contain the expiry.
         uint256 expiry = assetId & (2**(128) - 1);
+
         // Check that the expiry has been hit
         require(expiry <= block.timestamp || expiry == 0, "todo nice error");
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
+
         // If the term's final interest rate has not been recorded we record it
         if (assetId != UNLOCKED_YT_ID && finalState.interest == 0) {
             finalState = _finalizeTerm(expiry);
@@ -359,7 +355,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256 totalValue = _underlying(termShares, ShareState.Locked);
         // The interest is the value minus pt supply
         uint256 totalInterest = totalValue - totalSupply[expiry];
-        console.log("bjbjbjb. %s", termShares);
         // The shares needed to release this value at this point are calculated from the
         // implied price per share
         uint256 pricePerShare = (totalValue * one) / termShares;
@@ -379,14 +374,18 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     {
         // In this case we just do a proportional withdraw from the shares for this asset
         uint256 termShares = yieldTerms[UNLOCKED_YT_ID].shares;
+
         uint256 userShares = (termShares * amount) /
             totalSupply[UNLOCKED_YT_ID];
-        // Burn from the user
-        _burn(UNLOCKED_YT_ID, source, amount);
+
         // Subtract their shares from total
         yieldTerms[UNLOCKED_YT_ID].shares = uint128(termShares - userShares);
         // Query the value of these shares
         uint256 shareValue = _underlying(userShares, ShareState.Unlocked);
+
+        // Burn from the user
+        _burn(UNLOCKED_YT_ID, source, amount);
+
         // Return the shares released and their value
         return (userShares, shareValue);
     }
@@ -457,8 +456,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // The user's shares are their percent of the total
         // Note - This is more than 1 to 1 as interest goes up
         uint256 userShares = (amount * ptShares) / totalSupply[assetId];
+
         // Burn from the user and deduct their freed shares from the total for this term
         _burn(assetId, source, amount);
+
         sharesPerExpiry[assetId] = termShares - userShares;
         // Return the shares freed and use the price per share to get value
         return (userShares, (userShares * currentPricePerShare) / one);

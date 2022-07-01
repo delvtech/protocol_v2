@@ -5,6 +5,8 @@ pragma solidity ^0.8.15;
 import "./Term.sol";
 import "./interfaces/IERC4626.sol";
 import "./interfaces/IERC20.sol";
+import "./MultiToken.sol";
+
 import "hardhat/console.sol";
 
 contract ERC4626Term is Term {
@@ -26,6 +28,7 @@ contract ERC4626Term is Term {
         maxReserve = _maxReserve;
         targetReserve = _maxReserve / 2;
         token.approve(address(_vault), type(uint256).max);
+        token.approve(address(this), type(uint256).max);
     }
 
     function underlyingReserve() public view returns (uint256) {
@@ -124,12 +127,10 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
 
-        console.log("hhhh");
         // NOTE: Shares MUST be burnt/removed from accounting for term before
         // calling withdraw unlocked.
         uint256 underlyingDue = (_shares * impliedUnderlyingReserve) /
             (_shares + totalSupply[UNLOCKED_YT_ID]);
-        console.log("hhhh");
 
         if (underlyingDue <= underlyingReserve) {
             _setReserves(underlyingReserve - underlyingDue, vaultShareReserve);

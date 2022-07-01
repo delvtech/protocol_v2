@@ -1,9 +1,9 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { BigNumber, ContractReceipt } from "ethers";
+import { BigNumber } from "ethers";
 import { ethers, waffle } from "hardhat";
-import { HOUR, MAX_UINT256, YEAR, ZERO } from "test/helpers/constants";
-import { $ether, now, printEther } from "test/helpers/utils";
+import { HOUR, MAX_UINT256, WEEK, YEAR, ZERO } from "test/helpers/constants";
+import { $ether, now } from "test/helpers/utils";
 import {
   ERC4626Term,
   ERC4626Term__factory,
@@ -14,6 +14,7 @@ import {
   MockERC4626__factory,
 } from "typechain-types";
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
+import { advanceTime } from "./helpers/time";
 
 const { provider } = waffle;
 
@@ -27,7 +28,7 @@ const VAULT_SHARE_PRICE = $ether("0.9");
 const TERM_START = now() + HOUR; // we tack on an hour so that ytBeginDate defaults to blockTimestamp
 const TERM_END = TERM_START + YEAR; // This becomes the ID
 
-describe.only("ERC4626Term", () => {
+describe("ERC4626Term", () => {
   let token: MockERC20;
   let vault: MockERC4626;
   let term: ERC4626Term;
@@ -645,70 +646,203 @@ describe.only("ERC4626Term", () => {
             $ether("103500")
           );
         });
-
-        xdescribe("should exhibit expected behaviour across multiple deposits and accrueing interest", () => {});
       });
     });
 
-    describe.only("_withdraw", () => {
-      describe("underlyingReserve > 0", () => {
-        beforeEach(async () => {
-          // setup state by locking
-          await term.connect(user).lock(
+    describe("_withdraw", () => {
+      beforeEach(async () => {
+        // setup state by locking
+        await term
+          .connect(user)
+          .lock(
             [],
             [],
-            $ether("1000000"), // deposit first half of underlying into vault
+            $ether("1000000"),
             user.address,
             user.address,
             TERM_START,
             0
           );
 
+        await term
+          .connect(user)
+          .setApproval(UNLOCKED_YT_ID, term.address, MAX_UINT256);
+      });
+
+      it("initial state", async () => {
+        expect(await vault.previewDeposit($ether("1"))).to.be.eq($ether("0.9"));
+
+        expect(await token.balanceOf(user.address)).to.be.eq(ZERO);
+
+        // expect underlyingReserve to be at target
+        expect(await term.underlyingReserve()).to.be.eq(TARGET_RESERVE);
+        expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
+
+        expect(await term.vaultShareReserve()).to.be.eq($ether("877500"));
+        expect(await vault.balanceOf(term.address)).to.be.eq($ether("877500"));
+        expect(await token.balanceOf(user.address)).to.be.eq(ZERO);
+        expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
+          $ether("1000000")
+        );
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
+          $ether("1000000")
+        );
+      });
+
+      it("should withdraw underlying from underlyingReserve if underlyingDue is less than underlyingReserve", async () => {
+        // tx
+        const receipt = await (
           await term
             .connect(user)
-            .setApproval(UNLOCKED_YT_ID, term.address, MAX_UINT256);
-        });
+            .unlock(user.address, [UNLOCKED_YT_ID], [$ether("10")])
+        ).wait(1);
+        expect(receipt.status).to.be.eq(1);
 
-        it("initial state", async () => {
-          expect(await vault.previewDeposit($ether("1"))).to.be.eq(
-            $ether("0.9")
-          );
+        // token should have 10 underlying
+        expect(await token.balanceOf(user.address)).to.be.eq($ether("10"));
 
-          expect(await token.balanceOf(user.address)).to.be.eq(ZERO);
+        // underlying reserve should be 10 underlying less
+        expect(await term.underlyingReserve()).to.be.eq($ether("24990"));
+        expect(await token.balanceOf(term.address)).to.be.eq($ether("24990"));
 
-          // expect underlyingReserve to be at target
-          expect(await term.underlyingReserve()).to.be.eq(TARGET_RESERVE);
-          expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
+        // vaultShare reserve should be unchanged
+        expect(await term.vaultShareReserve()).to.be.eq($ether("877500"));
+        expect(await vault.balanceOf(term.address)).to.be.eq($ether("877500"));
 
-          expect(await term.vaultShareReserve()).to.be.eq($ether("877500"));
-          expect(await vault.balanceOf(term.address)).to.be.eq(
-            $ether("877500")
-          );
-          expect(await token.balanceOf(user.address)).to.be.eq(ZERO);
-          expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
-            $ether("1000000")
-          );
-        });
+        // 10 YT's should be removed
+        expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
+          $ether("999990")
+        );
 
-        it("should withdraw underlying from underlyingReserve if underlyingDue is less than underlyingReserve", async () => {
-          // tx
-          const receipt = await (
-            await term.connect(user).unlock(user.address, [0], [$ether("10")])
-          ).wait(1);
-          expect(receipt.status).to.be.eq(1);
+        // supply of shares should be 10 less
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
+          $ether("999990")
+        );
+      });
+      it("should withdraw underlying from underlyingReserve if underlyingDue is equal to underlyingReserve", async () => {
+        // tx
+        const receipt = await (
+          await term
+            .connect(user)
+            .unlock(user.address, [UNLOCKED_YT_ID], [TARGET_RESERVE])
+        ).wait(1);
+        expect(receipt.status).to.be.eq(1);
 
-          const underlyingWithdrawn = await token.balanceOf(user.address);
-          expect(underlyingWithdrawn).to.be.eq($ether("10"));
-        });
-        xit("should withdraw underlying from underlyingReserve if underlyingDue is equal to underlyingReserve", async () => {});
-        xit("should withdraw underlying from a redeemed portion of the vaultShareReserve if underlyingDue > underlyingReserve && underlyingDue < underlying value of vaultShareReserve", async () => {});
-        xit("should withdraw underlying from all of the vaultShareReserve if underlyingDue > underlyingReserve && underlyingDue === underlying value of vaultShareReserve", async () => {});
-        xit("should withdraw underlying from all of the vaultShareReserve with a portion of the underlyingReserve if underlyingDue > underlyingReserve && underlyingDue > underlying value of vaultShareReserve", async () => {});
-        xit("should withdraw underlying from all of the vaultShareReserve and all of the underlyingReserve if underlyingDue === underlyingReserve + underlying value of vaultShareReserve", async () => {});
+        // token should have TARGET_RESERVE of underlying
+        expect(await token.balanceOf(user.address)).to.be.eq(TARGET_RESERVE);
+
+        // underlying reserve should 0
+        expect(await term.underlyingReserve()).to.be.eq(ZERO);
+        expect(await token.balanceOf(term.address)).to.be.eq(ZERO);
+
+        // vaultShare reserve should be unchanged
+        expect(await term.vaultShareReserve()).to.be.eq($ether("877500"));
+        expect(await vault.balanceOf(term.address)).to.be.eq($ether("877500"));
+
+        expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
+          $ether("975000")
+        );
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
+          $ether("975000")
+        );
+      });
+      it("should withdraw underlying from a redeemed portion of the vaultShareReserve if underlyingDue > underlyingReserve && underlyingDue < underlying value of vaultShareReserve", async () => {
+        // tx
+        const receipt = await (
+          await term
+            .connect(user)
+            .unlock(user.address, [UNLOCKED_YT_ID], [$ether("30000")])
+        ).wait(1);
+        expect(receipt.status).to.be.eq(1);
+
+        // token should have 30K underlying
+        expect(await token.balanceOf(user.address)).to.be.eq($ether("30000"));
+
+        // underlying reserve should be unchanged
+        expect(await term.underlyingReserve()).to.be.eq(TARGET_RESERVE);
+        expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
+
+        // vaultShare reserve should be 30K * vaultShare price = 27K vault shares less
+        expect(await term.vaultShareReserve()).to.be.eq($ether("850500"));
+        expect(await vault.balanceOf(term.address)).to.be.eq($ether("850500"));
+        expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
+          $ether("970000")
+        );
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
+          $ether("970000")
+        );
+      });
+      it("should withdraw underlying from all of the vaultShareReserve if underlyingDue > underlyingReserve && underlyingDue === underlying value of vaultShareReserve", async () => {
+        // tx
+        const receipt = await (
+          await term
+            .connect(user)
+            .unlock(user.address, [UNLOCKED_YT_ID], [$ether("975000")])
+        ).wait(1);
+        expect(receipt.status).to.be.eq(1);
+
+        expect(await token.balanceOf(user.address)).to.be.eq($ether("975000"));
+
+        // underlying reserve should be unchanged
+        expect(await term.underlyingReserve()).to.be.eq(TARGET_RESERVE);
+        expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
+
+        expect(await term.vaultShareReserve()).to.be.eq(ZERO);
+        expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
+
+        expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
+          $ether("25000")
+        );
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
+          $ether("25000")
+        );
+      });
+      it("should withdraw underlying from all of the vaultShareReserve with a portion of the underlyingReserve if underlyingDue > underlyingReserve && underlyingDue > underlying value of vaultShareReserve", async () => {
+        const receipt = await (
+          await term
+            .connect(user)
+            .unlock(user.address, [UNLOCKED_YT_ID], [$ether("985000")])
+        ).wait(1);
+        expect(receipt.status).to.be.eq(1);
+
+        expect(await token.balanceOf(user.address)).to.be.eq($ether("985000"));
+
+        expect(await term.underlyingReserve()).to.be.eq($ether("15000"));
+        expect(await token.balanceOf(term.address)).to.be.eq($ether("15000"));
+
+        expect(await term.vaultShareReserve()).to.be.eq(ZERO);
+        expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
+
+        expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
+          $ether("15000")
+        );
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
+          $ether("15000")
+        );
+      });
+
+      it("should withdraw underlying from all of the vaultShareReserve and all of the underlyingReserve if underlyingDue === underlyingReserve + underlying value of vaultShareReserve", async () => {
+        const receipt = await (
+          await term
+            .connect(user)
+            .unlock(user.address, [UNLOCKED_YT_ID], [$ether("1000000")])
+        ).wait(1);
+        expect(receipt.status).to.be.eq(1);
+
+        expect(await token.balanceOf(user.address)).to.be.eq($ether("1000000"));
+
+        expect(await term.underlyingReserve()).to.be.eq(ZERO);
+        expect(await token.balanceOf(term.address)).to.be.eq(ZERO);
+
+        expect(await term.vaultShareReserve()).to.be.eq(ZERO);
+        expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
+
+        expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
+          ZERO
+        );
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(ZERO);
       });
     });
-
-    xdescribe("underlyingReserve === 0", () => {});
   });
 
   describe("ShareState.Locked", () => {
@@ -750,6 +884,53 @@ describe.only("ERC4626Term", () => {
         expect(vaultShares).to.be.eq($ether("900"));
         expect(sharesIssued).to.be.eq($ether("1000"));
       });
+    });
+  });
+
+  describe("_withdraw", () => {
+    before(async () => {
+      await term
+        .connect(user)
+        .lock(
+          [],
+          [],
+          $ether("1000"),
+          user.address,
+          user.address,
+          TERM_START,
+          TERM_END
+        );
+    });
+
+    it("should redeem shares for underlying directly", async () => {
+      const prevSupply = await term.totalSupply(TERM_END);
+
+      await advanceTime(YEAR + WEEK);
+
+      const receipt = await (
+        await term
+          .connect(user)
+          .unlock(user.address, [TERM_END], [$ether("1000")])
+      ).wait(1);
+      expect(receipt.status).to.be.eq(1);
+
+      const vaultWithdrawEvents = await vault.queryFilter(
+        vault.filters.Withdraw(),
+        receipt.blockHash
+      );
+      expect(vaultWithdrawEvents).to.not.be.empty;
+
+      const [
+        {
+          args: { assets: underlyingWithdrawn, shares: vaultShares },
+        },
+      ] = vaultWithdrawEvents;
+
+      const sharesIssued = (await term.totalSupply(TERM_END)).sub(prevSupply);
+
+      expect(underlyingWithdrawn).to.be.eq($ether("1000"));
+      expect(vaultShares).to.be.eq($ether("900"));
+      expect(sharesIssued).to.be.eq($ether("-1000"));
     });
   });
 });
