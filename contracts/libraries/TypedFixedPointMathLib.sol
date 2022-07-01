@@ -84,6 +84,14 @@ library TypedFixedPointMathLib {
         return UFixedPoint.wrap(a * _ONE_18);
     }
 
+    function wrap(uint256 a) internal pure returns(UFixedPoint) {
+        return UFixedPoint.wrap(a);
+    }
+
+    function unwrap(UFixedPoint a) internal pure returns(uint256) {
+        return UFixedPoint.unwrap(a);
+    }
+
     function toExponent(uint256 a) internal pure returns (Exponent) {
         return Exponent.wrap(a);
     }

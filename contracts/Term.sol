@@ -102,11 +102,11 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             (totalShares, totalValue) = _deposit(destinationState);
         }
 
-        // To release shares we delete any input PT and YT, these may be unlocked or locked
+        // To release shares we delete (burn) any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
         uint256 previousId = 0;
-        // Deletes any assets which are rolling over and returns how many much in terms of
+        // Deletes (burn) any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < assetIds.length; i++) {
             // helps the stack
@@ -170,7 +170,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Mint the user principal tokens
         // Note - Reverts if the user is trying to enter a term where they have not supplied enough
         //        value to pay for accumulated interest, the user should choose a more recent term.
-        if (totalValue - discount > 0) {
+        if (totalValue - discount > 0) {  // Should be equal to the total value in the special case where the id is _UNLOCK_TERM_ID and expiration = 0
             _mint(expiration, ptDestination, totalValue - discount);
         }
 
@@ -309,7 +309,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         }
     }
 
-    /// @notice Deletes and asset [expired PT/YT or unlocked share] and returns the shares released
+    /// @notice burn asset [expired PT/YT or unlocked share] and returns the shares released
     ///         and their value. Note - Shares from unlocked assets may be different than from PT/YT
     /// @param assetId The ID for the asset redeemed
     /// @param source The account to delete tokens from

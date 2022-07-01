@@ -83,16 +83,9 @@ contract MultiToken is IMultiToken {
     /// @notice This modifier checks the caller is the create2 validated ERC20 bridge
     /// @param tokenID The internal token identifier
     modifier onlyLinker(uint256 tokenID) {
-        // Get the salt which is used by the deploying contract
-        bytes32 salt = keccak256(abi.encode(address(this), tokenID));
-        // Preform the hash which determines the address of a create2 deployment
-        bytes32 addressBytes = keccak256(
-            abi.encodePacked(bytes1(0xff), factory, salt, linkerCodeHash)
-        );
-
         // If the caller does not match the address hash, we revert because it is not
         // allowed to access permission-ed methods.
-        if (msg.sender != address(uint160(uint256(addressBytes))))
+        if (msg.sender != _deriveForwarderAddress(tokenID))
             revert NonLinkerCaller();
         // Execute the following function
         _;
@@ -322,5 +315,26 @@ contract MultiToken is IMultiToken {
         nonces[owner]++;
         // set the state
         isApprovedForAll[owner][spender] = _approved;
+    }
+
+    /// @notice Derive the ERC20 forwarder address for a provided `tokenId`.
+    /// @param tokenId Token Id of the token whose forwader contract address need to drived.
+    /// @return Address of the ERC20 forwarder contract.
+    function deriveForwarderAddress(uint256 tokenId) external returns(address) {
+        return _deriveForwarderAddress(tokenId);
+    }
+
+
+    /// @notice Derive the ERC20 forwarder address for a provided `tokenId`.
+    /// @param tokenId Token Id of the token whose forwader contract address need to drived.
+    /// @return Address of the ERC20 forwarder contract.
+    function _deriveForwarderAddress(uint256 tokenId) internal returns(address) {
+        // Get the salt which is used by the deploying contract
+        bytes32 salt = keccak256(abi.encode(address(this), tokenId));
+        // Preform the hash which determines the address of a create2 deployment
+        bytes32 addressBytes = keccak256(
+            abi.encodePacked(bytes1(0xff), factory, salt, linkerCodeHash)
+        );
+        return address(uint160(uint256(addressBytes)));
     }
 }

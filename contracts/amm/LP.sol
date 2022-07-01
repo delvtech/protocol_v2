@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "./MultiToken.sol";
-import "./interfaces/IERC20.sol";
-import "./interfaces/ITerm.sol";
-import "./interfaces/IYieldAdapter.sol";
+import "../MultiToken.sol";
+import "../interfaces/IERC20.sol";
+import "../interfaces/ITerm.sol";
+import "../interfaces/IYieldAdapter.sol";
 
 // LP is a multitoken [ie fake 1155] contract which accepts deposits and withdraws
 // from the AMM.
@@ -24,15 +24,15 @@ contract LP is MultiToken {
     mapping(uint256 => Reserve) public reserves;
     // The term address cannot be changed after deploy.
     // All funds are held in the term contract.
-    ITerm immutable term;
+    ITerm public immutable term;
     // The underlying token on which yield is earned
-    IERC20 immutable token;
-    uint8 immutable decimals;
+    IERC20 public immutable token;
+    uint8 public immutable decimals;
     // One expressed in the native token math
-    uint256 immutable one;
+    uint256 internal immutable _one;
 
     // The id for the unlocked deposit into the term, this is YT at expiry and start time 0
-    uint256 constant unlockedTermID = 1 << 255;
+    uint256 internal constant _UNLOCK_TERM_ID = 1 << 255;
 
     /// @notice Runs the initial deployment code
     /// @param _token The token which is deposited into this contract
@@ -76,6 +76,7 @@ contract LP is MultiToken {
         // Note - we need a pointless storage to memory to convince the solidity type checker
         // to understand the type of []
         uint256[] memory empty = new uint256[](0);
+        // depositedShares == YT minted 
         (uint256 depositedShares, ) = term.lock(
             empty,
             empty,
@@ -84,7 +85,7 @@ contract LP is MultiToken {
             // There's no PT for this
             address(this),
             0,
-            unlockedTermID
+            _UNLOCK_TERM_ID
         );
 
         // Calculate the implicit price per share
@@ -92,8 +93,8 @@ contract LP is MultiToken {
         // Call internal function to mint new lp from the new shares held by this contract
         uint256 newLpToken = depositFromShares(
             poolId,
-            uint256(reserves[poolId].shares),
-            uint256(reserves[poolId].bonds),
+            uint256(reserves[poolId].shares), // unlocked tokens YT
+            uint256(reserves[poolId].bonds),  // <-- PT
             depositedShares,
             pricePerShare,
             destination
@@ -127,7 +128,7 @@ contract LP is MultiToken {
         uint256 sharesNeeded = (loadedShares * ptDeposited) / loadedBonds;
         // Transfer shares from user
         term.transferFrom(
-            unlockedTermID,
+            _UNLOCK_TERM_ID,
             msg.sender,
             address(this),
             sharesNeeded
@@ -167,7 +168,7 @@ contract LP is MultiToken {
 
         // Create the arrays for a withdraw from term
         uint256[] memory ids = new uint256[](1);
-        ids[0] = unlockedTermID;
+        ids[0] = _UNLOCK_TERM_ID;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = userShares;
         // Do the withdraw to user account
@@ -258,10 +259,10 @@ contract LP is MultiToken {
 
         // Note need to declare dynamic memory types in this way even with one element
         uint256[] memory ids = new uint256[](1);
-        ids[0] = unlockedTermID;
+        ids[0] = _UNLOCK_TERM_ID;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = sharesToLock;
-        // then make the call
+        // then make the call  /// SA: Special case
         term.lock(
             ids,
             amounts,
@@ -322,7 +323,7 @@ contract LP is MultiToken {
                 address(this),
                 address(this),
                 0,
-                unlockedTermID
+                _UNLOCK_TERM_ID
             );
             // Now we update the cached reserves
             reserveBonds = 0;
