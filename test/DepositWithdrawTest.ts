@@ -4,43 +4,62 @@ import { MockYieldAdapter } from "typechain/MockYieldAdapter";
 import { MockERC20YearnVault } from "typechain/MockERC20YearnVault";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
-import { TestERC20 } from "typechain/TestERC20";
 import { ForwarderFactory } from "typechain/ForwarderFactory";
+import { ERC20Forwarder } from "typechain";
+import { MockMultiToken } from "typechain-types";
+import { TestERC20 } from "typechain/TestERC20";
+import { advanceTime, getCurrentTimestamp } from "./helpers/time";
 
 const { provider } = waffle;
 
-// TODO: this runs me into backdating when I use this so I think it's bad block math/setup
-//       is it worth it to try to make it work?
-async function getTimestamp() {
-  return (await ethers.provider.getBlock("latest")).timestamp;
-}
-
 describe("Deposit Tests", async () => {
   const SECONDS_IN_YEAR = 31536000;
+  const UNLOCK_YT_ID = 1 << 255;
 
   let token: TestERC20;
+  let token2: TestERC20;
+  let multiToken: MockMultiToken;
   let vault: MockERC20YearnVault;
   let yieldAdapter: MockYieldAdapter;
+  let erc20: ERC20Forwarder;
   let factory: ForwarderFactory;
   let signers: SignerWithAddress[];
+  const token1 = "0x1";
 
   before(async () => {
     signers = await ethers.getSigners();
-    const tokenFactory = await ethers.getContractFactory(
-      "TestERC20",
+    const factoryFactory = await ethers.getContractFactory(
+        "ForwarderFactory",
+        signers[0]
+      );
+    factory = await factoryFactory.deploy();
+    // not sure if we need this to be a deployed contract
+    const multiTokenDeployer = await ethers.getContractFactory(
+      "MockMultiToken",
       signers[0]
     );
+    multiToken = await multiTokenDeployer.deploy(
+      await factory.ERC20LINK_HASH(),
+      factory.address
+    );
+    await factory.create(multiToken.address, token1)
+    const erc20Address = await factory.getForwarder(multiToken.address, token1)
+    const erc20ContractFactory = await ethers.getContractFactory(
+        "ERC20Forwarder",
+        signers[0]
+    );
+    erc20 = erc20ContractFactory.attach(erc20Address);
+    const tokenFactory = await ethers.getContractFactory(
+        "TestERC20",
+        signers[0]
+      );
     token = await tokenFactory.deploy("token", "TKN", 18);
+    token2 = await tokenFactory.deploy("USDC", "USDC", 18);
     const vaultFactory = await ethers.getContractFactory(
       "MockERC20YearnVault",
       signers[0]
     );
     vault = await vaultFactory.deploy(token.address);
-    const factoryFactory = await ethers.getContractFactory(
-      "ForwarderFactory",
-      signers[0]
-    );
-    factory = await factoryFactory.deploy();
     const adapterFactory = await ethers.getContractFactory(
       "MockYieldAdapter",
       signers[0]
@@ -52,13 +71,17 @@ describe("Deposit Tests", async () => {
       token.address
     );
 
+
     // TODO: probably loop this for multiple users so cleaner
-    // mint some tokens
+    // set some token balance
     await token.mint(signers[0].address, 7e6);
     await token.mint(signers[1].address, 7e6);
-    // set an allowance
+    // set allowance for the yieldAdapter contract
     await token.connect(signers[0]).approve(yieldAdapter.address, 12e6);
-    await token.connect(signers[1]).approve(yieldAdapter.address, 12e6);
+    await token.connect(signers[1]).approve(yieldAdapter.address, 12e6); 
+
+    // go forward in time
+    await advanceTime(provider, SECONDS_IN_YEAR);
   });
 
   beforeEach(async () => {
@@ -71,21 +94,26 @@ describe("Deposit Tests", async () => {
 
   describe.only("Lock", async () => {
     it("Fails invalid expiry", async () => {
+      const now = await getCurrentTimestamp(provider);
+      console.log(now-1e6);
       const tx = yieldAdapter.lock(
         [],
         [],
         100,
         signers[0].address,
         signers[0].address,
-        Math.floor(Date.now() / 1000),
-        806774400 // unix timestamp from the past
+        now,
+        now - 1e6 // unix timestamp from the past
       );
       await expect(tx).to.be.revertedWith("todo nice error");
     });
 
     it("Single user successfully deposit underlying", async () => {
+      const startBalance = await token.balanceOf(signers[0].address);
       // create beginning timestamp
+      // TODO: logic with time is off, other function doesn't work as expected here
       const start = Math.floor(Date.now() / 1000);
+    //   const now = await getCurrentTimestamp(provider);
       // create expiry timestamp in the future
       const expiration = start + SECONDS_IN_YEAR;
       await yieldAdapter.lock(
@@ -98,15 +126,38 @@ describe("Deposit Tests", async () => {
         expiration
       );
       // check that user's balance decreased
-      expect(await token.balanceOf(signers[0].address)).to.equal(7e6 - 5);
+      expect(await token.balanceOf(signers[0].address)).to.equal(startBalance.toNumber() - 5);
       // check that vault's balance increased
       expect(await token.balanceOf(vault.address)).to.equal(5);
     });
 
-    // TODO: probably a copy of this with some waiting between & different timestamps
+    it("Deposit underlying with different destination", async () => {
+        const startBalance = await token.balanceOf(signers[0].address);
+        // create beginning timestamp
+        // TODO: logic with time is off, other function doesn't work as expected here
+        const start = Math.floor(Date.now() / 1000);
+      //   const now = await getCurrentTimestamp(provider);
+        // create expiry timestamp in the future
+        const expiration = start + SECONDS_IN_YEAR;
+        await yieldAdapter.lock(
+          [],
+          [],
+          5,
+          signers[0].address,
+          signers[1].address,
+          start,
+          expiration
+        );
+        // check that user's balance decreased
+        expect(await token.balanceOf(signers[0].address)).to.equal(startBalance.toNumber() - 5);
+        // check that vault's balance increased
+        expect(await token.balanceOf(vault.address)).to.equal(5);
+      });
+
     it("Multiple users successfully deposit underlying", async () => {
       // create beginning timestamp
       const start = Math.floor(Date.now() / 1000);
+    //   const start = await getCurrentTimestamp(provider);
       // create expiry timestamp in the future
       const expiration = start + SECONDS_IN_YEAR;
       await yieldAdapter
@@ -138,20 +189,58 @@ describe("Deposit Tests", async () => {
       expect(await token.balanceOf(vault.address)).to.equal(10);
     });
 
+    it("Users deposit underlying, time in between", async () => {
+        // create beginning timestamp
+        let start = Math.floor(Date.now() / 1000);
+      //   const start = await getCurrentTimestamp(provider);
+        // create expiry timestamp in the future
+        let expiration = start + SECONDS_IN_YEAR;
+        await yieldAdapter
+          .connect(signers[0])
+          .lock(
+            [],
+            [],
+            5,
+            signers[0].address,
+            signers[0].address,
+            start,
+            expiration
+          );
+        await advanceTime(provider, start + SECONDS_IN_YEAR/2);
+        start = Math.floor(Date.now() / 1000);
+        expiration = start + SECONDS_IN_YEAR;
+        await yieldAdapter
+          .connect(signers[1])
+          .lock(
+            [],
+            [],
+            5,
+            signers[1].address,
+            signers[1].address,
+            start,
+            expiration
+          );
+        // check that user's balance decreased
+        expect(await token.balanceOf(signers[0].address)).to.equal(7e6 - 5);
+        expect(await token.balanceOf(signers[1].address)).to.equal(7e6 - 5);
+        // check that vault's balance increased
+        expect(await token.balanceOf(vault.address)).to.equal(10);
+      });
+
     it("Deposit underlying with zero expiry", async () => {
       // create beginning timestamp
       const now = Math.floor(Date.now() / 1000);
       const tx = yieldAdapter.lock(
         [],
         [],
-        5,
+        100,
         signers[0].address,
         signers[0].address,
         now,
         0
       );
-      await expect(tx).to.be.reverted;
-      // TODO: should not revert, fix the logic here
+      // check that YT's have been minted at the unlock ID
+      await yieldAdapter.balanceOf(UNLOCK_YT_ID, signers[0].address);
     });
 
     it("Valid backdating deposit", async () => {
@@ -168,23 +257,23 @@ describe("Deposit Tests", async () => {
       await expect(tx).to.be.revertedWith("todo nice error");
     });
   });
-  describe.only("Unlock", async () => {
-    it("Unlock some reserves", async () => {
-      // deposit some underlying
-      const now = Math.floor(Date.now() / 1000);
-      const expiration = now + 1;
-      await yieldAdapter.lock(
-        [],
-        [],
-        5,
-        signers[0].address,
-        signers[0].address,
-        now,
-        expiration
-      );
-      const id = (1 << (255 + now)) << (128 + expiration);
-      const tx = await yieldAdapter.unlock(signers[0].address, [id], [1]);
-      // think I need to wait here, gives a weird division by zero
-    });
-  });
+//   describe.only("Unlock", async () => {
+//     it("Unlock some reserves", async () => {
+//       // deposit some underlying
+//       const now = Math.floor(Date.now() / 1000);
+//       const expiration = now + 1;
+//       await yieldAdapter.lock(
+//         [],
+//         [],
+//         5,
+//         signers[0].address,
+//         signers[0].address,
+//         now,
+//         expiration
+//       );
+//       const id = (1 << (255 + now)) << (128 + expiration);
+//       const tx = await yieldAdapter.unlock(signers[0].address, [id], [1]);
+//       // think I need to wait here, gives a weird division by zero
+//     });
+//   });
 });

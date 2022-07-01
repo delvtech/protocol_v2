@@ -6,6 +6,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
 import { TestERC20 } from "typechain/TestERC20";
 import { ForwarderFactory } from "typechain/ForwarderFactory";
+import { advanceBlock, advanceTime, getCurrentTimestamp } from "./helpers/time";
 
 const { provider } = waffle;
 
@@ -53,6 +54,20 @@ describe("Rollover Tests", async () => {
     // set an allowance
     await token.connect(signers[0]).approve(yieldAdapter.address, 12e6);
     await token.connect(signers[1]).approve(yieldAdapter.address, 12e6);
+
+    // make deposits into an account
+    const start = await getCurrentTimestamp(provider);
+    const expiration = start + SECONDS_IN_YEAR * 3;
+    await yieldAdapter.lock(
+        [],
+        [],
+        5,
+        signers[0].address,
+        signers[0].address,
+        start,
+        expiration
+      );
+    advanceTime(provider, SECONDS_IN_YEAR);
   });
 
   beforeEach(async () => {
@@ -61,5 +76,22 @@ describe("Rollover Tests", async () => {
 
   afterEach(async () => {
     await restoreSnapshot(provider);
+  });
+
+  it("Successful rollover", async () => {
+
+  });
+  it("Rollover and add underlying", async () => {
+    const start = await getCurrentTimestamp(provider);
+    const expiration = start + SECONDS_IN_YEAR * 3;
+    await yieldAdapter.lock(
+        [], // TODO: id's
+        [], // amounts
+        1e3,
+        signers[0].address,
+        signers[0].address,
+        start,
+        expiration
+    );
   });
 });
