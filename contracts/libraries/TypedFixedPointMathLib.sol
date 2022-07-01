@@ -4,9 +4,8 @@ pragma solidity ^0.8.15;
 import "./FixedPointMathLib.sol";
 
 type UFixedPoint is uint256;
-type Exponent is uint256; // TODO: Why do we need this?
 
-/// @notice Typed arithmetic library with operations for fixed-point numbers.
+/// @notice A typed fixed-point math library.
 /// @author Element Finance
 library TypedFixedPointMathLib {
     uint256 internal constant _ONE_18 = 1e18; // The scalar of ETH and most ERC20s.
@@ -23,7 +22,7 @@ library TypedFixedPointMathLib {
                     UFixedPoint.unwrap(b),
                     _ONE_18
                 )
-            ); // Equivalent to (a * b) / WAD rounded down.
+            ); // Equivalent to (a * b) / 1e18 rounded down.
     }
 
     function mulUp(UFixedPoint a, UFixedPoint b)
@@ -38,7 +37,7 @@ library TypedFixedPointMathLib {
                     UFixedPoint.unwrap(b),
                     _ONE_18
                 )
-            ); // Equivalent to (a * b) / WAD rounded up.
+            ); // Equivalent to (a * b) / 1e18 rounded up.
     }
 
     function divDown(UFixedPoint a, UFixedPoint b)
@@ -53,7 +52,7 @@ library TypedFixedPointMathLib {
                     _ONE_18,
                     UFixedPoint.unwrap(b)
                 )
-            ); // Equivalent to (a * WAD) / b rounded down.
+            ); // Equivalent to (a * 1e18) / b rounded down.
     }
 
     function divUp(UFixedPoint a, UFixedPoint b)
@@ -68,23 +67,24 @@ library TypedFixedPointMathLib {
                     _ONE_18,
                     UFixedPoint.unwrap(b)
                 )
-            ); // Equivalent to (a * WAD) / b rounded up.
+            ); // Equivalent to (a * 1e18) / b rounded up.
     }
 
-    // TODO: Implement this
-    function pow(UFixedPoint a, Exponent n)
+    function pow(UFixedPoint x, UFixedPoint y)
         internal
         pure
         returns (UFixedPoint)
     {
-        return UFixedPoint.wrap(0);
+        return
+            UFixedPoint.wrap(
+                FixedPointMathLib.pow(
+                    UFixedPoint.unwrap(x),
+                    UFixedPoint.unwrap(y)
+                )
+            );
     }
 
     function toUFixedPoint(uint256 a) internal pure returns (UFixedPoint) {
         return UFixedPoint.wrap(a * _ONE_18);
-    }
-
-    function toExponent(uint256 a) internal pure returns (Exponent) {
-        return Exponent.wrap(a);
     }
 }
