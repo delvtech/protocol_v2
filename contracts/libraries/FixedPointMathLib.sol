@@ -140,7 +140,7 @@ library FixedPointMathLib {
             p = ((p * x) >> 96) + 44335888930127919016834873520032;
             p = ((p * x) >> 96) + 398888492587501845352592340339721;
             p = ((p * x) >> 96) + 1993839819670624470859228494792842;
-            p = p * x + (4385272521454847904632057985693276 << 96);
+            p = p * x + (4385272521454847904659076985693276 << 96);
             // We leave p in 2**192 basis so we don't need to scale it back up for the division.
             // Evaluate using using Knuth's scheme from p. 491.
             int256 z = x + 750530180792738023273180420736;
