@@ -321,7 +321,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
         // If the term's final interest rate has not been recorded we record it
-        if (finalState.interest == 0) {
+        if (assetId != UNLOCKED_YT_ID && finalState.interest == 0) {
             finalState = _finalizeTerm(expiry);
         }
 
