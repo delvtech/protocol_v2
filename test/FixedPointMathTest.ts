@@ -65,4 +65,17 @@ describe("FixedPointMath Tests", function () {
       }
     );
   });
+
+  describe("powTyped()", function () {
+    forEach(testSets).it(
+      "handles %s^(%s)",
+      async function (x: string, y: string) {
+        const expected = fp(pow(x, y));
+        const result = await MockFixedPointMath.powTyped(fp(x), fp(y));
+        expect(Number(ethers.utils.formatEther(result))).to.be.equal(
+          Number(ethers.utils.formatEther(expected))
+        );
+      }
+    );
+  });
 });
