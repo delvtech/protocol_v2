@@ -35,17 +35,15 @@ contract LP is MultiToken {
     uint256 internal constant _UNLOCK_TERM_ID = 1 << 255;
 
     /// @notice Runs the initial deployment code
-    /// @param _token The token which is deposited into this contract
     /// @param _term The term which locks and earns yield on token
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
     constructor(
-        IERC20 _token,
         ITerm _term,
         bytes32 _linkerCodeHash,
         address _factory
     ) MultiToken(_linkerCodeHash, _factory) {
-        token = _token;
+        token = _term.token();
         uint8 _decimals = _token.decimals();
         decimals = _decimals;
         one = 10**_decimals;

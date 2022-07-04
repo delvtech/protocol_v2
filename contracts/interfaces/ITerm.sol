@@ -31,4 +31,6 @@ interface ITerm is IMultiToken {
     ) external returns (uint256);
 
     function unlockedSharePrice() external returns (uint256);
+
+    function token() external view returns (address);
 }
