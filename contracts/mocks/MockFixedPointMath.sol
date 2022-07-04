@@ -9,7 +9,6 @@ contract MockFixedPointMath {
     function pow(uint256 x, uint256 y) public view returns (uint256 result) {
         uint256 startGas = gasleft();
         result = FixedPointMathLib.pow(x, y);
-        console.log(result);
         console.log("gasUsed", startGas - gasleft());
     }
 
