@@ -10,7 +10,16 @@ import "hardhat/console.sol";
 library YieldSpaceMathLib {
     using TypedFixedPointMathLib for UFixedPoint;
 
-    /// bondOut = bondReserves - ( c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t) - c/mu * (mu * shareReserves + mu * shareIn)^(1-t) )^(1 / (1 - t))
+    /// Calculates the amount of bond a user would get for given amount of shares.
+    /// @param sharesReserves yield bearing vault shares reserve amount
+    /// @param bondReserves bond reserves amount
+    /// @param totalSupply total supply amount
+    /// @param shareIn shares amount to be traded
+    /// @param t time till maturity in seconds
+    /// @param s time stretch coefficient.  e.g. 25 years in seconds
+    /// @param c price of shares in terms of their base
+    /// @param mu Normalization factor -- starts as c at initialization
+    /// @return result the amount of bond a user would get for given amount of shares
     function calculateBondOutGivenShareIn(
         UFixedPoint shareReserves,
         UFixedPoint bondReserves,
@@ -21,6 +30,8 @@ library YieldSpaceMathLib {
         UFixedPoint c,
         UFixedPoint mu
     ) internal view returns (UFixedPoint result) {
+        // bondOut = bondReserves - ( c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t) - c/mu * (mu * shareReserves + mu * shareIn)^(1-t) )^(1 / (1 - t))
+
         // Notes: 1 >= 1-st >= 0
         UFixedPoint oneMinusT = TypedFixedPointMathLib.ONE_18.sub(s.mulDown(t));
         // c/mu
@@ -50,7 +61,16 @@ library YieldSpaceMathLib {
         result = bondReserves.add(totalSupply).sub(result);
     }
 
-    /// shareOut = shareReserves - 1/mu( (mu * shareReserves)^(1-t) + mu/c * bondReserves^(1-t) -  mu/c * (bondReserves + bondIn)^(1-t) )^(1 / (1 - t))
+    /// Calculates the amount of bond a user would get for given amount of shares.
+    /// @param sharesReserves yield bearing vault shares reserve amount
+    /// @param bondReserves bond reserves amount
+    /// @param totalSupply total supply amount
+    /// @param bondIn shares amount to be traded
+    /// @param t time till maturity in seconds
+    /// @param s time stretch coefficient.  e.g. 25 years in seconds
+    /// @param c price of shares in terms of their base
+    /// @param mu Normalization factor -- starts as c at initialization
+    /// @return result the amount of shares a user would get for given amount of bond
     function calculateShareOutGivenBondIn(
         UFixedPoint shareReserves,
         UFixedPoint bondReserves,
@@ -61,6 +81,8 @@ library YieldSpaceMathLib {
         UFixedPoint c,
         UFixedPoint mu
     ) internal pure returns (UFixedPoint result) {
+        // shareOut = shareReserves - 1/mu( (mu * shareReserves)^(1-t) + mu/c * bondReserves^(1-t) -  mu/c * (bondReserves + bondIn)^(1-t) )^(1 / (1 - t))
+
         // Notes: 1 >= 1-st >= 0
         UFixedPoint oneMinusT = TypedFixedPointMathLib.ONE_18.sub(s.mulDown(t));
         // mu/c
