@@ -7,9 +7,6 @@ import "contracts/libraries/Errors.sol";
 /// @author Element Finance
 library FixedPointMathLib {
     int256 private constant _ONE_18 = 1e18;
-    int256 private constant _ONE_20 = 1e20;
-
-    uint256 private constant _MILD_EXPONENT_BOUND = 2**254 / uint256(_ONE_20);
 
     /// @dev Credit to Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/FixedPointMathLib.sol)
     function mulDivDown(
@@ -60,8 +57,6 @@ library FixedPointMathLib {
         // -> ln(x^y) = y * ln(x)
         // -> e^(y * ln(x)) = x^y
 
-        // This prevents y * ln(x) from overflowing, and at the same time guarantees y fits in the signed 256 bit range.
-        //_require(y < _MILD_EXPONENT_BOUND, Errors.Y_OUT_OF_BOUNDS);
         int256 y_int256 = int256(y);
 
         // Compute y*ln(x)
@@ -74,7 +69,6 @@ library FixedPointMathLib {
         ylnx /= _ONE_18;
 
         // Calculate exp(y * ln(x)) to get x^y
-        //return uint256(exp(int256(y)*_ln(int256(x))/_ONE_18));
         return uint256(exp(ylnx));
     }
 
