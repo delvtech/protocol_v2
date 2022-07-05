@@ -50,7 +50,6 @@ library YieldSpaceMathLib {
             .add(mu.mulDown(shareIn))
             .pow(oneMinusT);
         // c/mu * (mu * shareReserves + mu * shareIn)^(1-t)
-        //newScaledShareReserves = TypedFixedPointMathLib.mulDown(cDivMu,TypedFixedPointMathLib.pow(newScaledShareReserves,oneMinusT));
         newScaledShareReserves = cDivMu.mulDown(newScaledShareReserves);
         // Notes: k - newScaledShareReserves >= 0 to avoid a complex number
         // ( c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t) - c/mu * (mu * shareReserves + mu * shareIn)^(1-t) )^(1 / (1 - t))
