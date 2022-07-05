@@ -9,16 +9,6 @@ library FixedPointMathLib {
     int256 private constant _ONE_18 = 1e18;
     int256 private constant _ONE_20 = 1e20;
 
-    // The domain of natural exponentiation is bound by the word size and number of decimals used.
-    //
-    // Because internally the result will be stored using 20 decimals, the largest possible result is
-    // (2^255 - 1) / 10^20, which makes the largest exponent ln((2^255 - 1) / 10^20) = 130.700829182905140221.
-    // The smallest possible result is 10^(-18), which makes largest negative argument
-    // ln(10^(-18)) = -41.446531673892822312.
-    // We use 130.0 and -41.0 to have some safety margin.
-    int256 private constant _MAX_NATURAL_EXPONENT = 130e18;
-    int256 private constant _MIN_NATURAL_EXPONENT = -41e18;
-
     uint256 private constant _MILD_EXPONENT_BOUND = 2**254 / uint256(_ONE_20);
 
     /// @dev Credit to Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/FixedPointMathLib.sol)
@@ -71,11 +61,6 @@ library FixedPointMathLib {
         // -> ln(x^y) = y * ln(x)
         // -> e^(y * ln(x)) = x^y
 
-        if (y == 0) {
-            // Anything to the power of 0 returns 1
-            return uint256(_ONE_18);
-        }
-
         if (x == 0) {
             return 0;
         }
@@ -95,11 +80,6 @@ library FixedPointMathLib {
             ylnx := mul(y_int256, lnx)
         }
         ylnx /= _ONE_18;
-
-        _require(
-            _MIN_NATURAL_EXPONENT <= ylnx && ylnx <= _MAX_NATURAL_EXPONENT,
-            Errors.PRODUCT_OUT_OF_BOUNDS
-        );
 
         // Calculate exp(y * ln(x)) to get x^y
         return uint256(_exp(ylnx));
