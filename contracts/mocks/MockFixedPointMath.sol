@@ -3,9 +3,28 @@ pragma solidity ^0.8.15;
 
 import "hardhat/console.sol";
 import "contracts/libraries/TypedFixedPointMathLib.sol";
+import "contracts/libraries/FixedPointMathLib.sol";
 
 contract MockFixedPointMath {
-    function pow(UFixedPoint x, UFixedPoint y)
+    function pow(uint256 x, uint256 y) public view returns (uint256 result) {
+        uint256 startGas = gasleft();
+        result = FixedPointMathLib.pow(x, y);
+        console.log("gasUsed", startGas - gasleft());
+    }
+
+    function exp(int256 x) public view returns (int256 result) {
+        uint256 startGas = gasleft();
+        result = FixedPointMathLib.exp(x);
+        console.log("gasUsed", startGas - gasleft());
+    }
+
+    function ln(int256 x) public view returns (int256 result) {
+        uint256 startGas = gasleft();
+        result = FixedPointMathLib.ln(x);
+        console.log("gasUsed", startGas - gasleft());
+    }
+
+    function powTyped(UFixedPoint x, UFixedPoint y)
         public
         view
         returns (UFixedPoint result)
