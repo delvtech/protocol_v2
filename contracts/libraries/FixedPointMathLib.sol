@@ -54,27 +54,19 @@ library FixedPointMathLib {
     }
 
     /// @dev Exponentiation (x^y) with unsigned 18 decimal fixed point base and exponent.
-    /// Reverts if y*ln(x) is smaller than `_MIN_NATURAL_EXPONENT`, or larger than `_MAX_NATURAL_EXPONENT`.
     /// @dev Partially inspired by Balancer LogExpMath library (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/LogExpMath.sol)
     function pow(uint256 x, uint256 y) internal pure returns (uint256) {
         // Using properties of logarithms we calculate x^y:
         // -> ln(x^y) = y * ln(x)
         // -> e^(y * ln(x)) = x^y
 
-        if (x == 0) {
-            return 0;
-        }
-
-        // The ln function takes a signed value, so we need to make sure x fits in the signed 256 bit range.
-        _require((x >> 255) == 0, Errors.X_OUT_OF_BOUNDS);
-        int256 x_int256 = int256(x);
-
         // This prevents y * ln(x) from overflowing, and at the same time guarantees y fits in the signed 256 bit range.
         _require(y < _MILD_EXPONENT_BOUND, Errors.Y_OUT_OF_BOUNDS);
         int256 y_int256 = int256(y);
 
         // Compute y*ln(x)
-        int256 lnx = _ln(x_int256);
+        // Any overflow for x will be caught in _ln() in the initial bounds check
+        int256 lnx = _ln(int256(x));
         int256 ylnx;
         assembly {
             ylnx := mul(y_int256, lnx)
@@ -152,11 +144,11 @@ library FixedPointMathLib {
     }
 
     // Computes ln(x) in 1e18 fixed point.
-    // Reverts if x is negative or zero.
+    // Reverts if x is negative, but we allow ln(0)=0 so that pow(0,1)=0 without a branch
     // Credit to Remco (https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol)
     function _ln(int256 x) private pure returns (int256 r) {
         unchecked {
-            _require(x >= 1, Errors.X_OUT_OF_BOUNDS);
+            _require(x >= 0, Errors.X_OUT_OF_BOUNDS);
 
             // We want to convert x from 10**18 fixed point to 2**96 fixed point.
             // We do this by multiplying by 2**96 / 10**18.
