@@ -71,7 +71,6 @@ describe("YieldSpaceMath Tests", function () {
   describe("calculateShareOutGivenBondIn()", function () {
     // [shareReserves, bondReserves, totalSupply, bondIn, t, s, c, mu]
     const testSets = [
-      //["56.79314253", "62.38101813", "119.1741606776616", "5.500250311701939", "0.08065076081220067", "1", "1", "1"]
       [
         "61.824903300361854",
         "56.92761678068477",

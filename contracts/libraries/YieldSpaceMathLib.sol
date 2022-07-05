@@ -11,7 +11,7 @@ library YieldSpaceMathLib {
     using TypedFixedPointMathLib for UFixedPoint;
 
     /// Calculates the amount of bond a user would get for given amount of shares.
-    /// @param sharesReserves yield bearing vault shares reserve amount
+    /// @param shareReserves yield bearing vault shares reserve amount
     /// @param bondReserves bond reserves amount
     /// @param totalSupply total supply amount
     /// @param shareIn shares amount to be traded
@@ -61,7 +61,7 @@ library YieldSpaceMathLib {
     }
 
     /// Calculates the amount of bond a user would get for given amount of shares.
-    /// @param sharesReserves yield bearing vault shares reserve amount
+    /// @param shareReserves yield bearing vault shares reserve amount
     /// @param bondReserves bond reserves amount
     /// @param totalSupply total supply amount
     /// @param bondIn shares amount to be traded
