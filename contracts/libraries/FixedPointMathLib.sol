@@ -8,6 +8,24 @@ import "contracts/libraries/Errors.sol";
 library FixedPointMathLib {
     int256 private constant _ONE_18 = 1e18;
 
+    /// @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/FixedPoint.sol)
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Fixed Point addition is the same as regular checked addition
+
+        uint256 c = a + b;
+        _require(c >= a, Errors.ADD_OVERFLOW);
+        return c;
+    }
+
+    /// @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/FixedPoint.sol)
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Fixed Point addition is the same as regular checked addition
+
+        _require(b <= a, Errors.SUB_OVERFLOW);
+        uint256 c = a - b;
+        return c;
+    }
+
     /// @dev Credit to Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/FixedPointMathLib.sol)
     function mulDivDown(
         uint256 x,

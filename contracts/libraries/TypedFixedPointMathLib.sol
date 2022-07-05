@@ -9,6 +9,35 @@ type UFixedPoint is uint256;
 /// @author Element Finance
 library TypedFixedPointMathLib {
     uint256 internal constant _ONE_18 = 1e18; // The scalar of ETH and most ERC20s.
+    UFixedPoint public constant ONE_18 = UFixedPoint.wrap(_ONE_18);
+
+    function add(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return
+            UFixedPoint.wrap(
+                FixedPointMathLib.add(
+                    UFixedPoint.unwrap(a),
+                    UFixedPoint.unwrap(b)
+                )
+            );
+    }
+
+    function sub(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return
+            UFixedPoint.wrap(
+                FixedPointMathLib.sub(
+                    UFixedPoint.unwrap(a),
+                    UFixedPoint.unwrap(b)
+                )
+            );
+    }
 
     function mulDown(UFixedPoint a, UFixedPoint b)
         internal
