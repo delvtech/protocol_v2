@@ -61,7 +61,7 @@ library FixedPointMathLib {
         // -> e^(y * ln(x)) = x^y
 
         // This prevents y * ln(x) from overflowing, and at the same time guarantees y fits in the signed 256 bit range.
-        _require(y < _MILD_EXPONENT_BOUND, Errors.Y_OUT_OF_BOUNDS);
+        //_require(y < _MILD_EXPONENT_BOUND, Errors.Y_OUT_OF_BOUNDS);
         int256 y_int256 = int256(y);
 
         // Compute y*ln(x)
@@ -74,6 +74,7 @@ library FixedPointMathLib {
         ylnx /= _ONE_18;
 
         // Calculate exp(y * ln(x)) to get x^y
+        //return uint256(exp(int256(y)*_ln(int256(x))/_ONE_18));
         return uint256(exp(ylnx));
     }
 
@@ -143,11 +144,19 @@ library FixedPointMathLib {
         }
     }
 
-    // Computes ln(x) in 1e18 fixed point.
-    // Reverts if x is negative, but we allow ln(0)=0 so that pow(0,1)=0 without a branch
-    // Credit to Remco (https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol)
+    /// @dev Computes ln(x) in 1e18 fixed point.
+    /// @dev Reverts if x is negative
+    /// @dev Credit to Remco (https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol)
+    function ln(int256 x) internal pure returns (int256) {
+        _require(x > 0, Errors.X_OUT_OF_BOUNDS);
+        return _ln(x);
+    }
+
+    // Reverts if x is negative, but we allow ln(0)=0
     function _ln(int256 x) private pure returns (int256 r) {
         unchecked {
+            // Intentionally allowing ln(0) to pass bc the function will return 0
+            // to pow() so that pow(0,1)=0 without a branch
             _require(x >= 0, Errors.X_OUT_OF_BOUNDS);
 
             // We want to convert x from 10**18 fixed point to 2**96 fixed point.
