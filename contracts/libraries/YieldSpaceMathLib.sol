@@ -56,7 +56,7 @@ library YieldSpaceMathLib {
         result = k.sub(newScaledShareReserves).pow(
             TypedFixedPointMathLib.ONE_18.divDown(oneMinusT)
         );
-        // Notes: bondReserves - result >= 0, but i think avoiding a complex number ini the step above ensures this never happens
+        // Notes: bondReserves - result >= 0, but i think avoiding a complex number in the step above ensures this never happens
         result = bondReserves.add(totalSupply).sub(result);
     }
 
@@ -108,7 +108,7 @@ library YieldSpaceMathLib {
         );
         // 1/mu( (mu * shareReserves)^(1-t) + mu/c * bondReserves^(1-t) -  mu/c * (bondReserves + bondIn)^(1-t) )^(1 / (1 - t))
         result = TypedFixedPointMathLib.ONE_18.divDown(mu).mulDown(result);
-        // Notes: shareReserves - result >= 0, but i think avoiding a complex number ini the step above ensures this never happens
+        // Notes: shareReserves - result >= 0, but i think avoiding a complex number in the step above ensures this never happens
         result = shareReserves.sub(result);
     }
 }
