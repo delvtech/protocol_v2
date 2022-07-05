@@ -12,6 +12,12 @@ contract MockFixedPointMath {
         console.log("gasUsed", startGas - gasleft());
     }
 
+    function exp(int256 x) public view returns (int256 result) {
+        uint256 startGas = gasleft();
+        result = FixedPointMathLib.exp(x);
+        console.log("gasUsed", startGas - gasleft());
+    }
+
     function powTyped(UFixedPoint x, UFixedPoint y)
         public
         view

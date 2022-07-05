@@ -74,12 +74,12 @@ library FixedPointMathLib {
         ylnx /= _ONE_18;
 
         // Calculate exp(y * ln(x)) to get x^y
-        return uint256(_exp(ylnx));
+        return uint256(exp(ylnx));
     }
 
     // Computes e^x in 1e18 fixed point.
     // Credit to Remco (https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol)
-    function _exp(int256 x) private pure returns (int256 r) {
+    function exp(int256 x) internal pure returns (int256 r) {
         unchecked {
             // Input x is in fixed point format, with scale factor 1/1e18.
 
