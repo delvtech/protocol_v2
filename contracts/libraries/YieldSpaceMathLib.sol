@@ -30,7 +30,7 @@ library YieldSpaceMathLib {
         UFixedPoint c,
         UFixedPoint mu
     ) internal view returns (UFixedPoint result) {
-        // bondOut = bondReserves - ( c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t) - c/mu * (mu * shareReserves + mu * shareIn)^(1-t) )^(1 / (1 - t))
+        // bondOut = bondReserves - ( c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t) - c/mu * (mu*(shareReserves + shareIn))^(1-t) )^(1 / (1 - t))
 
         // Notes: 1 >= 1-st >= 0
         UFixedPoint oneMinusT = TypedFixedPointMathLib.ONE_18.sub(s.mulDown(t));
@@ -44,12 +44,11 @@ library YieldSpaceMathLib {
         UFixedPoint k = cDivMu.mulDown(scaledShareReserves).add(
             bondReserves.add(totalSupply).pow(oneMinusT)
         );
-        // (mu * shareReserves + mu * shareIn)^(1-t)
+        // (mu*(shareReserves + shareIn))^(1-t)
         UFixedPoint newScaledShareReserves = mu
-            .mulDown(shareReserves)
-            .add(mu.mulDown(shareIn))
+            .mulDown(shareReserves.add(shareIn))
             .pow(oneMinusT);
-        // c/mu * (mu * shareReserves + mu * shareIn)^(1-t)
+        // c/mu * (mu*(shareReserves + shareIn))^(1-t)
         newScaledShareReserves = cDivMu.mulDown(newScaledShareReserves);
         // Notes: k - newScaledShareReserves >= 0 to avoid a complex number
         // ( c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t) - c/mu * (mu * shareReserves + mu * shareIn)^(1-t) )^(1 / (1 - t))
