@@ -19,11 +19,16 @@ contract CircularBuffers {
     /// 0 when the first item is added.
     /// @param bufferId The ID of the buffer to initialize.
     /// @param maxLength The maximum number of items in the buffer.  This cannot be unset.
-    function initalize(uint256 bufferId, uint16 maxLength) public {
-        uint256[] storage buffer = buffers[bufferId];
-        uint16 headIndex = 0xffff;
+    function initialize(uint256 bufferId, uint16 maxLength) public {
         // reserve 0xffff for the head index start position to roll over into zero
         require(maxLength < 0xffff, "max length is 65534");
+        require(maxLength > 0, "min length is 1");
+
+        uint256[] storage buffer = buffers[bufferId];
+        (, , uint16 _maxLength, ) = _parseMetadata(buffer.length);
+        require(_maxLength == 0, "buffer already initialized");
+
+        uint16 headIndex = 0xffff;
         uint256 metadata = _combineMetadata(0, headIndex, maxLength, 0);
 
         assembly {
@@ -42,6 +47,7 @@ contract CircularBuffers {
         returns (uint256 metadata)
     {
         uint256[] storage buffer = buffers[bufferId];
+        // Note: just reading buffer.length does not work when the array is in a mapping.
         assembly {
             metadata := sload(buffer.offset)
         }
@@ -61,8 +67,7 @@ contract CircularBuffers {
             uint16 bufferLength
         )
     {
-        uint256[] storage buffer = buffers[bufferId];
-        uint256 metadata = buffer.length;
+        uint256 metadata = readMetadata(bufferId);
         (timestamp, headIndex, maxLength, bufferLength) = _parseMetadata(
             metadata
         );
@@ -71,7 +76,7 @@ contract CircularBuffers {
     /// @dev Gets a value in the circular buffer.  `index` must be between 0 and bufferLength.
     /// @param bufferId The ID of the buffer to read a value from.
     /// @param index The index in the buffer of the item to read.  0 < index < bufferLength.
-    /// @return value The uint256 value at self[index].
+    /// @return value The uint256 value at buffer[index].
     function getValue(uint256 bufferId, uint16 index)
         public
         view
@@ -82,7 +87,12 @@ contract CircularBuffers {
 
         // because we overload length for metadata, we need to specifically check the index
         require(index >= 0 && index < bufferLength, "index out of bounds");
-        value = buffer[index];
+        // Note: just reading buffer[index] does not work since we are overloading the length property
+        assembly {
+            let offset := keccak256(buffer.offset, 32)
+            let slot := add(offset, index)
+            value := sload(slot)
+        }
     }
 
     // TODO: add this?
@@ -101,20 +111,19 @@ contract CircularBuffers {
 
     /// @dev Adds a value at headIndex to the circular buffer.
     /// @param bufferId The ID of the buffer to add a value to.
-    /// @param value The uint256 value to add to the buffer at self[headIndex].
+    /// @param value The uint256 value to add to the buffer at buffer[headIndex].
     function addValue(uint256 bufferId, uint256 value) public {
-        uint256[] storage buffer = buffers[bufferId];
-        uint256 metadata = buffer.length;
         (
             ,
             uint16 headIndex,
             uint16 maxLength,
             uint16 bufferLength
-        ) = _parseMetadata(metadata);
+        ) = readMetadataParsed(bufferId);
 
         if (bufferLength < maxLength) {
-            // headIndex initially set to 0xFFFF so that it will overflow to zero
-            unchecked {
+            if (headIndex == 0xffff) {
+                headIndex = 0;
+            } else {
                 headIndex++;
             }
             bufferLength++;
@@ -124,6 +133,7 @@ contract CircularBuffers {
                 maxLength,
                 bufferLength
             );
+
             _updateBuffer(bufferId, newMetadata, headIndex, value);
         } else if (headIndex < maxLength - 1) {
             headIndex++;
@@ -154,7 +164,7 @@ contract CircularBuffers {
     /// @param bufferId The ID of the buffer to update.
     /// @param metadata metadata encoded into a uint256 value.
     /// @param index The index in the buffer of the item to read.  0 < index < bufferLength.
-    /// @param value The uint256 value to add to the buffer at self[headIndex].
+    /// @param value The uint256 value to add to the buffer at buffer[headIndex].
     function _updateBuffer(
         uint256 bufferId,
         uint256 metadata,
@@ -167,7 +177,8 @@ contract CircularBuffers {
             // we are overloading this to store metadata to be more efficient
             sstore(add(buffer.offset, 0), metadata)
             // store the actual value
-            let offset := keccak256(buffer.slot, 32)
+
+            let offset := keccak256(buffer.offset, 32)
             let slot := add(offset, index)
             sstore(slot, value)
         }
@@ -188,9 +199,12 @@ contract CircularBuffers {
         )
     {
         bufferLength = uint16(metadata);
+        // 16
         maxLength = uint16(metadata >> 16);
+        // 16 + 16
         headIndex = uint16(metadata >> 32);
-        timestamp = uint32(metadata >> 64);
+        // 16 + 16 + 16
+        timestamp = uint32(metadata >> 48);
     }
 
     /// @dev An internal method to combine all metadata parts into a uint256 value.
@@ -206,8 +220,11 @@ contract CircularBuffers {
         uint16 bufferLength
     ) internal pure returns (uint256 metadata) {
         metadata =
-            (uint256(timestamp) << 64) |
+            // 16 + 16 + 16
+            (uint256(timestamp) << 48) |
+            // 16 + 16
             (uint256(headIndex) << 32) |
+            // 16
             (uint256(maxLength) << 16) |
             uint256(bufferLength);
     }
