@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "hardhat/console.sol";
-
-/// A gas efficient library to use uint256[] as a circular buffer.  Assemby is
+/// A gas efficient contract to use uint256 arrays as circular buffers.  Assemby is
 /// used to to overload the length property with metadata for gas savings.  It
 /// is currently configured in the following manner:
 /// [bits 255-48] unused
