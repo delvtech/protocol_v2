@@ -12,43 +12,47 @@ import "hardhat/console.sol";
 /// [bits 15-0] bufferLength - The current length of the buffer.  Once this
 ///             reaches maxLength, headIndex will wrap to zero and items
 ///             will be overwritten.
-library CircularBuffer {
+contract CircularBuffers {
+    mapping(uint256 => uint256[]) public buffers;
+
     /// @dev An initialization function for the buffer.  During initialization, the maxLength is
     /// set to the value passed in and the headIndex is set to 0xffff so that it will overflow to
     /// 0 when the first item is added.
-    /// @param self A reference to the circular buffer
+    /// @param bufferId The ID of the buffer to initialize.
     /// @param maxLength The maximum number of items in the buffer.  This cannot be unset.
-    function initalize(uint256[] storage self, uint16 maxLength) public {
+    function initalize(uint256 bufferId, uint16 maxLength) public {
+        uint256[] storage buffer = buffers[bufferId];
         uint16 headIndex = 0xffff;
         // reserve 0xffff for the head index start position to roll over into zero
         require(maxLength < 0xffff, "max length is 65534");
-        uint256 metadata = combineMetadata(headIndex, maxLength, 0);
+        uint256 metadata = _combineMetadata(headIndex, maxLength, 0);
 
         assembly {
             // length is stored at position 0 for dynamic arrays
             // we are overloading this to store metadata to be more efficient
-            sstore(add(self.offset, 0), metadata)
+            sstore(add(buffer.offset, 0), metadata)
         }
     }
 
     /// @dev gets the metadata for the buffer which includes headIndex, maxLength and bufferLength.
-    /// @param self A reference to the circular buffer.
+    /// @param bufferId The ID of the buffer to read metadata from.
     /// @return metadata All metadata encoded into a uint256.
-    function readMetadata(uint256[] storage self)
+    function readMetadata(uint256 bufferId)
         public
         view
         returns (uint256 metadata)
     {
+        uint256[] storage buffer = buffers[bufferId];
         assembly {
-            metadata := sload(self.offset)
+            metadata := sload(buffer.offset)
         }
     }
 
     /// @dev gets the parsed metadata for the buffer which includes headIndex, maxLength and
     /// bufferLength.
-    /// @param self A reference to the circular buffer.
+    /// @param bufferId The ID of the buffer to read metadata from.
     /// @return headIndex maxLength bufferLength as a tuple of uint16's
-    function readMetadataParsed(uint256[] storage self)
+    function readMetadataParsed(uint256 bufferId)
         public
         view
         returns (
@@ -57,67 +61,53 @@ library CircularBuffer {
             uint16 bufferLength
         )
     {
-        uint256 metadata = self.length;
-        (headIndex, maxLength, bufferLength) = parseMetadata(metadata);
-    }
-
-    /// @dev Internal method that returns parsed metadata.  Returns headIndex, maxLength,
-    ///  and bufferLength as a tuple of uint16's
-    /// @param buffer A reference to the circular buffer.
-    /// @return headIndex maxLength bufferLength as a tuple of uint16's
-    function _readMetadataParsed(uint256[] storage buffer)
-        private
-        view
-        returns (
-            uint16 headIndex,
-            uint16 maxLength,
-            uint16 bufferLength
-        )
-    {
+        uint256[] storage buffer = buffers[bufferId];
         uint256 metadata = buffer.length;
-        (headIndex, maxLength, bufferLength) = parseMetadata(metadata);
+        (headIndex, maxLength, bufferLength) = _parseMetadata(metadata);
     }
 
     /// @dev Gets a value in the circular buffer.  `index` must be between 0 and bufferLength.
-    /// @param self A reference to the circular buffer.
+    /// @param bufferId The ID of the buffer to read a value from.
     /// @param index The index in the buffer of the item to read.  0 < index < bufferLength.
     /// @return value The uint256 value at self[index].
-    function getValue(uint256[] storage self, uint16 index)
+    function getValue(uint256 bufferId, uint16 index)
         public
         view
         returns (uint256 value)
     {
-        (, , uint16 bufferLength) = _readMetadataParsed(self);
+        (, , uint16 bufferLength) = readMetadataParsed(bufferId);
+        uint256[] storage buffer = buffers[bufferId];
 
         // because we overload length for metadata, we need to specifically check the index
         require(index >= 0 && index < bufferLength, "index out of bounds");
-        value = self[index];
+        value = buffer[index];
     }
 
     // TODO: add this?
     function insertValue(
-        uint256[] storage self,
+        uint256 bufferId,
         uint16 index,
         uint256 value
     ) public {}
 
     // TODO: add this?
     function removeValue(
-        uint256[] storage self,
+        uint256 bufferId,
         uint16 index,
         uint256 value
     ) public {}
 
     /// @dev Adds a value at headIndex to the circular buffer.
-    /// @param self A reference to the circular buffer.
+    /// @param bufferId The ID of the buffer to add a value to.
     /// @param value The uint256 value to add to the buffer at self[headIndex].
-    function addValue(uint256[] storage self, uint256 value) public {
-        uint256 metadata = self.length;
+    function addValue(uint256 bufferId, uint256 value) public {
+        uint256[] storage buffer = buffers[bufferId];
+        uint256 metadata = buffer.length;
         (
             uint16 headIndex,
             uint16 maxLength,
             uint16 bufferLength
-        ) = parseMetadata(metadata);
+        ) = _parseMetadata(metadata);
 
         if (bufferLength < maxLength) {
             // headIndex initially set to 0xFFFF so that it will overflow to zero
@@ -125,44 +115,47 @@ library CircularBuffer {
                 headIndex++;
             }
             bufferLength++;
-            uint256 newMetadata = combineMetadata(
+            uint256 newMetadata = _combineMetadata(
                 headIndex,
                 maxLength,
                 bufferLength
             );
-            _updateBuffer(self, newMetadata, headIndex, value);
+            _updateBuffer(bufferId, newMetadata, headIndex, value);
         } else if (headIndex < maxLength - 1) {
             headIndex++;
-            uint256 newMetadata = combineMetadata(
+            uint256 newMetadata = _combineMetadata(
                 headIndex,
                 maxLength,
                 bufferLength
             );
 
-            _updateBuffer(self, newMetadata, headIndex, value);
+            _updateBuffer(bufferId, newMetadata, headIndex, value);
         } else if (headIndex == maxLength - 1) {
             headIndex = 0;
-            uint256 newMetadata = combineMetadata(
+            uint256 newMetadata = _combineMetadata(
                 headIndex,
                 maxLength,
                 bufferLength
             );
 
-            _updateBuffer(self, newMetadata, headIndex, value);
+            _updateBuffer(bufferId, newMetadata, headIndex, value);
         }
     }
 
     /// @dev A private method to update metadata and store a new uint256 value at buffer[index].
-    /// @param buffer A reference to the circular buffer.
+    /// Metadata is stored in the length property of each buffer to save on gas when writing to
+    /// storage.  By doing this we can only incur the cost of one write to storage.
+    /// @param bufferId The ID of the buffer to update.
     /// @param metadata metadata encoded into a uint256 value.
     /// @param index The index in the buffer of the item to read.  0 < index < bufferLength.
     /// @param value The uint256 value to add to the buffer at self[headIndex].
     function _updateBuffer(
-        uint256[] storage buffer,
+        uint256 bufferId,
         uint256 metadata,
         uint16 index,
         uint256 value
     ) private {
+        uint256[] storage buffer = buffers[bufferId];
         assembly {
             // length is stored at position 0 for dynamic arrays
             // we are overloading this to store metadata to be more efficient
@@ -178,7 +171,7 @@ library CircularBuffer {
     /// @param metadata Metadata encoded in a uint256 value.
     /// @return headIndex maxLength bufferLength
     // [u208 unused][u16 head index][u16 maxLength][u16 length]
-    function parseMetadata(uint256 metadata)
+    function _parseMetadata(uint256 metadata)
         internal
         pure
         returns (
@@ -198,7 +191,7 @@ library CircularBuffer {
     /// @param bufferLength The current length of the buffer.
     /// @return metadata Metadata encoded in a uint256 value.
     // [u208 unused][u16 head index][u16 maxLength][u16 length]
-    function combineMetadata(
+    function _combineMetadata(
         uint16 headIndex,
         uint16 maxLength,
         uint16 bufferLength
