@@ -456,7 +456,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256 totalValue = _underlying(totalShares, ShareState.Locked);
         uint256 totalInterest = totalValue - totalSupply[expiry];
 
-        // mapping(uint256 => YieldState) public yieldTerms;
         state.pt -= amount;
 
         state.shares -= (state.shares * amount) / totalShares;
@@ -482,15 +481,24 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256 startDate = (assetId >> 128) & (2**256 - 1);
         require(startDate > 0, "todo: nice error");
 
-        // delete the YT
-        (uint256 sharesEarned, uint256 value) = _removeYT(assetId, expiry, amount);
+        // DELETE THE YT
+        // load the state for the term
+        YieldState memory state = yieldTerms[assetId];
+        uint256 totalShares = sharesPerExpiry[assetId];
+        
+        uint256 amountToBurn = (state.shares * amount) / totalShares;
+        _burn(assetId, destination, amountToBurn);
+        
+        uint256 newId = 0;
+        yieldTerms[newId] = YieldState(
+            state.shares - amountToBurn,
+            state.pt - amount
+        );
+        // TODO: uint typing errors in above math
 
-        // withdraw earned amount from the yieldSource
-        _withdraw(sharesEarned, destination, something);
+        uint256 value = _underlying(amountToBurn, ShareState.Locked);
 
-        // use the other amount to mint YT for the new term
-        // existing create YT function?
-        _createYT(destination, mustgetvalue, totalShares, block.timestamp, expiry);
-
+        _createYT(destination, value, totalShares, block.timestamp, expiry);
+        return amountToBurn;
     }
 }
