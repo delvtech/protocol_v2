@@ -257,10 +257,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 // Initiate a new term
                 _mint(ytTokenId, destination, value);
                 // Increase recorded share data
-                yieldTerms[ytTokenId] = YieldState(
-                    uint128(totalShares),
-                    uint128(value)
-                );
+                yieldTerms[ytTokenId].shares += uint128(totalShares);
+                yieldTerms[ytTokenId].pt += uint128(value);
                 sharesPerExpiry[expiration] += totalShares;
                 // No interest earned and no discount.
                 return 0;
@@ -269,7 +267,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 // We require that it already existed, or we would not be able to capture accurate
                 // interest rate data in the period
                 YieldState memory state = yieldTerms[ytTokenId];
-                require(state.shares != 0 && state.pt != 0, Strings.toString(ytTokenId));
+                require(state.shares != 0 && state.pt != 0, "Todo nice error");
                 // We calculate the current fair value of the YT by dividing the interest
                 // earned by the number of YT. We can get the interest earned by subtracting
                 // PT outstanding from the share multiplied by current price per share
@@ -315,7 +313,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
         // If the term's final interest rate has not been recorded we record it
-        if (finalState.interest == 0) {
+        if (assetId != UNLOCKED_YT_ID && finalState.interest == 0) {
             finalState = _finalizeTerm(expiry);
         }
 
