@@ -483,8 +483,15 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             _mint(expiry, destination, value - discount);
         }
         else {
-            // uint256 pricePerShare = value / totalSupply[assetId];
-            // uint256 interestShares = (value - amount) / 
+            uint256 pricePerShare = _underlying(totalSupply[assetId], ShareState.Locked) / totalSupply[assetId];
+            // calculate the user's interest in terms of shares
+            uint256 interestShares = (value - amount) / pricePerShare;
+            // withdraw the interest from the yield source
+            _withdraw(interestShares, destination, ShareState.Locked);
+            // create yt with remaining shares
+            _createYT(destination, amount, userShares - interestShares, block.timestamp, expiry);
+            // update the state for expiry timestamps
+            sharesPerExpiry[expiry] -= interestShares;
         }
     }
 }
