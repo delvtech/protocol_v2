@@ -49,7 +49,7 @@ describe("YieldSpaceMath Tests", function () {
         mu: string
       ) {
         const expected = fp("5.500250311701939");
-        const result = await MockYieldSpaceMath.calculateBondOutGivenShareIn(
+        const result = await MockYieldSpaceMath.calculateOutGivenIn(
           fp(shareReserves),
           fp(bondReserves),
           fp(totalSupply),
@@ -57,10 +57,11 @@ describe("YieldSpaceMath Tests", function () {
           fp(t),
           fp(s),
           fp(c),
-          fp(mu)
+          fp(mu),
+          true
         );
-        //console.log(Number(ethers.utils.formatEther(result)));
-        //console.log(Number(ethers.utils.formatEther(expected)));
+        // console.log(Number(ethers.utils.formatEther(result)));
+        // console.log(Number(ethers.utils.formatEther(expected)));
         expect(Number(ethers.utils.formatEther(result))).to.be.equal(
           Number(ethers.utils.formatEther(expected))
         );
@@ -95,7 +96,7 @@ describe("YieldSpaceMath Tests", function () {
         mu: string
       ) {
         const expected = fp("5.031654806080805");
-        const result = await MockYieldSpaceMath.calculateShareOutGivenBondIn(
+        const result = await MockYieldSpaceMath.calculateOutGivenIn(
           fp(shareReserves),
           fp(bondReserves),
           fp(totalSupply),
@@ -103,7 +104,8 @@ describe("YieldSpaceMath Tests", function () {
           fp(t),
           fp(s),
           fp(c),
-          fp(mu)
+          fp(mu),
+          false
         );
         // console.log(Number(ethers.utils.formatEther(result)));
         // console.log(Number(ethers.utils.formatEther(expected)));
