@@ -497,7 +497,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             uint256 discount = _createYT(
                 destination,
                 value,
-                amount,
+                userShares,
                 block.timestamp,
                 expiry
             );
