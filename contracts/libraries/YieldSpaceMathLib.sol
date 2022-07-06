@@ -3,7 +3,6 @@ pragma solidity ^0.8.15;
 
 import "contracts/libraries/Errors.sol";
 import "contracts/libraries/TypedFixedPointMathLib.sol";
-import "hardhat/console.sol";
 
 /// @notice YieldSpace math library.
 /// @author Element Finance
