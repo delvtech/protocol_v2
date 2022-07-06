@@ -507,7 +507,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             _mint(expiry, destination, value);
         } else {
             // calculate the user's interest in terms of shares
-            uint256 interestShares = (value - amount) * userShares / value;
+            uint256 interestShares = ((value - amount) * userShares) / value;
             // withdraw the interest from the yield source
             _withdraw(interestShares, destination, ShareState.Locked);
             // create yt with remaining shares
