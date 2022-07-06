@@ -108,12 +108,16 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // To release shares we delete any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
+        uint256 previousId = 0;
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < assetIds.length; i++) {
             // helps the stack
             uint256 id = assetIds[i];
             uint256 amount = assetAmounts[i];
+            // Requiring strict sorting is a cheap way to check for uniqueness
+            require(previousId < id, "Todo: Not unique or not sorted");
+            previousId = id;
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
             (uint256 shares, uint256 value) = _releaseAsset(
@@ -178,7 +182,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
 
     /// @notice Redeems expired PT, YT and unlocked shares for their backing asset.
     /// @param destination The address to send the unlocked tokens too
-    /// @param tokenIds The IDs of the token to unlock
+    /// @param tokenIds The IDs of the token to unlock. NOTE- They MUST be unique and sorted.
     /// @param amounts The amounts of the tokens to unlock
     /// @return the total value of the tokens that have been unlocked
     function unlock(
@@ -189,9 +193,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // To release shares we delete any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
+        uint256 previousId = 0;
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < tokenIds.length; i++) {
+            // Requiring strict sorting is a cheap way to check for uniqueness
+            require(previousId < tokenIds[i], "Todo: Not unique or not sorted");
+            previousId = tokenIds[i];
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
             (uint256 shares, ) = _releaseAsset(
@@ -493,15 +501,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 block.timestamp,
                 expiry
             );
+            // yt created at current time so discount should always be 0
+            require(discount == 0, "todo nice error");
             // create PT
-            _mint(expiry, destination, value - discount);
+            _mint(expiry, destination, value);
         } else {
-            uint256 pricePerShare = _underlying(
-                totalSupply[assetId],
-                ShareState.Locked
-            ) / totalSupply[assetId];
             // calculate the user's interest in terms of shares
-            uint256 interestShares = (value - amount) / pricePerShare;
+            uint256 interestShares = (value - amount) * userShares / value;
             // withdraw the interest from the yield source
             _withdraw(interestShares, destination, ShareState.Locked);
             // create yt with remaining shares
