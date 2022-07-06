@@ -14,6 +14,14 @@ const config = {
 const math = create(all, config)!;
 const mbn = math.bignumber!;
 
+function add(x: string, y: string): string {
+  return (<MathjsBigNumber>math.add!(mbn(x), mbn(y))).toString();
+}
+
+function sub(x: string, y: string): string {
+  return (<MathjsBigNumber>math.subtract!(mbn(x), mbn(y))).toString();
+}
+
 function pow(x: string, y: string): string {
   return (<MathjsBigNumber>math.pow!(mbn(x), mbn(y))).toString();
 }
@@ -34,6 +42,112 @@ describe("FixedPointMath Tests", function () {
     const factory = await ethers.getContractFactory("MockFixedPointMath");
     MockFixedPointMath = await factory.deploy();
   });
+
+  context("add()", function () {
+    const addTests = [
+      ["0", "1"],
+      ["1", "0"],
+      ["1", "1"],
+      ["2", "3"],
+      ["4", "0.5"],
+      ["0.25", "0.5"],
+      ["1e-18", "1e-18"],
+      ["1e-12", "4.4e-9"],
+      ["0.1", "0.8"],
+      ["0.24", "11"],
+      ["0.5", "0.7373"],
+      ["0.799291", "69"],
+      ["1", "0.1"],
+      ["11", "28.57142"],
+      ["32.15", "0.99"],
+      ["406", "0.25"],
+      ["1729", "0.98"],
+      ["2345.321", "0.0002383475"],
+      ["10358673923948475759392", "0.00033928745"],
+      ["45683725649", "0.001891"],
+      ["340282366920938463463374607431768211455", "0.0021"], // 2^128 - 1
+      ["1", "289480223093290488558927462521719769633.174961664101410098"], // Handles y = _MILD_EXPONENT_BOUND = 2^254 / 1e20
+    ];
+
+    describe("Untyped", function () {
+      forEach(addTests).it(
+        "handles %s+%s",
+        async function (x: string, y: string) {
+          const expected = fp(add(x, y));
+          const result = await MockFixedPointMath.add(fp(x), fp(y));
+          //console.log(Number(ethers.utils.formatEther(result)));
+          //console.log(Number(ethers.utils.formatEther(expected)));
+          expect(Number(ethers.utils.formatEther(result))).to.be.equal(
+            Number(ethers.utils.formatEther(expected))
+          );
+        }
+      );
+    }); // End Untyped
+
+    describe("Typed", function () {
+      forEach(addTests).it(
+        "handles %s+%s",
+        async function (x: string, y: string) {
+          const expected = fp(add(x, y));
+          const result = await MockFixedPointMath.addTyped(fp(x), fp(y));
+          expect(Number(ethers.utils.formatEther(result))).to.be.equal(
+            Number(ethers.utils.formatEther(expected))
+          );
+        }
+      );
+    }); //End Typed
+  }); // End add()
+
+  context("sub()", function () {
+    const subTests = [
+      ["1", "0"],
+      ["1", "1"],
+      ["23", "3"],
+      ["4", "0.5"],
+      ["0.525", "0.5"],
+      ["1e-18", "1e-18"],
+      ["0.9", "0.8"],
+      ["11", "0.24"],
+      ["0.7373", "0.5"],
+      ["69", "0.799291"],
+      ["1", "0.1"],
+      ["32.15", "0.99"],
+      ["406", "0.25"],
+      ["1729", "0.98"],
+      ["2345.321", "0.0002383475"],
+      ["10358673923948475759392", "0.00033928745"],
+      ["45683725649", "0.001891"],
+      ["340282366920938463463374607431768211455", "0.0021"], // 2^128 - 1
+    ];
+
+    describe("Untyped", function () {
+      forEach(subTests).it(
+        "handles %s-%s",
+        async function (x: string, y: string) {
+          const expected = fp(sub(x, y));
+          const result = await MockFixedPointMath.sub(fp(x), fp(y));
+          //console.log(Number(ethers.utils.formatEther(result)));
+          //console.log(Number(ethers.utils.formatEther(expected)));
+          expect(Number(ethers.utils.formatEther(result))).to.be.equal(
+            Number(ethers.utils.formatEther(expected))
+          );
+        }
+      );
+    }); // End Untyped
+
+    describe("Typed", function () {
+      forEach(subTests).it(
+        "handles %s-%s",
+        async function (x: string, y: string) {
+          const expected = fp(sub(x, y));
+          const result = await MockFixedPointMath.subTyped(fp(x), fp(y));
+          expect(Number(ethers.utils.formatEther(result))).to.be.equal(
+            Number(ethers.utils.formatEther(expected))
+          );
+        }
+      );
+    }); //End Typed
+  }); // End sub()
 
   context("pow()", function () {
     const powTests = [
