@@ -81,7 +81,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             ? block.timestamp
             : ytBeginDate;
         // Next check the validity of the requested expiry
-        require(expiration > block.timestamp || expiration == 0, "todo nice error");
+        require(
+            expiration > block.timestamp || expiration == 0,
+            "todo nice error"
+        );
         // The yt can't start after
         // Running tally of the added value
         uint256 totalValue = 0;
@@ -452,7 +455,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     /// @param destination The address to credit the new YT to
     /// @param isCompound if true the interest is compounded instead of released
     /// @return the number of shares and their value
-    function _convertYT(uint256 assetId, uint256 amount, address destination, bool isCompound) internal returns (uint256) {
+    function _convertYT(
+        uint256 assetId,
+        uint256 amount,
+        address destination,
+        bool isCompound
+    ) internal returns (uint256) {
         // make sure asset is a YT
         require(assetId >> 256 == 1, "todo: nice error");
         // expiry must be greater than zero
@@ -478,18 +486,32 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
 
         if (isCompound) {
             // deposit freed shares into YT
-            uint256 discount = _createYT(destination, value, amount, block.timestamp, expiry);
+            uint256 discount = _createYT(
+                destination,
+                value,
+                amount,
+                block.timestamp,
+                expiry
+            );
             // create PT
             _mint(expiry, destination, value - discount);
-        }
-        else {
-            uint256 pricePerShare = _underlying(totalSupply[assetId], ShareState.Locked) / totalSupply[assetId];
+        } else {
+            uint256 pricePerShare = _underlying(
+                totalSupply[assetId],
+                ShareState.Locked
+            ) / totalSupply[assetId];
             // calculate the user's interest in terms of shares
             uint256 interestShares = (value - amount) / pricePerShare;
             // withdraw the interest from the yield source
             _withdraw(interestShares, destination, ShareState.Locked);
             // create yt with remaining shares
-            _createYT(destination, amount, userShares - interestShares, block.timestamp, expiry);
+            _createYT(
+                destination,
+                amount,
+                userShares - interestShares,
+                block.timestamp,
+                expiry
+            );
             // update the state for expiry timestamps
             sharesPerExpiry[expiry] -= interestShares;
         }
