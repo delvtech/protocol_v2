@@ -446,59 +446,45 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         return (userShares, (userShares * currentPricePerShare) / one);
     }
 
-    // potentially better naming opportunity here
-    function _removeYT(uint256 assetId, uint256 expiry, uint256 amount) internal returns (uint256, uint256) {
-
-        // load the state for the term
-        YieldState memory state = yieldTerms[assetId];
-
-        uint256 totalShares = sharesPerExpiry[assetId];
-        uint256 totalValue = _underlying(totalShares, ShareState.Locked);
-        uint256 totalInterest = totalValue - totalSupply[expiry];
-
-        state.pt -= amount;
-
-        state.shares -= (state.shares * amount) / totalShares;
-
-        // 
-        // update the record in share data
-        yieldTerms[];
-        // i want to return interest earned in terms of shares but i don't think that's what's happening here
-        return (totalInterest, totalSupply[assetId]);
-    }
-
-    function _convertYT(
-        uint256 assetId,
-        address destination,
-        uint256 amount
-    ) internal returns (uint256) {
-        // make sure asset is not a PT
+    /// @notice takes an input YT in the past and creates a new one in the future
+    /// @param assetId The ID of the YT to delete
+    /// @param amount The number of YT to delete
+    /// @param destination The address to credit the new YT to
+    /// @param isCompound if true the interest is compounded instead of released
+    /// @return the number of shares and their value
+    function _convertYT(uint256 assetId, uint256 amount, address destination, bool isCompound) internal returns (uint256) {
+        // make sure asset is a YT
         require(assetId >> 256 == 1, "todo: nice error");
-        // expiry must be nonzero
+        // expiry must be greater than zero
         uint256 expiry = assetId & (2**(128) - 1);
         require(expiry > 0, "todo: nice error");
-        // start date must be nonzero
+        // start date must be greater than zero
         uint256 startDate = (assetId >> 128) & (2**256 - 1);
         require(startDate > 0, "todo: nice error");
 
-        // DELETE THE YT
         // load the state for the term
         YieldState memory state = yieldTerms[assetId];
-        uint256 totalShares = sharesPerExpiry[assetId];
-        
-        uint256 amountToBurn = (state.shares * amount) / totalShares;
-        _burn(assetId, destination, amountToBurn);
-        
-        uint256 newId = 0;
-        yieldTerms[newId] = YieldState(
-            state.shares - amountToBurn,
-            state.pt - amount
+        // calculate the shares belonging to the user
+        uint256 userShares = (state.shares * amount) / totalSupply[assetId];
+        // remove shares from the yield state and the yt to burn from pt
+        yieldTerms[assetId] = YieldState(
+            state.shares - uint128(userShares),
+            state.pt - uint128(amount)
         );
-        // TODO: uint typing errors in above math
 
-        uint256 value = _underlying(amountToBurn, ShareState.Locked);
+        // burn the yt from the user's balance
+        _burn(assetId, msg.sender, amount);
+        uint256 value = _underlying(amount, ShareState.Locked);
 
-        _createYT(destination, value, totalShares, block.timestamp, expiry);
-        return amountToBurn;
+        if (isCompound) {
+            // deposit freed shares into YT
+            uint256 discount = _createYT(destination, value, amount, block.timestamp, expiry);
+            // create PT
+            _mint(expiry, destination, value - discount);
+        }
+        else {
+            // uint256 pricePerShare = value / totalSupply[assetId];
+            // uint256 interestShares = (value - amount) / 
+        }
     }
 }
