@@ -81,7 +81,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             ? block.timestamp
             : ytBeginDate;
         // Next check the validity of the requested expiry
-        require(expiration > block.timestamp, "todo nice error");
+        require(expiration > block.timestamp || expiration == 0, "todo nice error");
         // The yt can't start after
         // Running tally of the added value
         uint256 totalValue = 0;
@@ -105,16 +105,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // To release shares we delete any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
-        uint256 previousId = 0;
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < assetIds.length; i++) {
             // helps the stack
             uint256 id = assetIds[i];
             uint256 amount = assetAmounts[i];
-            // Requiring strict sorting is a cheap way to check for uniqueness
-            require(previousId < id, "Todo: Not unique or not sorted");
-            previousId = id;
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
             (uint256 shares, uint256 value) = _releaseAsset(
@@ -179,7 +175,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
 
     /// @notice Redeems expired PT, YT and unlocked shares for their backing asset.
     /// @param destination The address to send the unlocked tokens too
-    /// @param tokenIds The IDs of the token to unlock. NOTE- They MUST be unique and sorted.
+    /// @param tokenIds The IDs of the token to unlock
     /// @param amounts The amounts of the tokens to unlock
     /// @return the total value of the tokens that have been unlocked
     function unlock(
@@ -190,13 +186,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // To release shares we delete any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
-        uint256 previousId = 0;
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < tokenIds.length; i++) {
-            // Requiring strict sorting is a cheap way to check for uniqueness
-            require(previousId < tokenIds[i], "Todo: Not unique or not sorted");
-            previousId = tokenIds[i];
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
             (uint256 shares, ) = _releaseAsset(
@@ -265,8 +257,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 // Initiate a new term
                 _mint(ytTokenId, destination, value);
                 // Increase recorded share data
-                yieldTerms[ytTokenId].shares += uint128(totalShares);
-                yieldTerms[ytTokenId].pt += uint128(value);
+                yieldTerms[ytTokenId] = YieldState(
+                    uint128(totalShares),
+                    uint128(value)
+                );
                 sharesPerExpiry[expiration] += totalShares;
                 // No interest earned and no discount.
                 return 0;
@@ -275,7 +269,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
                 // We require that it already existed, or we would not be able to capture accurate
                 // interest rate data in the period
                 YieldState memory state = yieldTerms[ytTokenId];
-                require(state.shares != 0 && state.pt != 0, "Todo nice error");
+                require(state.shares != 0 && state.pt != 0, Strings.toString(ytTokenId));
                 // We calculate the current fair value of the YT by dividing the interest
                 // earned by the number of YT. We can get the interest earned by subtracting
                 // PT outstanding from the share multiplied by current price per share
@@ -303,7 +297,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         }
     }
 
-    /// @notice Deletes and asset [expired PT/YT or unlocked share] and returns the shares released
+    /// @notice Deletes an asset [expired PT/YT or unlocked share] and returns the shares released
     ///         and their value. Note - Shares from unlocked assets may be different than from PT/YT
     /// @param assetId The ID for the asset redeemed
     /// @param source The account to delete tokens from
@@ -321,7 +315,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
         // If the term's final interest rate has not been recorded we record it
-        if (assetId != UNLOCKED_YT_ID && finalState.interest == 0) {
+        if (finalState.interest == 0) {
             finalState = _finalizeTerm(expiry);
         }
 
@@ -452,5 +446,53 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         sharesPerExpiry[assetId] = termShares - userShares;
         // Return the shares freed and use the price per share to get value
         return (userShares, (userShares * currentPricePerShare) / one);
+    }
+
+    // potentially better naming opportunity here
+    function _removeYT(uint256 assetId, uint256 expiry, uint256 amount) internal returns (uint256, uint256) {
+
+        // load the state for the term
+        YieldState memory state = yieldTerms[assetId];
+
+        uint256 totalShares = sharesPerExpiry[assetId];
+        uint256 totalValue = _underlying(totalShares, ShareState.Locked);
+        uint256 totalInterest = totalValue - totalSupply[expiry];
+
+        // mapping(uint256 => YieldState) public yieldTerms;
+        state.pt -= amount;
+
+        state.shares -= (state.shares * amount) / totalShares;
+
+        // 
+        // update the record in share data
+        yieldTerms[];
+        // i want to return interest earned in terms of shares but i don't think that's what's happening here
+        return (totalInterest, totalSupply[assetId]);
+    }
+
+    function _convertYT(
+        uint256 assetId,
+        address destination,
+        uint256 amount
+    ) internal returns (uint256) {
+        // make sure asset is not a PT
+        require(assetId >> 256 == 1, "todo: nice error");
+        // expiry must be nonzero
+        uint256 expiry = assetId & (2**(128) - 1);
+        require(expiry > 0, "todo: nice error");
+        // start date must be nonzero
+        uint256 startDate = (assetId >> 128) & (2**256 - 1);
+        require(startDate > 0, "todo: nice error");
+
+        // delete the YT
+        (uint256 sharesEarned, uint256 value) = _removeYT(assetId, expiry, amount);
+
+        // withdraw earned amount from the yieldSource
+        _withdraw(sharesEarned, destination, something);
+
+        // use the other amount to mint YT for the new term
+        // existing create YT function?
+        _createYT(destination, mustgetvalue, totalShares, block.timestamp, expiry);
+
     }
 }
