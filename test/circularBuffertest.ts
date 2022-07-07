@@ -7,7 +7,6 @@ import { ethers, waffle } from "hardhat";
 import { CircularBuffers, CircularBuffers__factory } from "typechain-types";
 
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
-import { intToHex } from "ethereumjs-util";
 
 const { provider } = waffle;
 
@@ -65,7 +64,6 @@ describe("CircularBuffers", function () {
     }
   });
 
-  // TODO: fill this in
   it("should fail to initialize if already initialized", async () => {
     try {
       await circularBufferContract.initialize(BUFFER_ID, MAX_LENGTH);
@@ -82,10 +80,17 @@ describe("CircularBuffers", function () {
     const initialMetadata = await circularBufferContract.readMetadata(
       BUFFER_ID
     );
-    // 0xffff is the head index, should roll over to zero when the first item is added
-    // 0x0005 is the max length
-    // 0x0000 is the current buffer length
     expect(initialMetadata.toHexString()).to.equal("0xffff00050000");
+
+    const initialMetadataParsed =
+      await circularBufferContract.readMetadataParsed(BUFFER_ID);
+    expect(initialMetadataParsed).to.deep.equal([
+      0, // blockNumber
+      0, // timestamp
+      65535, // headIndex (0xffff)
+      5, // maxLength
+      0, // bufferLength
+    ]);
   });
 
   it("should add an item", async () => {
@@ -95,17 +100,18 @@ describe("CircularBuffers", function () {
     expect(initialMetadata.toHexString()).to.equal("0xffff00050000");
 
     await circularBufferContract.addValue(BUFFER_ID, 1);
-    const metadata = await circularBufferContract.readMetadata(BUFFER_ID);
+    const metadata = await circularBufferContract.readMetadataParsed(BUFFER_ID);
     // headIndex now zero, maxLength still 5, bufferLength now 1
     const blockNumber = await provider.getBlockNumber();
     const block = await provider.getBlock(blockNumber);
-    const timeInHex = intToHex(block.timestamp);
 
-    // 0xASDFASDF 0000      0005      0001
-    // timestamp  headIndex maxLength bufferLength
-    expect(metadata.toHexString()).to.equal(
-      `${timeInHex}${"0000"}${"0005"}${"0001"}`
-    );
+    expect(metadata).to.deep.equal([
+      blockNumber, // blockNumber
+      block.timestamp, // timestamp
+      0, // headIndex
+      5, // maxLength
+      1, // bufferLength
+    ]);
 
     const result = await circularBufferContract.getValue(BUFFER_ID, 0);
     expect(result.toString()).to.equal("1");
@@ -151,17 +157,18 @@ describe("CircularBuffers", function () {
     await circularBufferContract.addValue(BUFFER_ID, 5);
     await circularBufferContract.addValue(BUFFER_ID, 6);
 
-    const metadata = await circularBufferContract.readMetadata(BUFFER_ID);
+    const metadata = await circularBufferContract.readMetadataParsed(BUFFER_ID);
     // headIndex now back at zero, maxLength still 5, bufferLength now 5
     const blockNumber = await provider.getBlockNumber();
     const block = await provider.getBlock(blockNumber);
-    const timeInHex = intToHex(block.timestamp);
 
-    // 0xASDFASDF 0000      0005      0001
-    // timestamp  headIndex maxLength bufferLength
-    expect(metadata.toHexString()).to.equal(
-      `${timeInHex}${"0000"}${"0005"}${"0005"}`
-    );
+    expect(metadata).to.deep.equal([
+      blockNumber, // blockNumber
+      block.timestamp, // timestamp
+      0, // headIndex
+      5, // maxLength
+      5, // bufferLength
+    ]);
 
     const result0 = await circularBufferContract.getValue(BUFFER_ID, 0);
     const result1 = await circularBufferContract.getValue(BUFFER_ID, 1);
