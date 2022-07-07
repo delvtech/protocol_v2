@@ -504,7 +504,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             // yt created at current time so discount should always be 0
             require(discount == 0, "todo nice error");
             // create PT
-            _mint(expiry, destination, value);
+            _mint(expiry, destination, value - amount);
         } else {
             // calculate the user's interest in terms of shares
             uint256 interestShares = ((value - amount) * userShares) / value;
