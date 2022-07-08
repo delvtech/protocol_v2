@@ -5,23 +5,25 @@ import { MockERC20YearnVault } from "typechain/MockERC20YearnVault";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
 import { ForwarderFactory } from "typechain/ForwarderFactory";
-import { ERC20Forwarder } from "typechain";
-import { MockMultiToken } from "typechain-types";
 import { TestERC20 } from "typechain/TestERC20";
-import { advanceTime, getCurrentTimestamp } from "./helpers/time";
+import { advanceTime, getCurrentTimestamp, ONE_YEAR_IN_SECONDS, ONE_MINUTE_IN_SECONDS, ONE_WEEK_IN_SECONDS } from "./helpers/time";
+import { BigNumber } from "ethers";
+
 
 const { provider } = waffle;
 
+// NOTE: broken placeholder ID maths
+const YT_FLAG = 1 << 256;
+function createID(start: number, expiration: number) {
+    return YT_FLAG + (start * (2**128) + expiration);
+}
+
 describe("Deposit Tests", async () => {
-  const SECONDS_IN_YEAR = 31536000;
-  const UNLOCK_YT_ID = 1 << 255;
 
   let token: TestERC20;
   let token2: TestERC20;
-  let multiToken: MockMultiToken;
   let vault: MockERC20YearnVault;
   let yieldAdapter: MockYieldAdapter;
-  let erc20: ERC20Forwarder;
   let factory: ForwarderFactory;
   let signers: SignerWithAddress[];
   const token1 = "0x1";
@@ -33,22 +35,6 @@ describe("Deposit Tests", async () => {
         signers[0]
       );
     factory = await factoryFactory.deploy();
-    // not sure if we need this to be a deployed contract
-    const multiTokenDeployer = await ethers.getContractFactory(
-      "MockMultiToken",
-      signers[0]
-    );
-    multiToken = await multiTokenDeployer.deploy(
-      await factory.ERC20LINK_HASH(),
-      factory.address
-    );
-    await factory.create(multiToken.address, token1)
-    const erc20Address = await factory.getForwarder(multiToken.address, token1)
-    const erc20ContractFactory = await ethers.getContractFactory(
-        "ERC20Forwarder",
-        signers[0]
-    );
-    erc20 = erc20ContractFactory.attach(erc20Address);
     const tokenFactory = await ethers.getContractFactory(
         "TestERC20",
         signers[0]
@@ -79,9 +65,6 @@ describe("Deposit Tests", async () => {
     // set allowance for the yieldAdapter contract
     await token.connect(signers[0]).approve(yieldAdapter.address, 12e6);
     await token.connect(signers[1]).approve(yieldAdapter.address, 12e6); 
-
-    // go forward in time
-    await advanceTime(provider, SECONDS_IN_YEAR);
   });
 
   beforeEach(async () => {
@@ -94,41 +77,52 @@ describe("Deposit Tests", async () => {
 
   describe.only("Lock", async () => {
     it("Fails invalid expiry", async () => {
-      const now = await getCurrentTimestamp(provider);
-      console.log(now-1e6);
+      const start = await getCurrentTimestamp(provider) + 1;
       const tx = yieldAdapter.lock(
         [],
         [],
         100,
         signers[0].address,
         signers[0].address,
-        now,
-        now - 1e6 // unix timestamp from the past
+        start,
+        start - 1e6 // unix timestamp from the past
       );
       await expect(tx).to.be.revertedWith("todo nice error");
     });
 
-    it("Single user successfully deposit underlying", async () => {
+    it.only("Single user successfully deposit underlying", async () => {
       const startBalance = await token.balanceOf(signers[0].address);
-      // create beginning timestamp
-      // TODO: logic with time is off, other function doesn't work as expected here
-      const start = Math.floor(Date.now() / 1000);
-    //   const now = await getCurrentTimestamp(provider);
+      // create beginning timestamp offset by a second to account for execution
+      const start = await getCurrentTimestamp(provider);
       // create expiry timestamp in the future
-      const expiration = start + SECONDS_IN_YEAR;
+      const expiration = start + ONE_YEAR_IN_SECONDS;
       await yieldAdapter.lock(
         [],
         [],
-        5,
+        1000,
         signers[0].address,
         signers[0].address,
         start,
         expiration
       );
-      // check that user's balance decreased
-      expect(await token.balanceOf(signers[0].address)).to.equal(startBalance.toNumber() - 5);
+      const id = createID(start, expiration);
+
+    //   // deploy ERC20Forwarder for the YT created
+    //   await factory.create(yieldAdapter.address, ytID);
+    //   const erc20Address = await factory.getForwarder(yieldAdapter.address, ytID);
+    //   const erc20ContractFactory = await ethers.getContractFactory(
+    //     "ERC20Forwarder",
+    //     signers[0]
+    //   );
+    //   erc20 = erc20ContractFactory.attach(erc20Address);
+    //   const ytBalance = await erc20.balanceOf(signers[0].address);
+
+      // check that user's underlying balance decreased
+      expect(await token.balanceOf(signers[0].address)).to.equal(startBalance.toNumber() - 1000);
       // check that vault's balance increased
       expect(await token.balanceOf(vault.address)).to.equal(5);
+      // check that YT balance has increased
+      expect(await yieldAdapter.balanceOf(id, signers[0].address)).to.equal(0); // todo: amount
     });
 
     it("Deposit underlying with different destination", async () => {
@@ -138,7 +132,7 @@ describe("Deposit Tests", async () => {
         const start = Math.floor(Date.now() / 1000);
       //   const now = await getCurrentTimestamp(provider);
         // create expiry timestamp in the future
-        const expiration = start + SECONDS_IN_YEAR;
+        const expiration = start + ONE_YEAR_IN_SECONDS;
         await yieldAdapter.lock(
           [],
           [],
@@ -159,7 +153,7 @@ describe("Deposit Tests", async () => {
       const start = Math.floor(Date.now() / 1000);
     //   const start = await getCurrentTimestamp(provider);
       // create expiry timestamp in the future
-      const expiration = start + SECONDS_IN_YEAR;
+      const expiration = start + ONE_YEAR_IN_SECONDS;
       await yieldAdapter
         .connect(signers[0])
         .lock(
@@ -194,7 +188,7 @@ describe("Deposit Tests", async () => {
         let start = Math.floor(Date.now() / 1000);
       //   const start = await getCurrentTimestamp(provider);
         // create expiry timestamp in the future
-        let expiration = start + SECONDS_IN_YEAR;
+        let expiration = start + ONE_YEAR_IN_SECONDS;
         await yieldAdapter
           .connect(signers[0])
           .lock(
@@ -206,9 +200,9 @@ describe("Deposit Tests", async () => {
             start,
             expiration
           );
-        await advanceTime(provider, start + SECONDS_IN_YEAR/2);
+        await advanceTime(provider, start + ONE_YEAR_IN_SECONDS/2);
         start = Math.floor(Date.now() / 1000);
-        expiration = start + SECONDS_IN_YEAR;
+        expiration = start + ONE_YEAR_IN_SECONDS;
         await yieldAdapter
           .connect(signers[1])
           .lock(
@@ -230,6 +224,7 @@ describe("Deposit Tests", async () => {
     it("Deposit underlying with zero expiry", async () => {
       // create beginning timestamp
       const now = Math.floor(Date.now() / 1000);
+      const id = createID(now, 0);
       const tx = yieldAdapter.lock(
         [],
         [],
@@ -240,7 +235,7 @@ describe("Deposit Tests", async () => {
         0
       );
       // check that YT's have been minted at the unlock ID
-      await yieldAdapter.balanceOf(UNLOCK_YT_ID, signers[0].address);
+      await yieldAdapter.balanceOf(id, signers[0].address);
     });
 
     it("Valid backdating deposit", async () => {
@@ -256,8 +251,23 @@ describe("Deposit Tests", async () => {
       );
       await expect(tx).to.be.revertedWith("todo nice error");
     });
+
+    // it.only("time travel", async () => {
+    //     // // let t1 = now();
+    //     // // console.log(t1);
+    //     // // await advanceTime(provider, SIX_MONTHS_IN_SECONDS);
+    //     // // t1 = now();
+    //     // console.log(t1);
+    //     console.log("--");
+    //     let t2 = await getCurrentTimestamp(provider);
+    //     console.log(t2);
+    //     await advanceTime(provider, SIX_MONTHS_IN_SECONDS);
+    //     t2 = await getCurrentTimestamp(provider);
+    //     console.log(t2);
+    // });
+
   });
-//   describe.only("Unlock", async () => {
+//   describe("Unlock", async () => {
 //     it("Unlock some reserves", async () => {
 //       // deposit some underlying
 //       const now = Math.floor(Date.now() / 1000);
