@@ -10,11 +10,11 @@ contract MockMultiToken is MultiToken {
 
     function setNameAndSymbol(
         uint256 tokenId,
-        string calldata _name,
-        string calldata _symbol
+        string calldata __name,
+        string calldata __symbol
     ) external {
-        name[tokenId] = _name;
-        symbol[tokenId] = _symbol;
+        _name[tokenId] = __name;
+        _symbol[tokenId] = __symbol;
     }
 
     function setBalance(

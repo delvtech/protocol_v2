@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "./IMultiToken.sol";
+import { IERC20 } from "./IERC20.sol";
 
 interface ITerm is IMultiToken {
     /// @notice sums inputs to create new PTs and YTs from the deposit amount
@@ -32,5 +33,5 @@ interface ITerm is IMultiToken {
 
     function unlockedSharePrice() external returns (uint256);
 
-    function token() external view returns (address);
+    function token() external view returns (IERC20);
 }

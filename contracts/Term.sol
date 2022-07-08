@@ -3,8 +3,7 @@ pragma solidity ^0.8.15;
 
 import "./MultiToken.sol";
 import "./interfaces/IYieldAdapter.sol";
-import "./interfaces/ITerm.sol";
-import "./interfaces/IERC20.sol";
+import { ITerm, IERC20 } from "./interfaces/ITerm.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     // Struct to store packed yield term info, packed into one sstore
@@ -170,7 +169,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Mint the user principal tokens
         // Note - Reverts if the user is trying to enter a term where they have not supplied enough
         //        value to pay for accumulated interest, the user should choose a more recent term.
-        if (totalValue - discount > 0) {  // Should be equal to the total value in the special case where the id is _UNLOCK_TERM_ID and expiration = 0
+        if (totalValue - discount > 0) {
+            // Should be equal to the total value in the special case where the id is _UNLOCK_TERM_ID and expiration = 0
             _mint(expiration, ptDestination, totalValue - discount);
         }
 
@@ -239,8 +239,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
 
     /// @notice Quotes the price per share for unlocked tokens
     /// @return the price per share of unlocked shares
-    function unlockedSharePrice() external override returns(uint256) {
-        return(_underlying(one, ShareState.Unlocked));
+    function unlockedSharePrice() external override returns (uint256) {
+        return (_underlying(one, ShareState.Unlocked));
     }
 
     /// @notice creates yield tokens

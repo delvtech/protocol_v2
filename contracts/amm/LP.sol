@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "../MultiToken.sol";
-import "../interfaces/IERC20.sol";
-import "../interfaces/ITerm.sol";
-import "../interfaces/IYieldAdapter.sol";
+import { MultiToken } from "../MultiToken.sol";
+import { ITerm, IERC20 } from "../interfaces/ITerm.sol";
+import { IYieldAdapter } from "../interfaces/IYieldAdapter.sol";
 
 // LP is a multitoken [ie fake 1155] contract which accepts deposits and withdraws
 // from the AMM.
@@ -74,7 +73,7 @@ contract LP is MultiToken {
         // Note - we need a pointless storage to memory to convince the solidity type checker
         // to understand the type of []
         uint256[] memory empty = new uint256[](0);
-        // depositedShares == unlocked YT minted 
+        // depositedShares == unlocked YT minted
         (uint256 depositedShares, ) = term.lock(
             empty,
             empty,
@@ -92,7 +91,7 @@ contract LP is MultiToken {
         uint256 newLpToken = depositFromShares(
             poolId,
             uint256(reserves[poolId].shares), // unlocked tokens YT
-            uint256(reserves[poolId].bonds),  // <-- PT
+            uint256(reserves[poolId].bonds), // <-- PT
             depositedShares,
             pricePerShare,
             destination

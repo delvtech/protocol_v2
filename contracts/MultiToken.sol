@@ -28,8 +28,8 @@ contract MultiToken is IMultiToken {
         public
         override perTokenApprovals;
     // Sub Token Name and Symbol, created by inheriting contracts
-    mapping(uint256 => string) public override name;
-    mapping(uint256 => string) public override symbol;
+    mapping(uint256 => string) internal _name;
+    mapping(uint256 => string) internal _symbol;
     // Error triggered when the create2 verification fails
     error NonLinkerCaller();
 
@@ -89,6 +89,32 @@ contract MultiToken is IMultiToken {
             revert NonLinkerCaller();
         // Execute the following function
         _;
+    }
+
+    /// @notice Returns the name of the sub token i.e PTs or YTs token supported
+    ///         by this contract.
+    /// @return Returns the name of this token
+    function name(uint256 id)
+        external
+        view
+        virtual
+        override
+        returns (string memory)
+    {
+        return _name[id];
+    }
+
+    /// @notice Returns the symbol of the sub token i.e PTs or YTs token supported
+    ///         by this contract.
+    /// @return Returns the symbol of this token
+    function symbol(uint256 id)
+        external
+        view
+        virtual
+        override
+        returns (string memory)
+    {
+        return _symbol[id];
     }
 
     /// @notice Transfers an amount of assets from the source to the destination
@@ -320,15 +346,20 @@ contract MultiToken is IMultiToken {
     /// @notice Derive the ERC20 forwarder address for a provided `tokenId`.
     /// @param tokenId Token Id of the token whose forwader contract address need to drived.
     /// @return Address of the ERC20 forwarder contract.
-    function deriveForwarderAddress(uint256 tokenId) external returns(address) {
+    function deriveForwarderAddress(uint256 tokenId)
+        external
+        returns (address)
+    {
         return _deriveForwarderAddress(tokenId);
     }
-
 
     /// @notice Derive the ERC20 forwarder address for a provided `tokenId`.
     /// @param tokenId Token Id of the token whose forwader contract address need to drived.
     /// @return Address of the ERC20 forwarder contract.
-    function _deriveForwarderAddress(uint256 tokenId) internal returns(address) {
+    function _deriveForwarderAddress(uint256 tokenId)
+        internal
+        returns (address)
+    {
         // Get the salt which is used by the deploying contract
         bytes32 salt = keccak256(abi.encode(address(this), tokenId));
         // Preform the hash which determines the address of a create2 deployment
