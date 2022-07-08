@@ -5,11 +5,11 @@ import "./interfaces/IERC20.sol";
 import "./interfaces/IMultiToken.sol";
 import "./interfaces/IForwarderFactory.sol";
 
-// This ERC20 forwarder forwards calls through an ERC20 compliant interface
-// to move the sub tokens in our multi token contract. This enables our
-// multitoken which are 'ERC1150' like to behave ike ERC20 in integrating
+// This ERC20 forwarder forwards calls through an ERC20-compliant interface
+// to move the sub tokens in our multi-token contract. This enables our
+// multi-token which are 'ERC1150' like to behave like ERC20 in integrating
 // protocols.
-// It is a premissionlessly deployed bridge which is linked to the main contract
+// It is a permissionless deployed bridge that is linked to the main contract
 // by a create2 deployment validation so MUST be deployed by the right factory.
 contract ERC20Forwarder is IERC20 {
     // The contract which contains the actual state for this 'ERC20'
