@@ -74,7 +74,7 @@ contract LP is MultiToken {
         // Note - we need a pointless storage to memory to convince the solidity type checker
         // to understand the type of []
         uint256[] memory empty = new uint256[](0);
-        // depositedShares == YT minted 
+        // depositedShares == unlocked YT minted 
         (uint256 depositedShares, ) = term.lock(
             empty,
             empty,
