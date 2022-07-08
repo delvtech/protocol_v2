@@ -211,9 +211,9 @@ contract Pool is LP {
         IMultiToken(address(term)).transferFrom(_UNLOCK_TERM_ID, msg.sender, address(this), amountOut - underlyingAmt);
         // Buy the PTs and YTs
         (, uint256 yt) = term.lock(
-            [],
-            [],
-            amountOut,
+            [_UNLOCK_TERM_ID],
+            [amountOut],
+            0,
             recepient,
             address(this),
             block.timestamp,
