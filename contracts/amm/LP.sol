@@ -44,9 +44,9 @@ contract LP is MultiToken {
         address _factory
     ) MultiToken(_linkerCodeHash, _factory) {
         token = _term.token();
-        uint8 _decimals = _token.decimals();
+        uint8 _decimals = token.decimals();
         decimals = _decimals;
-        one = 10**_decimals;
+        _one = 10**_decimals;
         term = _term;
     }
 
@@ -87,7 +87,7 @@ contract LP is MultiToken {
         );
 
         // Calculate the implicit price per share
-        uint256 pricePerShare = (amount * one) / depositedShares;
+        uint256 pricePerShare = (amount * _one) / depositedShares;
         // Call internal function to mint new lp from the new shares held by this contract
         uint256 newLpToken = depositFromShares(
             poolId,
@@ -247,11 +247,11 @@ contract LP is MultiToken {
         // IE: amount_bonds + amountShares*underlyingPerShare
         uint256 totalValue = currentShares * pricePerShare + currentBonds;
         // Calculate the needed bonds as a percent of the value
-        uint256 depositedAmount = (depositedShares * pricePerShare) / one;
+        uint256 depositedAmount = (depositedShares * pricePerShare) / _one;
         uint256 neededBonds = (depositedAmount * currentBonds) / totalValue;
         // The bond value is in terms of purely the underlying so to figure out how many shares we lock
         // we dived it by our price per share to convert to share value.
-        uint256 sharesToLock = (neededBonds * one) / pricePerShare;
+        uint256 sharesToLock = (neededBonds * _one) / pricePerShare;
         // Shares to lock is in 18 point so we convert back and then lock shares to PTs
         // while sending the resulting YT to the user
 

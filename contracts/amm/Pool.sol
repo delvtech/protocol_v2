@@ -6,6 +6,7 @@ import { DateString } from "../libraries/DateString.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { TypedFixedPointMathLib, UFixedPoint } from "../libraries/TypedFixedPointMathLib.sol";
 import { IMultiToken } from "../interfaces/IMultiToken.sol";
+import { SafeCast } from "../libraries/SafeCast.sol";
 
 /// TODO: Downcasting checks
 contract Pool is LP {
@@ -185,7 +186,7 @@ contract Pool is LP {
     /// @notice Facilitate the purchase of the YT
     /// @param  poolId Expiration timestamp of the bond (,i.e PT) correspond to which YT got minted.
     /// @param  amountOut Minimum No. of YTs buyer is expecting to have after the trade.
-    /// @param  receipent Destination at which newly minted YTs got transferred.
+    /// @param  recepient Destination at which newly minted YTs got transferred.
     /// @param  maxInput Maximum amount of shares buyer wants to spend on this trade.
     function purchaseYt(uint256 poolId, uint256 amountOut, address recepient, uint256 maxInput) external {
         // No trade after expiration
@@ -198,11 +199,11 @@ contract Pool is LP {
         recepient = recepient == address(0) ? msg.sender : recepient;
         // Read the cached reserves for the unlocked YT and bonds ,i.e. PT.
         uint128 cSharesReserve = reserves[poolId].shares;
-        uint128 cBondsReserve = reserves[poolId].bonds;  //X
+        uint128 cBondsReserve = reserves[poolId].bonds;
         // Calculate the shares received when selling `amountOut` PTs.
-        uint256 sharesReceived = _sellBondsPreview(amountOut, cSharesReserve, cBondsReserve); // X + sharesReceived
+        uint256 sharesReceived = _sellBondsPreview(amountOut, cSharesReserve, cBondsReserve);
         // Calculate the shares without fee.
-        uint256 sharesWithOutFee = _chargeFee(poolId, amountOut, sharesReceived, TradeType.SELL_PT); // X + sharesReceived - fee
+        uint256 sharesWithOutFee = _chargeFee(poolId, amountOut, sharesReceived, TradeType.SELL_PT);
         // Convert the shares into underlying.
         uint256 underlyingAmt = term.unlockedSharePrice() * sharesWithOutFee;
         // Make sure user wouldn't end up paying more.
@@ -229,7 +230,7 @@ contract Pool is LP {
     /// @param  poolId Pool Id supported for the trade.
     /// @param  amount Amount of underlying asset (or base asset) provided to purchase the bonds.
     /// @param  cachedReserve Cached reserve at the time of trade.
-    /// @returns Amount of bond tokens, trade offers.
+    /// @return Amount of bond tokens, trade offers.
     function _buyBonds(uint256 poolId, uint256 amount, Reserve memory cachedReserve) internal returns(uint256 bondsAmountWithOutFee, uint256 changeInShares) {
         // Transfer the funds to the contract
         token.safeTransferFrom(msg.sender, address(this), amount);
@@ -269,7 +270,7 @@ contract Pool is LP {
     /// @param  amount Amount of bonds tokens user wants to sell in given trade.
     /// @param  cachedReserve Cached reserve at the time of trade.
     /// @param  receiver Address which would receive the underlying token.
-    /// @returns Amount of shares, trade offers.
+    /// @return Amount of shares, trade offers.
     function _sellBonds(uint256 poolId, uint256 amount, Reserve memory cachedReserve, address receiver) internal returns(uint256 sharesWithOutFee, uint256 changeInShares ) {
         // Transfer the bonds to the contract
         IMultiToken(address(_term)).transferFrom(poolId, msg.sender, address(this), amount);
