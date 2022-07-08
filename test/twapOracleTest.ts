@@ -27,7 +27,7 @@ describe.only("TWAP Oracle", function () {
     oracleDeployer = new MockTWAPOracle__factory(signers[0] as Signer);
 
     oracleContract = await oracleDeployer.deploy();
-    await oracleContract.initializeBufferForPool(BUFFER_ID, MAX_LENGTH);
+    await oracleContract.initializeBuffer(BUFFER_ID, MAX_LENGTH);
   });
 
   after(async () => {
@@ -42,16 +42,14 @@ describe.only("TWAP Oracle", function () {
   });
 
   it("should initialize", async () => {
-    const initialMetadata = await oracleContract.readMetadata(BUFFER_ID);
-    expect(initialMetadata.toHexString()).to.equal("0xffff000a0000");
-
     const initialMetadataParsed = await oracleContract.readMetadataParsed(
       BUFFER_ID
     );
+    const block = await provider.getBlock("latest");
     expect(initialMetadataParsed).to.deep.equal([
-      0, // blockNumber
-      0, // timestamp
-      65535, // headIndex (0xffff)
+      block.number, // blockNumber
+      block.timestamp, // timestamp
+      0, // headIndex
       10, // maxLength
       0, // bufferLength
     ]);
@@ -60,7 +58,7 @@ describe.only("TWAP Oracle", function () {
   // TODO: we should initialize buffer with current timestamp, not zero
   it("should add first price to sum", async () => {
     const oneEther = parseEther("1");
-    await oracleContract.updateOracleForPool(BUFFER_ID, oneEther);
+    await oracleContract.updateBuffer(BUFFER_ID, oneEther);
     const result = await oracleContract.readSumAndTimestampForPool(
       BUFFER_ID,
       0
@@ -71,13 +69,13 @@ describe.only("TWAP Oracle", function () {
   });
 
   it("should add many prices to sum", async () => {
-    await oracleContract.updateOracleForPool(BUFFER_ID, parseEther("0.3"));
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("0.3"));
     const block0 = await provider.getBlock("latest");
-    await oracleContract.updateOracleForPool(BUFFER_ID, parseEther("0.4"));
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("0.4"));
     const block1 = await provider.getBlock("latest");
-    await oracleContract.updateOracleForPool(BUFFER_ID, parseEther("0.5"));
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("0.5"));
     const block2 = await provider.getBlock("latest");
-    await oracleContract.updateOracleForPool(BUFFER_ID, parseEther("0.6"));
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("0.6"));
     const block3 = await provider.getBlock("latest");
 
     const result0 = await oracleContract.readSumAndTimestampForPool(
