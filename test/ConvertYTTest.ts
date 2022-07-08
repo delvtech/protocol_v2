@@ -13,6 +13,9 @@ import { getCurrentTimestamp, ONE_YEAR_IN_SECONDS } from "./helpers/time";
 import fp from "evm-fp";
 
 const { provider } = waffle;
+
+// NOTE: this is bad math and does not work, but I am having trouble math-ing
+//       so for structure purposes I am placeholding with bad math
 const YT_FLAG = 2 ** 256;
 
 describe("Convert YT Tests", async () => {
