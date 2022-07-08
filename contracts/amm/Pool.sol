@@ -10,6 +10,8 @@ import { IMultiToken } from "../interfaces/IMultiToken.sol";
 /// TODO: Downcasting checks
 contract Pool is LP {
 
+    using SafeCast for uint256;
+    using SafeCast for int256;
     using SafeERC20 for IERC20;
     using TypedFixedPointMathLib for UFixedPoint;
     using TypedFixedPointMathLib for uint256;
@@ -23,7 +25,7 @@ contract Pool is LP {
     /// It is in 18 decimals
     uint256 public tradeFee;
 
-    /// Governance contrac that allows to do some administrative operation.
+    /// Governance contract that allows to do some administrative operation.
     address public immutable governanceContract;
 
     /// Fees collected
@@ -65,7 +67,6 @@ contract Pool is LP {
     /// @param _erc20ForwarderCodeHash The hash of the erc20 forwarder contract deploy code.
     /// @param _governanceContract Governance contract address.
     /// @param _erc20ForwarderFactory The factory which is used to deploy the forwarder contracts.
-    /// V input - we are going to support for dynamic PoolIds.
     constructor(
         ITerm _term,
         uint256 _tradeFee,
@@ -76,7 +77,7 @@ contract Pool is LP {
         // Should not be zero.
         require(_governanceContract != address(0), "todo nice errors");
 
-        //----------------Perform some sstore---------------------
+        //----------------Perform some sstore---------------------//
         tradeFee = _tradeFee;
         governanceContract = _governanceContract;
     }
@@ -95,9 +96,8 @@ contract Pool is LP {
         return _processString(string(abi.encodePacked("LP",IMultiToken(address(_term)).symbol(poolId))), poolId);
     }
 
-
     /// @notice Used to initialize the reserves of the pool for given poolIds.
-    ///         - Initialization of the pool also consider an unaccounted balance of bonds and shares.
+    ///         - Initialization of the pool also consider an unaccounted balance of bonds but not shares.
     ///         - It mints corresponding LP token equal to the amount of bonds supply,i.e. `bondsIn`.
     /// @dev    Alice wants to initialize the pool to earn some sweet fee on its
     ///         PT holdings.
@@ -106,13 +106,13 @@ contract Pool is LP {
     ///         converts her DAI (base or underlying token) into the TV shares.
     ///         100 DAI --->(Supported Term)---> 100 shares.
     ///         Now Alice can intitalize the pool with 120 PTs as `bondsIn` and 100 as `sharesIn`.
-    /// @param  poolId new poolId which will get supported by this pool.
-    /// @param  sharesIn amount of shares used to initialize the reserves.
-    /// @param  bondsIn amount of bonds used to initialize the reserves.
+    /// @param  poolId New poolId which will get supported by this pool.
+    /// @param  sharesIn Amount of shares used to initialize the reserves.
+    /// @param  bondsIn Amount of bonds used to initialize the reserves.
     /// @param  timeStretch No. of seconds in our timescale.
     /// @param  recipient Address which will receive the minted LP tokens.
-    /// @return _mintedLpTokens Array of minted LP tokens amount for provided `poolIds`.
-    function registerPoolId(uint256 poolId, uint256 sharesIn, uint256 bondsIn, uint256 timeStretch, address recipient) external returns(uint256 _mintedLpTokens) {
+    /// @return mintedLpTokens No. of minted LP tokens amount for provided `poolIds`.
+    function registerPoolId(uint256 poolId, uint256 sharesIn, uint256 bondsIn, uint256 timeStretch, address recipient) external returns(uint256 mintedLpTokens) {
         // Expired PTs are not supported.
         require(poolId > block.timestamp, "todo nice time errors");
         // Should not be already initialized.
@@ -128,9 +128,9 @@ contract Pool is LP {
         // Transfer the sharesIn
         IMultiToken(address(_term)).transferFrom(_UNLOCK_TERM_ID, msg.sender, address(this), sharesIn);
         // Initialize the reserves.
-        _update(poolId, uint128(_getUnCheckedBondBalance()), uint128(_getUnCheckedShareBalance()), uint128(0), uint128(0));
+        _update(poolId, _getUnCheckedBondBalance().toUint128(), sharesIn.toUint128(), uint128(0), uint128(0));
         // Mint LP tokens to the recipient.
-        _mint(poolId, recipient, _mintedLpTokens = bondsIn);
+        _mint(poolId, recipient, mintedLpTokens = bondsIn);
         // Emit events
         emit NewPoolIdRegistered(poolId);
     } 
@@ -139,16 +139,16 @@ contract Pool is LP {
 
     /// @notice Facilitate the trade of bonds where it can be buy or sell depending on the given trade type.
     /// @param  poolId Expiration timestamp of the bond (,i.e PT).
-    /// @param  amount            It represent the amount of asset user wants to spend when the TradeType is `BUY_PT` otherwise it
-    ///                           represent the amount of bonds (,i.e. PT) user wants to sell.
-    /// @param  expectedAmountOut Minimum expected returns user is willing to accept, If `receivedAmt` is less than that
-    ///                           then revert the trade.
-    /// @param  receiver          Address which receive the bonds in case of `BUY_PT` or receive underlying token in case of `SELL_PT`.
-    /// @param  tradeType         Tells the operation type user wants to perform either BUY_PT or SELL_PT.
+    /// @param  amount     It represent the amount of asset user wants to spend when the TradeType is `BUY_PT` otherwise it
+    ///                    represent the amount of bonds (,i.e. PT) user wants to sell.
+    /// @param  amountOut  Minimum expected returns user is willing to accept, If `receivedAmt` is less than it,
+    ///                    revert the trade.
+    /// @param  receiver   Address which receive the bonds in case of `BUY_PT` or receive underlying token in case of `SELL_PT`.
+    /// @param  tradeType  Tells the operation type user wants to perform either BUY_PT or SELL_PT.
     function tradeBonds(
         uint256 poolId,
         uint256 amount,
-        uint256 expectedAmountOut,
+        uint256 amountOut,
         address receiver,
         TradeType tradeType
     ) external returns(uint256 receivedAmt) {
@@ -162,11 +162,10 @@ contract Pool is LP {
         receiver = recevier == address(0) ? msg.sender : receiver;
         // Read the cached reserves for the unlocked shares and bonds ,i.e. PT.
         Reserve memory cachedReserve = reserves[poolId];
-        int256 changeInShares;
         // Execute trade type
         (receivedAmt, changeInShares) = tradeType == TradeType.BUY ? _buyBonds(poolId, amount, cachedReserve) : _sellBonds(poolId, amount, cachedReserve, receiver);
         // Minimum amount check.
-        require(receivedAmt >= expectedAmountOut, "todo nice errors");
+        require(receivedAmt >= amountOut, "todo nice errors");
         // When trade type is SELL, funds are already transferred to the receiver to save one extra transfer.
         if (tradeType == TradeType.BUY_PT) {
             // Derive the PT token (bond) address.
@@ -174,8 +173,10 @@ contract Pool is LP {
             // Transfer the bond tokens,i.e PTs to the receiver.
             IERC20(bondToken).safeTransfer(receiver, receivedAmt);
         }
+        // TODO: use fixed point addition and subtraction.
+        uint128 newShareReserve = tradeType == TradeType.BUY_PT ? cachedReserve.shares + changeInShares.toUint128() : cachedReserve.shares - changeInShares.toUint128();
         // Updated reserves.
-        _update(poolId, getBondBalance(poolId), uint128(int128(cachedReserve.shares) + int128(changeInShares)), cachedReserve.bonds, cachedReserve.shares);
+        _update(poolId, getBondBalance(poolId), newShareReserve, cachedReserve.bonds, cachedReserve.shares);
         // Emit event for the offchain services.
         emit BondsTraded(poolId, receiver, tradeType, amount, receivedAmt);
     }
@@ -223,13 +224,13 @@ contract Pool is LP {
         emit YtPurchased(poolId, recepient, yt, amountOut - underlyingAmt);
     }
 
-
+    // TODO: Make sure the decimal precision is correct.
     /// @dev Facilitate the purchase of the bonds.
     /// @param  poolId Pool Id supported for the trade.
-    /// @param amount Amount of underlying asset (or base asset) provided to purchase the bonds.
-    /// @param cachedReserve Cached reserve at the time of trade.
+    /// @param  amount Amount of underlying asset (or base asset) provided to purchase the bonds.
+    /// @param  cachedReserve Cached reserve at the time of trade.
     /// @returns Amount of bond tokens, trade offers.
-    function _buyBonds(uint256 poolId, uint256 amount, Reserve memory cachedReserve) internal returns(uint256 bondsAmountWithOutFee, int256 changeInShares) {
+    function _buyBonds(uint256 poolId, uint256 amount, Reserve memory cachedReserve) internal returns(uint256 bondsAmountWithOutFee, uint256 changeInShares) {
         // Transfer the funds to the contract
         token.safeTransferFrom(msg.sender, address(this), amount);
         
@@ -241,7 +242,7 @@ contract Pool is LP {
         uint256[] memory empty = new uint256[](0);
         // Deposit the underlying token in to the tokenized vault
         // to get the shares of it.
-        (, uint256 depositedShares) = term.lock(
+        (, uint256 changeInShares) = term.lock(
             empty,
             empty,
             amount,
@@ -251,13 +252,17 @@ contract Pool is LP {
             0,
             _UNLOCK_TERM_ID
         );
-        changeInShares = int256(depositedShares);
         // Calculate the amount of bond tokens.
-        uint128 expectedBondsOut = _buyBondsPreview(uint128(depositedShares), cachedReserve.shares, cachedReserve.bonds);
+        uint128 expectedBondsOut = _buyBondsPreview(
+            changeInShares.toUFixedPoint(),
+            uint256(cachedReserve.shares).toUFixedPoint(),
+            uint256(cachedReserve.bonds).toUFixedPoint()
+        );
         // Charge fee on the interest rate offered during the trade.
-        bondsAmountWithOutFee = _chargeFee(poolId, expectedBondsOut, depositedShares, TradeType.BUY_PT);
+        bondsAmountWithOutFee = _chargeFee(poolId, uint256(expectedBondsOut), changeInShares, TradeType.BUY_PT);
     }
 
+    // TODO: Make sure the decimal precision is correct.
     /// @dev Facilitate the sell of bond tokens.
     /// It will transfer the underlying token instead of the shares ??
     /// @param  poolId Pool Id supported for the trade.
@@ -265,19 +270,18 @@ contract Pool is LP {
     /// @param  cachedReserve Cached reserve at the time of trade.
     /// @param  receiver Address which would receive the underlying token.
     /// @returns Amount of shares, trade offers.
-    function _sellBonds(uint256 poolId, uint256 amount, Reserve memory cachedReserve, address receiver) internal returns(uint256 sharesWithOutFee, int256 changeInShares ) {
+    function _sellBonds(uint256 poolId, uint256 amount, Reserve memory cachedReserve, address receiver) internal returns(uint256 sharesWithOutFee, uint256 changeInShares ) {
         // Transfer the bonds to the contract
         IMultiToken(address(_term)).transferFrom(poolId, msg.sender, address(this), amount);
-        // Sell bonds preview
-        uint256 expectedSharesOut = _sellBondsPreview(uint128(amount), cachedReserve.shares, cachedReserve.bonds);
+        // Sell bonds preview. changeInShares ~ expectedSharesOut in terminology here
+        uint256 changeInShares = _sellBondsPreview(amount.toUFixedPoint(), uint256(cachedReserve.shares).toUFixedPoint(), uint256(cachedReserve.bonds).toUFixedPoint());
         // Charge fee on the interest rate offered during the trade.
-        sharesWithOutFee = _chargeFee(poolId, expectedSharesOut, amount, TradeType.SELL_PT);
+        sharesWithOutFee = _chargeFee(poolId, changeInShares, amount, TradeType.SELL_PT);
         // Create the arrays for a withdraw from term
         uint256[] memory ids = new uint256[](1);
         ids[0] = _UNLOCK_TERM_ID;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = sharesWithOutFee;
-        changeInShares = int256(-sharesWithOutFee);
         // Do the withdraw to user account
         term.unlock(receiver, ids, amounts);
     }
@@ -300,46 +304,37 @@ contract Pool is LP {
     /// @dev Charge fee for the trade.
     /// @param poolId Sub pool Id, Corresponds to it fees get updated.
     function _chargeFee(uint256 poolId, uint256 amountOut, uint256 amountIn, TradeType _type) internal returns(uint256) {
-        // TODO: Need to use the Fixed Point math
         if (_type == TradeType.BUY_PT) {
-            uint256 impliedFee = tradeFee.mulDown(TypedFixedPointMathLib.wrap(amountOut - amountIn));
-            fees[poolId].feesInBonds += uint128(impliedFee); 
+            uint256 impliedFee = tradeFee.toUFixedPoint().mulDown((amountOut - amountIn).toUFixedPoint()).fromUFixedPoint();
+            fees[poolId].feesInBonds += impliedFee.toUint128(); 
             return amountOut - impliedFee;
         } else if (_type == TradeType.SELL_PT) {
-            uint256 impliedFee = tradeFee.mulDown(TypedFixedPointMathLib.wrap(amountIn - amountOut));
-            fees[poolId].feesInShares += uint128(impliedFee); 
+            uint256 impliedFee = tradeFee.toUFixedPoint().mulDown((amountIn - amountOut).toUFixedPoint()).fromUFixedPoint();
+            fees[poolId].feesInShares += impliedFee.toUint128(); 
             return amountOut - impliedFee;
         }
     }
 
 
+    /// @notice Return the bond balance of the contract, subtracting the fees from the actual balance.
+    /// @param poolId Identifier of the bond token whose balance gets queried.
     function getBondBalance(uint256 poolId) public pure returns(uint128 _bondBalance) {
-        // Todo - safety checks for the downcasting.
-        return uint128(_getUnCheckedBondBalance(poolId) - uint256(fees[poolId].feesInBonds));
+        return (_getUnCheckedBondBalance(poolId) - uint256(fees[poolId].feesInBonds)).toUint128();
+    }
+
+    /// @notice Update the `tradeFee` by the governance contract.
+    function updateTradeFee(uint256 newTradeFee) external onlyGovernance {
+        emit TradeFeeUpdated(tradeFee, tradeFee = newTradeFee);
     }
 
     function _getUnCheckedBondBalance(uint256 poolId) internal pure returns(uint256) {
         return IMultiToken(address(term)).balanceOf(poolId, address(this));
     }
 
-    function getSharesBalance() public pure returns(uint128 _sharesBalance) {
-        // Todo - safety checks for the downcasting.
-        return uint128(_getUnCheckedShareBalance() - uint256(fees[poolId].feesInShares));
-    }
-
-    function _getUnCheckedShareBalance() internal pure returns(uint256) {
-        return IMultiToken(address(term)).balanceOf(_UNLOCK_TERM_ID, address(this));
-    }
-
     function buyBondsPreview(uint128 sharesIn, uint256 poolId) external view returns(uint128 _expectedBondOut) {
         // Read the cached reserves for the unlocked YT and bonds ,i.e. PT.
         Reserve memory cachedReserve = reserves[poolId];
         return _buyBondsPreview(sharesIn, cachedReserve.shares, cachedReserve.bonds);
-    }
-
-    /// @notice Update the `tradeFee` by the governance contract.
-    function updateTradeFee(uint256 newTradeFee) external onlyGovernance {
-        emit TradeFeeUpdated(tradeFee, tradeFee = newTradeFee);
     }
 
     function _buyBondsPreview(
@@ -356,10 +351,6 @@ contract Pool is LP {
         uint128 bondsReserve
     ) internal view returns(uint128 _expectedSharesOut) {
         // TODO - Access the library to know the amount.
-    }
-
-    function _normalize(uint256 amt, uint256 fromDecimals) internal returns(uint256) {
-        return amt * ONE_18 / fromDecimals;
     }
 
     /// @dev Used to create the name and symbol of the LP token using the given `_prefix` and `_sufix`.
