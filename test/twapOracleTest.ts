@@ -44,6 +44,40 @@ describe.only("TWAP Oracle", function () {
     await restoreSnapshot(provider);
   });
 
+  it("should fail to initialize if out of bounds", async () => {
+    try {
+      await oracleContract.initializeBuffer(NEW_BUFFER_ID, "0x10000");
+    } catch (error) {
+      if (isErrorWithReason(error)) {
+        expect(error.reason).to.include("value out-of-bounds");
+      } else {
+        throw error;
+      }
+    }
+
+    try {
+      await oracleContract.initializeBuffer(NEW_BUFFER_ID, "0");
+    } catch (error) {
+      if (isErrorWithReason(error)) {
+        expect(error.reason).to.include("min length is 1");
+      } else {
+        throw error;
+      }
+    }
+  });
+
+  it("should fail to initialize if already initialized", async () => {
+    try {
+      await oracleContract.initializeBuffer(BUFFER_ID, MAX_LENGTH);
+    } catch (error) {
+      if (isErrorWithReason(error)) {
+        expect(error.reason).to.include("buffer already initialized");
+      } else {
+        throw error;
+      }
+    }
+  });
+
   it("should initialize", async () => {
     const initialMetadataParsed = await oracleContract.readMetadataParsed(
       BUFFER_ID
@@ -58,7 +92,6 @@ describe.only("TWAP Oracle", function () {
     ]);
   });
 
-  // TODO: we should initialize buffer with current timestamp, not zero
   it("should add first price to sum", async () => {
     const oneEther = parseEther("1");
     await oracleContract.updateBuffer(BUFFER_ID, oneEther);
@@ -118,40 +151,6 @@ describe.only("TWAP Oracle", function () {
         .mul(block3.timestamp - block2.timestamp)
         .add(result2.cumulativeSum)
     );
-  });
-
-  it("should fail to initialize if out of bounds", async () => {
-    try {
-      await oracleContract.initializeBuffer(NEW_BUFFER_ID, "0x10000");
-    } catch (error) {
-      if (isErrorWithReason(error)) {
-        expect(error.reason).to.include("value out-of-bounds");
-      } else {
-        throw error;
-      }
-    }
-
-    try {
-      await oracleContract.initializeBuffer(NEW_BUFFER_ID, "0");
-    } catch (error) {
-      if (isErrorWithReason(error)) {
-        expect(error.reason).to.include("min length is 1");
-      } else {
-        throw error;
-      }
-    }
-  });
-
-  it("should fail to initialize if already initialized", async () => {
-    try {
-      await oracleContract.initializeBuffer(BUFFER_ID, MAX_LENGTH);
-    } catch (error) {
-      if (isErrorWithReason(error)) {
-        expect(error.reason).to.include("buffer already initialized");
-      } else {
-        throw error;
-      }
-    }
   });
 
   it("should fail to read an item that's out of bounds", async () => {
