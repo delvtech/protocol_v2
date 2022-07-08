@@ -462,27 +462,34 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     /// @param amount The number of YT to delete
     /// @param destination The address to credit the new YT to
     /// @param isCompound if true the interest is compounded instead of released
-    /// @return the number of shares and their value
-    function _convertYT(
+    function convertYT(
         uint256 assetId,
         uint256 amount,
         address destination,
         bool isCompound
-    ) internal returns (uint256) {
+    ) external {
         // make sure asset is a YT
-        require(assetId >> 256 == 1, "todo: nice error");
+        require(assetId >> 256 == 1, "asset ID is not YT");
         // expiry must be greater than zero
         uint256 expiry = assetId & (2**(128) - 1);
-        require(expiry > 0, "todo: nice error");
+        require(expiry > 0, "invalid expiry");
         // start date must be greater than zero
         uint256 startDate = (assetId >> 128) & (2**256 - 1);
-        require(startDate > 0, "todo: nice error");
+        require(startDate > 0, "invalid token start date");
 
         // load the state for the term
         YieldState memory state = yieldTerms[assetId];
+        // make sure a term exists for the input asset
+        // todo: is this logic good or should be &&?
+        require(state.pt != 0 || state.shares != 0, "no term for input asset");
         // calculate the shares belonging to the user
         uint256 userShares = (state.shares * amount) / totalSupply[assetId];
         // remove shares from the yield state and the yt to burn from pt
+
+        // todo: necessary to make sure we don't go into negative balances?
+        require(state.shares >= userShares, "inadequate share balance");
+        require(state.pt >= amount, "inadequate pt balance");
+
         yieldTerms[assetId] = YieldState(
             state.shares - uint128(userShares),
             state.pt - uint128(amount)
