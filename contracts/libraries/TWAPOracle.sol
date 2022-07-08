@@ -10,7 +10,6 @@ contract TWAPOracle {
     /// @param bufferId The ID of the buffer to initialize.
     /// @param maxLength The maximum number of items in the buffer.  This cannot be unset.
     function _initializeBuffer(uint256 bufferId, uint16 maxLength) internal {
-        require(maxLength <= 0xffff, "max length is 65535");
         require(maxLength > 0, "min length is 1");
 
         uint256[] storage buffer = _buffers[bufferId];

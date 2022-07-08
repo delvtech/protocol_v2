@@ -11,9 +11,12 @@ import { parseEther } from "ethers/lib/utils";
 
 const { provider } = waffle;
 
-const MAX_LENGTH = 10;
+const MAX_LENGTH = 5;
 // this one is initialized for all tests
 const BUFFER_ID = 1;
+// this one is initialized for all tests
+// this one is un initialized
+const NEW_BUFFER_ID = 2;
 
 describe.only("TWAP Oracle", function () {
   let signers: SignerWithAddress[];
@@ -50,7 +53,7 @@ describe.only("TWAP Oracle", function () {
       block.number, // blockNumber
       block.timestamp, // timestamp
       0, // headIndex
-      10, // maxLength
+      5, // maxLength
       0, // bufferLength
     ]);
   });
@@ -116,4 +119,127 @@ describe.only("TWAP Oracle", function () {
         .add(result2.cumulativeSum)
     );
   });
+
+  it("should fail to initialize if out of bounds", async () => {
+    try {
+      await oracleContract.initializeBuffer(NEW_BUFFER_ID, "0x10000");
+    } catch (error) {
+      if (isErrorWithReason(error)) {
+        expect(error.reason).to.include("value out-of-bounds");
+      } else {
+        throw error;
+      }
+    }
+
+    try {
+      await oracleContract.initializeBuffer(NEW_BUFFER_ID, "0");
+    } catch (error) {
+      if (isErrorWithReason(error)) {
+        expect(error.reason).to.include("min length is 1");
+      } else {
+        throw error;
+      }
+    }
+  });
+
+  it("should fail to initialize if already initialized", async () => {
+    try {
+      await oracleContract.initializeBuffer(BUFFER_ID, MAX_LENGTH);
+    } catch (error) {
+      if (isErrorWithReason(error)) {
+        expect(error.reason).to.include("buffer already initialized");
+      } else {
+        throw error;
+      }
+    }
+  });
+
+  it("should fail to read an item that's out of bounds", async () => {
+    try {
+      await oracleContract.readSumAndTimestampForPool(BUFFER_ID, 0);
+    } catch (error) {
+      if (isErrorWithReason(error)) {
+        expect(error.reason).to.include("index out of bounds");
+      } else {
+        throw error;
+      }
+    }
+
+    await oracleContract.updateBuffer(BUFFER_ID, 1);
+    const result = await oracleContract.readSumAndTimestampForPool(
+      BUFFER_ID,
+      0
+    );
+    expect(result.cumulativeSum.toString()).to.equal("1");
+
+    try {
+      await oracleContract.readSumAndTimestampForPool(BUFFER_ID, 1);
+    } catch (error) {
+      if (isErrorWithReason(error)) {
+        expect(error.reason).to.include("index out of bounds");
+      } else {
+        throw error;
+      }
+    }
+  });
+
+  it("buffer should wrap when adding items", async () => {
+    // max length is 5, so the buffer should wrap back to the beginning
+    await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await oracleContract.updateBuffer(BUFFER_ID, 1);
+
+    const metadata = await oracleContract.readMetadataParsed(BUFFER_ID);
+    // headIndex now back at zero, maxLength still 5, bufferLength now 5
+    const blockNumber = await provider.getBlockNumber();
+    const block = await provider.getBlock(blockNumber);
+
+    expect(metadata).to.deep.equal([
+      blockNumber, // blockNumber
+      block.timestamp, // timestamp
+      0, // headIndex
+      5, // maxLength
+      5, // bufferLength
+    ]);
+
+    const result0 = await oracleContract.readSumAndTimestampForPool(
+      BUFFER_ID,
+      0
+    );
+    const result1 = await oracleContract.readSumAndTimestampForPool(
+      BUFFER_ID,
+      1
+    );
+    const result2 = await oracleContract.readSumAndTimestampForPool(
+      BUFFER_ID,
+      2
+    );
+    const result3 = await oracleContract.readSumAndTimestampForPool(
+      BUFFER_ID,
+      3
+    );
+    const result4 = await oracleContract.readSumAndTimestampForPool(
+      BUFFER_ID,
+      4
+    );
+
+    // buffer[0] is 6 because the the buffer rolled over and replaced '1'
+    expect(result0.cumulativeSum.toString()).to.equal("6");
+    expect(result1.cumulativeSum.toString()).to.equal("2");
+    expect(result2.cumulativeSum.toString()).to.equal("3");
+    expect(result3.cumulativeSum.toString()).to.equal("4");
+    expect(result4.cumulativeSum.toString()).to.equal("5");
+  });
 });
+
+interface ErrorWithReason {
+  reason: string;
+}
+
+function isErrorWithReason(error: unknown): error is ErrorWithReason {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return !!(error as any).reason;
+}
