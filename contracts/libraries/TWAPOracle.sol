@@ -65,6 +65,11 @@ contract TWAPOracle {
         blockNumber = uint32(metadata >> 80);
     }
 
+    /// @dev An internal function to update a buffer.  Takes a price, calculates the cumulative
+    /// sum, then records it along with the timestamp in the following manner:
+    /// [uint32 timestamp][uint224 cumulativeSume]
+    /// @param bufferId The ID of the buffer to initialize.
+    /// @param price The current price of the token we are tracking a sum for.
     function _updateBuffer(uint256 bufferId, uint224 price) internal {
         (
             uint32 blockNumber,
@@ -134,6 +139,10 @@ contract TWAPOracle {
         // TODO: fire event?
     }
 
+    /// @dev A public function to read the timestamp&sum value from the specified index and buffer.
+    /// @param bufferId The ID of the buffer to initialize.
+    /// @param index The index to read a value at.
+    /// @return timestamp cumulativeSum 4byte timestamp and 28 byte sum
     function readSumAndTimestampForPool(uint256 bufferId, uint16 index)
         public
         view
@@ -147,6 +156,7 @@ contract TWAPOracle {
         // because we overload length for metadata, we need to specifically check the index
         require(index >= 0 && index < bufferLength, "index out of bounds");
         // Note: just reading buffer[index] does not work since we are overloading the length property
+
         assembly {
             let offset := keccak256(buffer.offset, 1)
             let slot := add(offset, index)
