@@ -264,7 +264,7 @@ describe("Convert YT Tests", async () => {
     // track the vault balance before conversion
     const vaultBalance = await token.balanceOf(vault.address);
     // execute the conversion
-    await yieldAdapter.convertYT(id, convertAmount, signers[0].address, false);
+    await yieldAdapter.convertYT(id, convertAmount, signers[0].address, true);
     // check that yt balance decreased for the ID
     const ytBalance = await yieldAdapter.balanceOf(id, signers[0].address);
     expect(ytBalance).to.be.equal(1e4 - convertAmount);
