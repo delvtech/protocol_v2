@@ -5,19 +5,26 @@ contract TWAPOracle {
     mapping(uint256 => uint256[]) internal _buffers;
 
     /// @dev An initialization function for the buffer.  During initialization, the maxLength is
-    /// set to the value passed in, blockNumber and timestamp are set to values for thecurrent block.
+    /// set to the value passed in, minTimeStep and timestamp are set to values for thecurrent block.
     /// 0 when the first item is added.
     /// @param bufferId The ID of the buffer to initialize.
     /// @param maxLength The maximum number of items in the buffer.  This cannot be unset.
-    function _initializeBuffer(uint256 bufferId, uint16 maxLength) internal {
+    function _initializeBuffer(
+        uint256 bufferId,
+        uint256 maxTime,
+        uint16 maxLength
+    ) internal {
         require(maxLength > 0, "min length is 1");
 
         uint256[] storage buffer = _buffers[bufferId];
         (, , , uint16 _maxLength, ) = readMetadataParsed(bufferId);
         require(_maxLength == 0, "buffer already initialized");
 
+        uint32 minTimeStep = maxTime / maxLength;
+        require(minTimeStep > 30, "minimum time step is 30s");
+
         uint256 metadata = _combineMetadata(
-            uint32(block.number),
+            minTimeStep,
             uint32(block.timestamp),
             0,
             maxLength,
@@ -39,7 +46,7 @@ contract TWAPOracle {
         public
         view
         returns (
-            uint32 blockNumber,
+            uint32 minTimeStep,
             uint32 timestamp,
             uint16 headIndex,
             uint16 maxLength,
@@ -62,7 +69,7 @@ contract TWAPOracle {
         // 16 + 16 + 16
         timestamp = uint32(metadata >> 48);
         // 16 + 16 + 16 + 32
-        blockNumber = uint32(metadata >> 80);
+        minTimeStep = uint32(metadata >> 80);
     }
 
     /// @dev An internal function to update a buffer.  Takes a price, calculates the cumulative
@@ -72,16 +79,15 @@ contract TWAPOracle {
     /// @param price The current price of the token we are tracking a sum for.
     function _updateBuffer(uint256 bufferId, uint224 price) internal {
         (
-            uint32 blockNumber,
+            uint32 expiry,
+            uint32 minTimeStep,
             uint32 previousTimestamp,
             uint16 headIndex,
             uint16 maxLength,
             uint16 bufferLength
         ) = readMetadataParsed(bufferId);
 
-        // don't add sum twice in one block.  use the first transaction in a block to curb MEV
-        // attempts.  Don't require() so calling contracts can complete transactions
-        if (block.number < blockNumber) {
+        if (block.timestamp - previousTimestamp < minTimeStep) {
             return;
         }
 
@@ -97,11 +103,22 @@ contract TWAPOracle {
                 value := sload(slot)
             }
         }
-
-        previousSum = uint224(value);
-
         uint224 time = uint224(uint32(block.timestamp) - previousTimestamp);
-        uint224 cumulativeSum = price * time + previousSum;
+
+        uint224 cumulativeSum;
+
+        // Normally we calculate the sum by multiplying the price by the amount of time that has
+        // elapsed.  Once we are past expiry, we know the price is always 1 so we just multiply
+        // by that to make the oracle converge to 1.
+        // TODO:  I don' think we actually need to worry about this, probably safe to assume the calling contract
+        // will always pass a price of '1' after the expiry anyway.
+        if (block.timestamp < expiry) {
+            previousSum = uint224(value);
+            cumulativeSum = price * time + previousSum;
+        } else {
+            cumulativeSum = 1000000000000000000 * time + previousSum;
+        }
+
         uint256 sumAndTimestamp = (uint256(block.timestamp) << 224) |
             uint256(cumulativeSum);
 
@@ -172,9 +189,9 @@ contract TWAPOracle {
     /// @param maxLength The maximum length of the buffer.
     /// @param bufferLength The current length of the buffer.
     /// @return metadata Metadata encoded in a uint256 value.
-    // [u144 unused][uint32 blockNumber][uint32 timestamp][u16 headIndex][u16 maxLength][u16 length]
+    // [u144 unused][uint32 minTimeStep][uint32 timestamp][u16 headIndex][u16 maxLength][u16 length]
     function _combineMetadata(
-        uint32 blockNumber,
+        uint32 minTimeStep,
         uint32 timestamp,
         uint16 headIndex,
         uint16 maxLength,
@@ -182,7 +199,7 @@ contract TWAPOracle {
     ) internal pure returns (uint256 metadata) {
         metadata =
             // 16 + 16 + 16 + 32
-            (uint256(blockNumber) << 80) |
+            (uint256(minTimeStep) << 80) |
             // 16 + 16 + 16
             (uint256(timestamp) << 48) |
             // 16 + 16
