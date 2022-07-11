@@ -76,7 +76,7 @@ describe("Convert YT Tests", async () => {
     await restoreSnapshot(provider);
   });
 
-  describe.only("YT conversions", async () => {
+  describe("YT conversions", async () => {
     beforeEach(async () => {
       await createSnapshot(provider);
     });
