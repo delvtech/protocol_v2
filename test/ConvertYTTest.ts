@@ -99,6 +99,16 @@ describe("Convert YT Tests", async () => {
       await expect(tx).to.be.revertedWith("invalid expiry");
     });
 
+    it("fails invalid start date", async () => {
+      const expiration =
+        (await getCurrentTimestamp(provider)) + ONE_YEAR_IN_SECONDS;
+      // construct asset ID with 0 start date
+      const id = getTokenId(0, expiration);
+      console.log(id);
+      const tx = yieldAdapter.convertYT(id, 0, signers[0].address, false);
+      await expect(tx).to.be.revertedWith("invalid token start date");
+    });
+
     it("fails for nonexistent term", async () => {
       const start = await getCurrentTimestamp(provider);
       const expiration = start + ONE_YEAR_IN_SECONDS;

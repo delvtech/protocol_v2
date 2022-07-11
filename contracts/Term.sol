@@ -475,7 +475,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256 expiry = assetId & (2**(128) - 1);
         require(expiry > 0, "invalid expiry");
         // start date must be greater than zero
-        uint256 startDate = ((assetId - expiry) >> 128) & (2**256 - 1);
+        uint256 startDate = ((assetId) & (2**255 - 1)) >> 128;
         require(startDate > 0, "invalid token start date");
 
         // load the state for the term
