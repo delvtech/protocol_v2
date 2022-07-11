@@ -235,10 +235,6 @@ describe("Convert YT Tests", async () => {
       expect(vaultBalance).to.be.equal(newBalance);
       // check PT balance?
     });
-    // how to run into this case?
-    // it("fail compound conversion with nonzero interest", async () => {
-    //     // AKA run into nonzero discount require
-    // });
   });
 
   it("successful compound conversion after time passes", async () => {
