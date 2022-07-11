@@ -462,7 +462,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     /// @param amount The number of YT to delete
     /// @param destination The address to credit the new YT to
     /// @param isCompound if true the interest is compounded instead of released
-    /// @return the number of shares withdrawn from the yeld source
+    /// @return the accrued interest in underlying
     function convertYT(
         uint256 assetId,
         uint256 amount,
@@ -513,7 +513,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             require(discount == 0, "todo nice error");
             // create PT
             _mint(expiry, destination, value - amount);
-            return 0;
         } else {
             // calculate the user's interest in terms of shares
             uint256 interestShares = ((value - amount) * userShares) / value;
@@ -529,7 +528,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             );
             // update the state for expiry timestamps
             sharesPerExpiry[expiry] -= interestShares;
-            return (interestShares);
         }
+        return (value - amount);
     }
 }
