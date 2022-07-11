@@ -269,7 +269,7 @@ contract Pool is LP {
 
     /// @notice Facilitate the purchase of the YT
     /// @param  poolId Expiration timestamp of the bond (,i.e PT) correspond to which YT got minted.
-    /// @param  amountOut Minimum No. of YTs buyer is expecting to have after the trade.
+    /// @param  amountOut Minimum No. of YTs, buyer is expecting to have after the trade.
     /// @param  recepient Destination at which newly minted YTs got transferred.
     /// @param  maxInput Maximum amount of shares buyer wants to spend on this trade.
     function purchaseYt(
@@ -302,22 +302,25 @@ contract Pool is LP {
             sharesReceived,
             TradeType.SELL_PT
         );
-        // Convert the shares into underlying.
+        // Convert the shares into underlying. --- change them into appropriate decimals or use fixed point.
         uint256 underlyingAmt = term.unlockedSharePrice() * sharesWithOutFee;
+        // Convert into remaining shares.
+        uint256 sharesNeeded = term.unlockedSharePrice() /
+            (amountOut - underlyingAmt);
         // Make sure user wouldn't end up paying more.
-        require(amountOut - underlyingAmt <= maxInput, "todo nice errors");
-        // Transfer the remaining underlying token from the buyer.
+        require(sharesNeeded <= maxInput, "todo nice errors");
+        // Transfer the remaining underlying shares from the buyer.
         IMultiToken(address(term)).transferFrom(
             _UNLOCK_TERM_ID,
             msg.sender,
             address(this),
-            amountOut - underlyingAmt
+            sharesNeeded
         );
         // Buy the PTs and YTs
         uint256[] memory ids = new uint256[](1);
         ids[0] = _UNLOCK_TERM_ID;
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = amountOut;
+        amounts[0] = sharesWithOutFee + sharesNeeded;
         (, uint256 yt) = term.lock(
             ids,
             amounts,
@@ -327,15 +330,15 @@ contract Pool is LP {
             block.timestamp,
             poolId
         );
-        // Updated reserves.  --- TODO change the value of shares reserve.
+        // Updated reserves.
         _update(
             poolId,
             getBondBalance(poolId),
-            cSharesReserve,
+            cSharesReserve - sharesWithOutFee.toUint128(),
             cBondsReserve,
             cSharesReserve
         );
-        emit YtPurchased(poolId, recepient, yt, amountOut - underlyingAmt);
+        emit YtPurchased(poolId, recepient, yt, sharesNeeded);
     }
 
     // TODO: Make sure the decimal precision is correct.
