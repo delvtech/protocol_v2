@@ -81,7 +81,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             ? block.timestamp
             : ytBeginDate;
         // Next check the validity of the requested expiry
-        require(expiration > block.timestamp, "todo nice error");
+        require(
+            expiration > block.timestamp || expiration == 0,
+            "todo nice error"
+        );
         // The yt can't start after
         // Running tally of the added value
         uint256 totalValue = 0;
@@ -303,7 +306,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         }
     }
 
-    /// @notice Deletes and asset [expired PT/YT or unlocked share] and returns the shares released
+    /// @notice Deletes an asset [expired PT/YT or unlocked share] and returns the shares released
     ///         and their value. Note - Shares from unlocked assets may be different than from PT/YT
     /// @param assetId The ID for the asset redeemed
     /// @param source The account to delete tokens from
@@ -452,5 +455,80 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         sharesPerExpiry[assetId] = termShares - userShares;
         // Return the shares freed and use the price per share to get value
         return (userShares, (userShares * currentPricePerShare) / one);
+    }
+
+    /// @notice takes an input YT in the past and creates a new one in the future
+    /// @param assetId The ID of the YT to delete
+    /// @param amount The number of YT to delete
+    /// @param destination The address to credit the new YT to
+    /// @param isCompound if true the interest is compounded instead of released
+    /// @return the accrued interest in underlying
+    function convertYT(
+        uint256 assetId,
+        uint256 amount,
+        address destination,
+        bool isCompound
+    ) external returns (uint256) {
+        // make sure asset is a YT
+        require(assetId >> 255 == 1, "asset ID is not YT");
+        // expiry must be greater than zero
+        uint256 expiry = assetId & (2**(128) - 1);
+        require(expiry > 0, "invalid expiry");
+        // start date must be greater than zero
+        uint256 startDate = ((assetId) & (2**255 - 1)) >> 128;
+        require(startDate > 0, "invalid token start date");
+
+        // load the state for the term
+        YieldState memory state = yieldTerms[assetId];
+        // make sure a term exists for the input asset
+        // todo: is this logic good or should be &&?
+        require(state.pt != 0 || state.shares != 0, "no term for input asset");
+        // calculate the shares belonging to the user
+        uint256 userShares = (state.shares * amount) / totalSupply[assetId];
+        // remove shares from the yield state and the yt to burn from pt
+
+        // todo: necessary to make sure we don't go into negative balances?
+        require(state.shares >= userShares, "inadequate share balance");
+        require(state.pt >= amount, "inadequate pt balance");
+
+        yieldTerms[assetId] = YieldState(
+            state.shares - uint128(userShares),
+            state.pt - uint128(amount)
+        );
+
+        // burn the yt from the user's balance
+        _burn(assetId, msg.sender, amount);
+        uint256 value = _underlying(amount, ShareState.Locked);
+
+        if (isCompound) {
+            // deposit freed shares into YT
+            uint256 discount = _createYT(
+                destination,
+                value,
+                userShares,
+                block.timestamp,
+                expiry
+            );
+            // yt created at current time so discount should always be 0
+            require(discount == 0, "todo nice error");
+            // create PT
+            _mint(expiry, destination, value - amount);
+        } else {
+            // calculate the user's interest in terms of shares
+            uint256 interestShares = ((value - amount) * userShares) / value;
+            // withdraw the interest from the yield source
+            _withdraw(interestShares, destination, ShareState.Locked);
+            // create yt with remaining shares
+            _createYT(
+                destination,
+                amount,
+                userShares - interestShares,
+                block.timestamp,
+                expiry
+            );
+            // update the state for expiry timestamps
+            sharesPerExpiry[expiry] -= interestShares;
+        }
+        return (value - amount);
     }
 }
