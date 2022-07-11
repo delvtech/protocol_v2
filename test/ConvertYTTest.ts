@@ -4,7 +4,6 @@ import { ethers, waffle } from "hardhat";
 import {
   ForwarderFactory,
   MockERC20YearnVault,
-  MockFixedPointMath,
   MockYieldAdapter,
   TestERC20,
 } from "typechain-types";
@@ -25,13 +24,9 @@ describe("Convert YT Tests", async () => {
   let token: TestERC20;
   let vault: MockERC20YearnVault;
   let yieldAdapter: MockYieldAdapter;
-  let MockFixedPointMath: MockFixedPointMath;
 
   before(async () => {
     signers = await ethers.getSigners();
-
-    const mathFactory = await ethers.getContractFactory("MockFixedPointMath");
-    MockFixedPointMath = await mathFactory.deploy();
 
     const factoryFactory = await ethers.getContractFactory(
       "ForwarderFactory",
