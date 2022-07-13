@@ -7,10 +7,11 @@ import { ethers, waffle } from "hardhat";
 import { MockTWAPOracle, MockTWAPOracle__factory } from "typechain-types";
 
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
-import { parseEther } from "ethers/lib/utils";
+import { formatEther, parseEther } from "ethers/lib/utils";
 
 const { provider } = waffle;
 
+const MAX_TIME = 5;
 const MAX_LENGTH = 5;
 // this one is initialized for all tests
 const BUFFER_ID = 1;
@@ -30,7 +31,7 @@ describe.only("TWAP Oracle", function () {
     oracleDeployer = new MockTWAPOracle__factory(signers[0] as Signer);
 
     oracleContract = await oracleDeployer.deploy();
-    await oracleContract.initializeBuffer(BUFFER_ID, MAX_LENGTH);
+    await oracleContract.initializeBuffer(BUFFER_ID, MAX_TIME, MAX_LENGTH);
   });
 
   after(async () => {
@@ -46,7 +47,7 @@ describe.only("TWAP Oracle", function () {
 
   it("should fail to initialize if out of bounds", async () => {
     try {
-      await oracleContract.initializeBuffer(NEW_BUFFER_ID, "0x10000");
+      await oracleContract.initializeBuffer(NEW_BUFFER_ID, MAX_TIME, "0x10000");
     } catch (error) {
       if (isErrorWithReason(error)) {
         expect(error.reason).to.include("value out-of-bounds");
@@ -56,7 +57,7 @@ describe.only("TWAP Oracle", function () {
     }
 
     try {
-      await oracleContract.initializeBuffer(NEW_BUFFER_ID, "0");
+      await oracleContract.initializeBuffer(NEW_BUFFER_ID, MAX_TIME, "0");
     } catch (error) {
       if (isErrorWithReason(error)) {
         expect(error.reason).to.include("min length is 1");
@@ -68,7 +69,7 @@ describe.only("TWAP Oracle", function () {
 
   it("should fail to initialize if already initialized", async () => {
     try {
-      await oracleContract.initializeBuffer(BUFFER_ID, MAX_LENGTH);
+      await oracleContract.initializeBuffer(BUFFER_ID, MAX_TIME, MAX_LENGTH);
     } catch (error) {
       if (isErrorWithReason(error)) {
         expect(error.reason).to.include("buffer already initialized");
@@ -84,7 +85,7 @@ describe.only("TWAP Oracle", function () {
     );
     const block = await provider.getBlock("latest");
     expect(initialMetadataParsed).to.deep.equal([
-      block.number, // blockNumber
+      1, // minTimeStep
       block.timestamp, // timestamp
       0, // headIndex
       5, // maxLength
@@ -104,15 +105,17 @@ describe.only("TWAP Oracle", function () {
     expect(result.cumulativeSum).to.equal(oneEther.toString());
   });
 
-  it("should add many prices to sum", async () => {
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("0.3"));
-    const block0 = await provider.getBlock("latest");
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("0.4"));
-    const block1 = await provider.getBlock("latest");
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("0.5"));
-    const block2 = await provider.getBlock("latest");
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("0.6"));
-    const block3 = await provider.getBlock("latest");
+  it.only("should add many prices to sum", async () => {
+    const { timestamp: initialTimeStamp } =
+      await oracleContract.readMetadataParsed(BUFFER_ID);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await sleep(1000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await sleep(1000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await sleep(1000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await sleep(1000);
 
     const result0 = await oracleContract.readSumAndTimestampForPool(
       BUFFER_ID,
@@ -131,24 +134,23 @@ describe.only("TWAP Oracle", function () {
       3
     );
 
-    expect(result0.timestamp).to.equal(block0.timestamp);
-    expect(result0.cumulativeSum).to.equal(parseEther("0.3"));
+    expect(result0.cumulativeSum).to.equal(parseEther("1"));
 
     expect(result1.cumulativeSum).to.equal(
-      parseEther("0.4")
-        .mul(block1.timestamp - block0.timestamp)
+      parseEther("1")
+        .mul(result1.timestamp - result0.timestamp)
         .add(result0.cumulativeSum)
     );
 
     expect(result2.cumulativeSum).to.equal(
-      parseEther("0.5")
-        .mul(block2.timestamp - block1.timestamp)
+      parseEther("1")
+        .mul(result2.timestamp - result1.timestamp)
         .add(result1.cumulativeSum)
     );
 
     expect(result3.cumulativeSum).to.equal(
-      parseEther("0.6")
-        .mul(block3.timestamp - block2.timestamp)
+      parseEther("1")
+        .mul(result3.timestamp - result2.timestamp)
         .add(result2.cumulativeSum)
     );
   });
@@ -185,11 +187,17 @@ describe.only("TWAP Oracle", function () {
   it("buffer should wrap when adding items", async () => {
     // max length is 5, so the buffer should wrap back to the beginning
     await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await sleep(1000);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await sleep(1000);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await sleep(1000);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await sleep(1000);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await sleep(1000);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
+    await sleep(1000);
 
     const metadata = await oracleContract.readMetadataParsed(BUFFER_ID);
     // headIndex now back at zero, maxLength still 5, bufferLength now 5
@@ -197,7 +205,7 @@ describe.only("TWAP Oracle", function () {
     const block = await provider.getBlock(blockNumber);
 
     expect(metadata).to.deep.equal([
-      blockNumber, // blockNumber
+      1, // minTimeStep
       block.timestamp, // timestamp
       0, // headIndex
       5, // maxLength
@@ -241,4 +249,8 @@ interface ErrorWithReason {
 function isErrorWithReason(error: unknown): error is ErrorWithReason {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return !!(error as any).reason;
+}
+
+export function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

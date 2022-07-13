@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
+import "hardhat/console.sol";
+
 contract TWAPOracle {
     mapping(uint256 => uint256[]) internal _buffers;
 
@@ -11,7 +13,7 @@ contract TWAPOracle {
     /// @param maxLength The maximum number of items in the buffer.  This cannot be unset.
     function _initializeBuffer(
         uint256 bufferId,
-        uint256 maxTime,
+        uint16 maxTime,
         uint16 maxLength
     ) internal {
         require(maxLength > 0, "min length is 1");
@@ -20,8 +22,8 @@ contract TWAPOracle {
         (, , , uint16 _maxLength, ) = readMetadataParsed(bufferId);
         require(_maxLength == 0, "buffer already initialized");
 
-        uint32 minTimeStep = maxTime / maxLength;
-        require(minTimeStep > 30, "minimum time step is 30s");
+        uint32 minTimeStep = uint32(maxTime) / uint32(maxLength);
+        require(minTimeStep >= 1, "minimum time step is 1");
 
         uint256 metadata = _combineMetadata(
             minTimeStep,
@@ -41,7 +43,7 @@ contract TWAPOracle {
     /// @dev gets the parsed metadata for the buffer which includes headIndex, maxLength and
     /// bufferLength.
     /// @param bufferId The ID of the buffer to read metadata from.
-    /// @return blockNumber timestamp headIndex maxLength bufferLength as a tuple of uint16's
+    /// @return minTimeStep timestamp headIndex maxLength bufferLength as a tuple of uint16's
     function readMetadataParsed(uint256 bufferId)
         public
         view
@@ -79,7 +81,6 @@ contract TWAPOracle {
     /// @param price The current price of the token we are tracking a sum for.
     function _updateBuffer(uint256 bufferId, uint224 price) internal {
         (
-            uint32 expiry,
             uint32 minTimeStep,
             uint32 previousTimestamp,
             uint16 headIndex,
@@ -87,11 +88,11 @@ contract TWAPOracle {
             uint16 bufferLength
         ) = readMetadataParsed(bufferId);
 
-        if (block.timestamp - previousTimestamp < minTimeStep) {
+        uint32 timestep = uint32(block.timestamp) - previousTimestamp;
+        if (timestep < minTimeStep) {
             return;
         }
 
-        uint224 previousSum;
         uint256 value;
         uint256[] storage buffer = _buffers[bufferId];
 
@@ -104,20 +105,25 @@ contract TWAPOracle {
             }
         }
         uint224 time = uint224(uint32(block.timestamp) - previousTimestamp);
+        console.log("timestamp %s", block.timestamp);
+        console.log("previousTimestamp %s", previousTimestamp);
+        console.log("time %s", time);
 
         uint224 cumulativeSum;
 
-        // Normally we calculate the sum by multiplying the price by the amount of time that has
+        // TODO: Normally we calculate the sum by multiplying the price by the amount of time that has
         // elapsed.  Once we are past expiry, we know the price is always 1 so we just multiply
         // by that to make the oracle converge to 1.
         // TODO:  I don' think we actually need to worry about this, probably safe to assume the calling contract
         // will always pass a price of '1' after the expiry anyway.
-        if (block.timestamp < expiry) {
-            previousSum = uint224(value);
-            cumulativeSum = price * time + previousSum;
-        } else {
-            cumulativeSum = 1000000000000000000 * time + previousSum;
-        }
+        // uint224 previousSum;
+        // if (block.timestamp < expiry) {
+        //     previousSum = uint224(value);
+        // } else {
+        //     cumulativeSum = 1000000000000000000 * time + previousSum;
+        // }
+        uint224 previousSum = uint224(value);
+        cumulativeSum = price * time + previousSum;
 
         uint256 sumAndTimestamp = (uint256(block.timestamp) << 224) |
             uint256(cumulativeSum);
@@ -134,7 +140,7 @@ contract TWAPOracle {
         }
 
         uint256 metadata = _combineMetadata(
-            uint32(block.number),
+            minTimeStep,
             uint32(block.timestamp),
             headIndex,
             maxLength,
@@ -146,8 +152,8 @@ contract TWAPOracle {
             // length is stored at position 0 for dynamic arrays
             // we are overloading this to store metadata to be more efficient
             sstore(add(buffer.offset, 0), metadata)
-            // store the actual value
 
+            // store the actual value
             let offset := keccak256(buffer.offset, 1)
             let slot := add(offset, headIndex)
             sstore(slot, sumAndTimestamp)
@@ -165,8 +171,6 @@ contract TWAPOracle {
         view
         returns (uint32 timestamp, uint224 cumulativeSum)
     {
-        uint256 value;
-
         (, , , , uint16 bufferLength) = readMetadataParsed(bufferId);
         uint256[] storage buffer = _buffers[bufferId];
 
@@ -174,6 +178,7 @@ contract TWAPOracle {
         require(index >= 0 && index < bufferLength, "index out of bounds");
         // Note: just reading buffer[index] does not work since we are overloading the length property
 
+        uint256 value;
         assembly {
             let offset := keccak256(buffer.offset, 1)
             let slot := add(offset, index)
