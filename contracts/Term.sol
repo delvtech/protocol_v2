@@ -5,8 +5,9 @@ import "./MultiToken.sol";
 import "./interfaces/IYieldAdapter.sol";
 import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
+import "./libraries/Authorizable.sol";
 
-abstract contract Term is ITerm, MultiToken, IYieldAdapter {
+abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
     struct YieldState {
         uint128 shares;
@@ -45,13 +46,16 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     constructor(
         bytes32 _linkerCodeHash,
         address _factory,
-        IERC20 _token
+        IERC20 _token,
+        address _owner
     ) MultiToken(_linkerCodeHash, _factory) {
         // Set the immutable token data
         token = _token;
         uint8 _decimals = _token.decimals();
         decimals = _decimals;
         one = 1 << decimals;
+        // Set the owner
+        setOwner(_owner);
     }
 
     /// @dev Takes an input as a mix of the underlying token, expired PT and YT, and unlocked shares
@@ -402,12 +406,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256 amount
     ) internal returns (uint256, uint256) {
         // To release YT we calculate the implied earning of the differential between final price per share
-        // and the shored price per share at the time of YT creation.
+        // and the sored price per share at the time of YT creation.
         YieldState memory yieldTerm = yieldTerms[assetId];
         uint256 termEndingValue = (yieldTerm.shares *
             finalState.pricePerShare) / one;
         uint256 termEndingInterest = termEndingValue - yieldTerm.pt;
-        // Calculate the value of this yt redemption by diving total value by the number of YT
+        // Calculate the value of this yt redemption by dividing total value by the number of YT
         uint256 totalYtSupply = totalSupply[assetId];
         uint256 userInterest = (termEndingInterest * amount) / totalYtSupply;
         // Now we load current share price to see how many shares the user is owed
@@ -536,5 +540,56 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             sharesPerExpiry[expiry] -= interestShares;
         }
         return (value - amount);
+    }
+
+    /// @notice removes and burns input amount of PT's and YT's
+    /// @param ytTokenId the pt to redeem
+    /// @param ptTokenId the yt to redeem
+    /// @param amount the quantity of asset to remove
+    // / @param source the address to burn the tokens from: do we need this or are we redeeming from msg.sender?
+    function redeem(
+        uint256 ytTokenId,
+        uint256 ptTokenId,
+        uint256 amount
+    ) external onlyAuthorized {
+        // make sure the inputs are from the same expiry
+        uint256 ytExpiry = ytTokenId & (2**(128) - 1);
+        require(ytExpiry == ptTokenId, "tokens from different terms");
+
+        // load the price per share
+        uint256 pricePerShare = _underlying(one, ShareState.Locked);
+        // load the term state
+        YieldState memory yieldTerm = yieldTerms[ytTokenId];
+
+        // load the term's value to calculate the interest
+        uint256 termValue = _underlying(yieldTerm.shares, ShareState.Locked);
+        uint256 termInterest = termValue - yieldTerm.pt;
+
+        uint256 totalYtSupply = totalSupply[ytTokenId];
+        // calculate the user's interest
+        uint256 userInterest = (termInterest * amount) / totalYtSupply;
+        // calculate the user's yt shares
+        uint256 userYtShares = userInterest / pricePerShare;
+        // burn the yt's
+        _burn(ytTokenId, msg.sender, amount);
+        // set the new yieldTerm state
+        yieldTerms[ytTokenId] = YieldState(
+            yieldTerm.shares - uint128(userYtShares),
+            yieldTerm.pt - uint128(amount)
+        );
+        // update the shares per expiry, ptTokenId = expiry
+        sharesPerExpiry[ptTokenId] -= userYtShares;
+
+        uint256 totalPtSupply = totalSupply[ptTokenId];
+        // calculate the interest in shares
+        uint256 interestShares = termInterest / pricePerShare;
+        // calculate the total pt shares
+        uint256 totalPtShares = sharesPerExpiry[ptTokenId] - interestShares;
+        // calculate the user's pt sharess
+        uint256 userPtShares = (totalPtShares * amount) / totalPtSupply;
+        // burn the pt's
+        _burn(ptTokenId, msg.sender, amount);
+        // update the shares per expiry
+        sharesPerExpiry[ptTokenId] = userPtShares;
     }
 }

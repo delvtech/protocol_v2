@@ -10,10 +10,11 @@ contract MockYieldAdapter is IYieldAdapter, Term {
 
     constructor(
         address mockYearnVault,
+        address governance,
         bytes32 _linkerCodeHash,
         address _factory,
         IERC20 _token
-    ) Term(_linkerCodeHash, _factory, _token) {
+    ) Term(_linkerCodeHash, _factory, _token, governance) {
         vault = MockERC20YearnVault(mockYearnVault);
         token.approve(address(vault), type(uint256).max);
     }
