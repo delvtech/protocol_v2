@@ -584,6 +584,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // calculate the interest in shares
         uint256 interestShares = termInterest / pricePerShare;
         // calculate the total pt shares
+        // TODO: does this need to be calculated before subtracting the ytshares?
         uint256 totalPtShares = sharesPerExpiry[ptTokenId] - interestShares;
         // calculate the user's pt sharess
         uint256 userPtShares = (totalPtShares * amount) / totalPtSupply;
