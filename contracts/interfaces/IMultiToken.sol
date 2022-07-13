@@ -49,6 +49,4 @@ interface IMultiToken {
         uint256 amount,
         address caller
     ) external;
-
-    function deriveForwarderAddress(uint256 tokenId) external returns(address);
 }

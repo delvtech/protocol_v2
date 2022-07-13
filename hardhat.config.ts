@@ -5,6 +5,7 @@ import "@typechain/ethers-v5";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "tsconfig-paths/register";
+import "hardhat-contract-sizer";
 
 import { HardhatUserConfig } from "hardhat/config";
 
@@ -42,6 +43,12 @@ const config: HardhatUserConfig = {
         count: 5,
       },
     },
+  },
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: true,
+    strict: false,
   },
 };
 
