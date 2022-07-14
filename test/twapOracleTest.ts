@@ -159,12 +159,6 @@ describe.only("TWAP Oracle", function () {
   });
 
   it("should fail to add price to sum if timestep is too small", async () => {
-    console.log("");
-    console.log("TEST");
-    const metadata1 = await oracleContract.readMetadataParsed(BUFFER_ID);
-    const metadata2 = await oracleContract.readMetadataParsed(NEW_BUFFER_ID);
-    console.log("metadata1", metadata1);
-    console.log("metadata2", metadata2);
     // timestep is 2 (maxTime / maxLength)
     await oracleContract.initializeBuffer(NEW_BUFFER_ID, 4, 2);
     // this update happens too quickly so it fails silently
@@ -176,10 +170,7 @@ describe.only("TWAP Oracle", function () {
     await oracleContract.updateBuffer(NEW_BUFFER_ID, parseEther("1"));
 
     const metadata = await oracleContract.readMetadataParsed(NEW_BUFFER_ID);
-    const { bufferLength, maxLength } = metadata;
-    console.log("maxLength", maxLength);
-    console.log("bufferLength", bufferLength);
-    console.log("metadata", metadata);
+    const { bufferLength } = metadata;
     expect(bufferLength).to.equal(1);
   });
 
@@ -260,7 +251,11 @@ describe.only("TWAP Oracle", function () {
       BUFFER_ID,
       4
     );
-
+    console.log(result0.cumulativeSum.toString());
+    console.log(result1.cumulativeSum.toString());
+    console.log(result2.cumulativeSum.toString());
+    console.log(result3.cumulativeSum.toString());
+    console.log(result4.cumulativeSum.toString());
     // buffer[0] is 6 because the the buffer rolled over and replaced '1'
     expect(result0.cumulativeSum.toString()).to.equal("6");
     expect(result1.cumulativeSum.toString()).to.equal("2");
