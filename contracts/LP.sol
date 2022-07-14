@@ -307,7 +307,7 @@ contract LP is MultiToken {
         // Leverage that the poolId == expiration
         if (block.timestamp >= poolId && reserveBonds != 0) {
             // In this misnomer case we 'lock' the bonds from their PT state
-            // to a unlocked token, which matches the rest of the reserves.
+            // to an unlocked token, which matches the rest of the reserves.
             // This ensures that the LP earns interest post expiry even if not withdrawing
             uint256[] memory ids = new uint256[](1);
             ids[0] = poolId;
