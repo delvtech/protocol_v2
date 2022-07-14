@@ -1,0 +1,90 @@
+/// SPDX-License-Identifier: Apache-2.0
+pragma solidity ^0.8.15;
+
+import "./FixedPointMathLib.sol";
+
+type UFixedPoint is uint256;
+type Exponent is uint256; // TODO: Why do we need this?
+
+/// @notice Typed arithmetic library with operations for fixed-point numbers.
+/// @author Element Finance
+library TypedFixedPointMathLib {
+    uint256 internal constant _ONE_18 = 1e18; // The scalar of ETH and most ERC20s.
+
+    function mulDown(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return
+            UFixedPoint.wrap(
+                FixedPointMathLib.mulDivDown(
+                    UFixedPoint.unwrap(a),
+                    UFixedPoint.unwrap(b),
+                    _ONE_18
+                )
+            ); // Equivalent to (a * b) / WAD rounded down.
+    }
+
+    function mulUp(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return
+            UFixedPoint.wrap(
+                FixedPointMathLib.mulDivUp(
+                    UFixedPoint.unwrap(a),
+                    UFixedPoint.unwrap(b),
+                    _ONE_18
+                )
+            ); // Equivalent to (a * b) / WAD rounded up.
+    }
+
+    function divDown(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return
+            UFixedPoint.wrap(
+                FixedPointMathLib.mulDivDown(
+                    UFixedPoint.unwrap(a),
+                    _ONE_18,
+                    UFixedPoint.unwrap(b)
+                )
+            ); // Equivalent to (a * WAD) / b rounded down.
+    }
+
+    function divUp(UFixedPoint a, UFixedPoint b)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return
+            UFixedPoint.wrap(
+                FixedPointMathLib.mulDivUp(
+                    UFixedPoint.unwrap(a),
+                    _ONE_18,
+                    UFixedPoint.unwrap(b)
+                )
+            ); // Equivalent to (a * WAD) / b rounded up.
+    }
+
+    // TODO: Implement this
+    function pow(UFixedPoint a, Exponent n)
+        internal
+        pure
+        returns (UFixedPoint)
+    {
+        return UFixedPoint.wrap(0);
+    }
+
+    function toUFixedPoint(uint256 a) internal pure returns (UFixedPoint) {
+        return UFixedPoint.wrap(a * _ONE_18);
+    }
+
+    function toExponent(uint256 a) internal pure returns (Exponent) {
+        return Exponent.wrap(a);
+    }
+}

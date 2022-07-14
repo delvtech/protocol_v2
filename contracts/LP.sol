@@ -14,7 +14,7 @@ contract LP is MultiToken {
     // Deposits input the underlying asset and a proportion will be locked
     // till expiry to match the current ratio of the pool
 
-    // Holds the reserve amounts in an gas friendly way
+    // Holds the reserve amounts in a gas friendly way
     struct Reserve {
         uint128 shares;
         uint128 bonds;
@@ -54,7 +54,7 @@ contract LP is MultiToken {
 
     /// @notice Accepts a deposit from an LP in terms of the underlying and deposit it into the yield
     ///         source then locks the correct proportion to match pool. The YT from the locked amount
-    ///         are credited to the user. This is the main user friendly way of depositing.
+    ///         is credited to the user. This is the main user friendly way of depositing.
     /// @param amount The amount of underlying tokens to deposit
     /// @param poolId The identifier of the LP pool to deposit into, in this version it's expiration time.
     /// @param destination The destination which gets credited with LP token.
@@ -103,9 +103,10 @@ contract LP is MultiToken {
         return (newLpToken);
     }
 
-    /// @notice Allows a user to deposit and equal amount of bonds and yielding shares to match reserves.
+    /// @notice Allows a user to deposit an equal amount of bonds and yielding shares to match reserves.
     ///         Naturally unfriendly and should be called in weiroll bundle.
-    /// @param bondsDeposited The number of principal tokens deposited, this will set the ratio and
+    /// @param poolId The identifier of the LP pool to deposit into, in this version it's expiration time.
+    /// @param ptDeposited The number of principal tokens deposited, this will set the ratio and
     ///                    the correct reserve matching percent of shares will be transferred from the user
     /// @param destination The address which will be credited with shares
     /// @param minLpOut This call will revert if the LP produced is not at least this much
@@ -146,10 +147,10 @@ contract LP is MultiToken {
     }
 
     /// @notice Withdraws LP from the pool, resulting in either a proportional withdraw before expiration
-    ///         or a withdraw of only underlying afterwords.
+    ///         or a withdraw of only underlying afterwards.
     /// @param poolId The id of the LP token to withdraw
     /// @param amount The number of LP tokens to remove
-    /// @param destination The address to credit the underlying too.
+    /// @param destination The address to credit the underlying to.
     function withdraw(
         uint256 poolId,
         uint256 amount,
@@ -256,10 +257,9 @@ contract LP is MultiToken {
         uint256 depositedAmount = (depositedShares * pricePerShare) / one;
         uint256 neededBonds = (depositedAmount * currentBonds) / totalValue;
         // The bond value is in terms of purely the underlying so to figure out how many shares we lock
-        // we dived it by our price per share to convert to share value.
+        // we divide it by our price per share to convert to share value and convert it to 18 point
         uint256 sharesToLock = (neededBonds * one) / pricePerShare;
-        // Shares to lock is in 18 point so we convert back and then lock shares to PTs
-        // while sending the resulting YT to the user
+        //  Lock shares to PTs while sending the resulting YT to the user
 
         // Note need to declare dynamic memory types in this way even with one element
         uint256[] memory ids = new uint256[](1);
@@ -313,7 +313,7 @@ contract LP is MultiToken {
         // Leverage that the poolId == expiration
         if (block.timestamp >= poolId && reserveBonds != 0) {
             // In this misnomer case we 'lock' the bonds from their PT state
-            // to a unlocked token, which matches the rest of the reserves.
+            // to an unlocked token, which matches the rest of the reserves.
             // This ensures that the LP earns interest post expiry even if not withdrawing
             uint256[] memory ids = new uint256[](1);
             ids[0] = poolId;
