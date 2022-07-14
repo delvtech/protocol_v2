@@ -209,7 +209,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             );
 
             // Record the shares which were released
-            if (id == UNLOCKED_YT_ID) {
+            if (tokenIds[i] == UNLOCKED_YT_ID) {
                 releasedSharesUnlocked += shares;
             } else {
                 releasedSharesLocked += shares;
