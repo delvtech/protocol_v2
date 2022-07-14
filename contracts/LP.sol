@@ -14,7 +14,7 @@ contract LP is MultiToken {
     // Deposits input the underlying asset and a proportion will be locked
     // till expiry to match the current ratio of the pool
 
-    // Holds the reserve amounts in an gas friendly way
+    // Holds the reserve amounts in a gas friendly way
     struct Reserve {
         uint128 shares;
         uint128 bonds;
