@@ -105,14 +105,14 @@ contract LP is MultiToken {
 
     /// @notice Allows a user to deposit and equal amount of bonds and yielding shares to match reserves.
     ///         Naturally unfriendly and should be called in weiroll bundle.
-    /// @param ptDeposited The number of principal tokens deposited, this will set the ratio and
+    /// @param bondsDeposited The number of principal tokens deposited, this will set the ratio and
     ///                    the correct reserve matching percent of shares will be transferred from the user
     /// @param destination The address which will be credited with shares
     /// @param minLpOut This call will revert if the LP produced is not at least this much
     /// @return The shares created.
     function depositBonds(
         uint256 poolId,
-        uint256 ptDeposited,
+        uint256 bondsDeposited,
         address destination,
         uint256 minLpOut
     ) external returns (uint256) {
@@ -122,9 +122,9 @@ contract LP is MultiToken {
         uint256 loadedShares = uint256(reserves[poolId].shares);
         uint256 loadedBonds = uint256(reserves[poolId].bonds);
         // Transfer the pt from the user
-        term.transferFrom(poolId, msg.sender, address(this), ptDeposited);
+        term.transferFrom(poolId, msg.sender, address(this), bondsDeposited);
         // Calculate ratio of the shares needed
-        uint256 sharesNeeded = (loadedShares * ptDeposited) / loadedBonds;
+        uint256 sharesNeeded = (loadedShares * bondsDeposited) / loadedBonds;
         // Transfer shares from user
         term.transferFrom(
             unlockedTermID,
@@ -133,12 +133,13 @@ contract LP is MultiToken {
             sharesNeeded
         );
         // Calculate Lp
-        uint256 lpCreated = (totalSupply[poolId] * ptDeposited) / loadedBonds;
+        uint256 lpCreated = (totalSupply[poolId] * bondsDeposited) /
+            loadedBonds;
         // Mint LP
         _mint(poolId, destination, lpCreated);
         // Update the reserve state
         reserves[poolId].shares = uint128(loadedShares + sharesNeeded);
-        reserves[poolId].bonds = uint128(loadedBonds + ptDeposited);
+        reserves[poolId].bonds = uint128(loadedBonds + bondsDeposited);
         // Check enough has been made and return that amount
         require(lpCreated >= minLpOut, "Todo nice errors");
         return (lpCreated);
@@ -240,10 +241,14 @@ contract LP is MultiToken {
         address to
     ) internal returns (uint256) {
         // Must be initialized
+        // NOTE - There's a strong requirment for trades to not be able to move the pool to
+        //        have a reserve of exactly 0 in either asset
         require(
-            currentShares != 0 || currentBonds != 0,
+            currentShares != 0 && currentBonds != 0,
             "todo nice initialization error"
         );
+        // No deposits after expiry
+        require(poolId > block.timestamp, "Todo nice time error");
         // Calculate total reserve with conversion to underlying units
         // IE: amount_bonds + amountShares*underlyingPerShare
         uint256 totalValue = currentShares * pricePerShare + currentBonds;
