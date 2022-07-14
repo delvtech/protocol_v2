@@ -209,7 +209,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             );
 
             // Record the shares which were released
-            if (tokenIds[i] == 0) {
+            if (tokenIds[i] == UNLOCKED_YT_ID) {
                 releasedSharesUnlocked += shares;
             } else {
                 releasedSharesLocked += shares;
@@ -238,6 +238,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
 
         // Return the total value released
         return (valueFromLocked + valueFromUnlocked);
+    }
+
+    /// @notice Quotes the price per share for unlocked tokens
+    /// @return the price per share of unlocked shares
+    function unlockedSharePrice() external override returns (uint256) {
+        return (_underlying(one, ShareState.Unlocked));
     }
 
     /// @notice creates yield tokens
