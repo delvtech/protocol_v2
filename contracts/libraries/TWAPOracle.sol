@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "hardhat/console.sol";
-
 contract TWAPOracle {
     mapping(uint256 => uint256[]) internal _buffers;
 
@@ -10,6 +8,8 @@ contract TWAPOracle {
     /// set to the value passed in, minTimeStep and timestamp are set to values for thecurrent block.
     /// 0 when the first item is added.
     /// @param bufferId The ID of the buffer to initialize.
+    /// @param maxTime The maximum time in seconds the buffer will provide history for.  This cannot
+    /// be unset.
     /// @param maxLength The maximum number of items in the buffer.  This cannot be unset.
     function _initializeBuffer(
         uint256 bufferId,
@@ -102,18 +102,6 @@ contract TWAPOracle {
         );
 
         uint224 cumulativeSum;
-
-        // TODO: Normally we calculate the sum by multiplying the price by the amount of time that has
-        // elapsed.  Once we are past expiry, we know the price is always 1 so we just multiply
-        // by that to make the oracle converge to 1.
-        // TODO:  I don' think we actually need to worry about this, probably safe to assume the calling contract
-        // will always pass a price of '1' after the expiry anyway.
-        // uint224 previousSum;
-        // if (block.timestamp < expiry) {
-        //     previousSum = uint224(value);
-        // } else {
-        //     cumulativeSum = 1000000000000000000 * time + previousSum;
-        // }
         uint224 previousSum = uint224(value);
         cumulativeSum = price * timeDelta + previousSum;
 
