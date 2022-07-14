@@ -97,7 +97,9 @@ contract TWAPOracle {
             value = buffer[headIndex];
         }
 
-        uint224 time = uint224(uint32(block.timestamp) - previousTimestamp);
+        uint224 timeDelta = uint224(
+            uint32(block.timestamp) - previousTimestamp
+        );
 
         uint224 cumulativeSum;
 
@@ -113,7 +115,7 @@ contract TWAPOracle {
         //     cumulativeSum = 1000000000000000000 * time + previousSum;
         // }
         uint224 previousSum = uint224(value);
-        cumulativeSum = price * time + previousSum;
+        cumulativeSum = price * timeDelta + previousSum;
 
         uint256 sumAndTimestamp = (uint256(block.timestamp) << 224) |
             uint256(cumulativeSum);
@@ -144,8 +146,6 @@ contract TWAPOracle {
             sstore(buffer.slot, metadata)
         }
         buffer[headIndex] = sumAndTimestamp;
-
-        // TODO: fire event?
     }
 
     /// @dev A public function to read the timestamp&sum value from the specified index and buffer.
@@ -160,7 +160,7 @@ contract TWAPOracle {
         (, , , , uint16 bufferLength) = readMetadataParsed(bufferId);
 
         // TODO: do we need to check this?
-        // because we overload length for metadata, we need to specifically check the index
+        // because we use the length prop for metadata, we need to specifically check the index
         require(index >= 0 && index < bufferLength, "index out of bounds");
 
         uint256 value = _buffers[bufferId][index];
