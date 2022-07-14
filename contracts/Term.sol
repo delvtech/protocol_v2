@@ -569,14 +569,11 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // get the user's shares and burn yt
         uint256 userShares = _removeYT(ytTokenId, amount, msg.sender);
 
-        // load the term's value to calculate the interest
-        uint256 termValue = _underlying(userShares, ShareState.Locked);
-        uint256 termInterest = termValue - yieldTerm.pt;
+        // calculate 1 USD in shares
+        uint256 value = one; // placeholder bc slight confusion
 
-        // calculate the user's interest in terms of shares
-        uint256 interestShares = ((value - amount) * userShares) / value;
-
-        // eventually
         sharesPerExpiry[ptTokenId] -= userShares;
+
+        _burn(ptTokenId, msg.sender, amount);
     }
 }
