@@ -145,7 +145,7 @@ contract LP is MultiToken {
     }
 
     /// @notice Withdraws LP from the pool, resulting in either a proportional withdraw before expiration
-    ///         or a withdraw of only underlying afterwords.
+    ///         or a withdraw of only underlying afterwards.
     /// @param poolId The id of the LP token to withdraw
     /// @param amount The number of LP tokens to remove
     /// @param destination The address to credit the underlying too.
