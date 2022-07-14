@@ -253,7 +253,6 @@ contract LP is MultiToken {
         // The bond value is in terms of purely the underlying so to figure out how many shares we lock
         // we dived it by our price per share to convert to share value.
         uint256 sharesToLock = (neededBonds * one) / pricePerShare;
-        // Shares to lock is in 18 point so we convert back and then lock shares to PTs
         // while sending the resulting YT to the user
 
         // Note need to declare dynamic memory types in this way even with one element
