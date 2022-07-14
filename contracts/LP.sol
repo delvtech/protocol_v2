@@ -54,7 +54,7 @@ contract LP is MultiToken {
 
     /// @notice Accepts a deposit from an LP in terms of the underlying and deposit it into the yield
     ///         source then locks the correct proportion to match pool. The YT from the locked amount
-    ///         are credited to the user. This is the main user friendly way of depositing.
+    ///         is credited to the user. This is the main user friendly way of depositing.
     /// @param amount The amount of underlying tokens to deposit
     /// @param poolId The identifier of the LP pool to deposit into, in this version it's expiration time.
     /// @param destination The destination which gets credited with LP token.
