@@ -252,7 +252,7 @@ contract LP is MultiToken {
         uint256 depositedAmount = (depositedShares * pricePerShare) / one;
         uint256 neededBonds = (depositedAmount * currentBonds) / totalValue;
         // The bond value is in terms of purely the underlying so to figure out how many shares we lock
-        // we dived it by our price per share to convert to share value.
+        // we divide it by our price per share to convert to share value and convert it to 18 point
         uint256 sharesToLock = (neededBonds * one) / pricePerShare;
         //  Lock shares to PTs while sending the resulting YT to the user
 
