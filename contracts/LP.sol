@@ -148,7 +148,7 @@ contract LP is MultiToken {
     ///         or a withdraw of only underlying afterwards.
     /// @param poolId The id of the LP token to withdraw
     /// @param amount The number of LP tokens to remove
-    /// @param destination The address to credit the underlying too.
+    /// @param destination The address to credit the underlying to.
     function withdraw(
         uint256 poolId,
         uint256 amount,
