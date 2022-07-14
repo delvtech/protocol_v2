@@ -18,11 +18,17 @@ contract TWAPOracle {
     ) internal {
         require(maxLength > 0, "min length is 1");
 
-        uint256[] storage buffer = _buffers[bufferId];
         (, , , uint16 _maxLength, ) = readMetadataParsed(bufferId);
+        console.log(" ");
+        console.log("INIT");
+        console.log("bufferId %s", bufferId);
+        console.log("maxTime %s", maxTime);
+        console.log("maxLength %s", maxLength);
+        console.log("_maxLength %s", _maxLength);
         require(_maxLength == 0, "buffer already initialized");
 
         uint32 minTimeStep = uint32(maxTime) / uint32(maxLength);
+        console.log("minTimeStep %s", minTimeStep);
         require(minTimeStep >= 1, "minimum time step is 1");
 
         uint256 metadata = _combineMetadata(
@@ -32,11 +38,13 @@ contract TWAPOracle {
             maxLength,
             0
         );
+        console.log("metadata", metadata);
 
+        uint256[] storage buffer = _buffers[bufferId];
         assembly {
             // length is stored at position 0 for dynamic arrays
             // we are overloading this to store metadata to be more efficient
-            sstore(add(buffer.offset, 0), metadata)
+            sstore(buffer.slot, metadata)
         }
     }
 
@@ -59,9 +67,19 @@ contract TWAPOracle {
         // Note: just reading buffer.length does not work when the array is in a mapping.
         uint256 metadata;
 
+        uint256 length = buffer.length;
+        uint256 slot;
+        uint256 offset;
         assembly {
-            metadata := sload(buffer.offset)
+            slot := buffer.slot
+            offset := buffer.offset
+            metadata := sload(buffer.slot)
         }
+        // console.log("READMETADATAPARSED");
+        // console.log("slot %s", slot);
+        // console.log("offset %s", offset);
+        // console.log("length %s", length);
+        // console.log("metadata %s", metadata);
 
         bufferLength = uint16(metadata);
         // 16
@@ -89,6 +107,12 @@ contract TWAPOracle {
         ) = readMetadataParsed(bufferId);
 
         uint32 timestep = uint32(block.timestamp) - previousTimestamp;
+        // console.log("bufferId %s", bufferId);
+        // console.log("previousTimestamp %s", previousTimestamp);
+        // console.log("timestamp %s", block.timestamp);
+        // console.log("timestep %s", timestep);
+        // console.log("minTimeStep %s", minTimeStep);
+        // console.log("");
         if (timestep < minTimeStep) {
             return;
         }
@@ -99,15 +123,12 @@ contract TWAPOracle {
         if (bufferLength != 0) {
             // Note: just reading buffer[index] does not work since we are overloading the length property
             assembly {
-                let offset := keccak256(buffer.offset, 1)
+                let offset := keccak256(buffer.slot, 1)
                 let slot := add(offset, headIndex)
                 value := sload(slot)
             }
         }
         uint224 time = uint224(uint32(block.timestamp) - previousTimestamp);
-        console.log("timestamp %s", block.timestamp);
-        console.log("previousTimestamp %s", previousTimestamp);
-        console.log("time %s", time);
 
         uint224 cumulativeSum;
 
@@ -151,13 +172,14 @@ contract TWAPOracle {
         assembly {
             // length is stored at position 0 for dynamic arrays
             // we are overloading this to store metadata to be more efficient
-            sstore(add(buffer.offset, 0), metadata)
+            sstore(buffer.slot, metadata)
 
             // store the actual value
-            let offset := keccak256(buffer.offset, 1)
-            let slot := add(offset, headIndex)
-            sstore(slot, sumAndTimestamp)
+            // let offset := keccak256(buffer.slot, 1)
+            // let slot := add(offset, headIndex)
+            // sstore(slot, sumAndTimestamp)
         }
+        _buffers[bufferId][headIndex] = sumAndTimestamp;
 
         // TODO: fire event?
     }
@@ -180,7 +202,7 @@ contract TWAPOracle {
 
         uint256 value;
         assembly {
-            let offset := keccak256(buffer.offset, 1)
+            let offset := keccak256(buffer.slot, 1)
             let slot := add(offset, index)
             value := sload(slot)
         }

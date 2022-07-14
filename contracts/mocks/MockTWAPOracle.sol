@@ -5,14 +5,14 @@ import "../libraries/TWAPOracle.sol";
 
 contract MockTWAPOracle is TWAPOracle {
     function initializeBuffer(
-        uint256 poolId,
+        uint256 bufferId,
         uint16 maxTime,
         uint16 maxLength
     ) public {
-        _initializeBuffer(poolId, maxTime, maxLength);
+        _initializeBuffer(bufferId, maxTime, maxLength);
     }
 
-    function updateBuffer(uint256 poolId, uint224 price) public {
-        _updateBuffer(poolId, price);
+    function updateBuffer(uint256 bufferId, uint224 price) public {
+        _updateBuffer(bufferId, price);
     }
 }

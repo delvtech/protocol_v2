@@ -3,11 +3,11 @@ import "module-alias/register";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { expect } from "chai";
 import { Signer } from "ethers";
+import { parseEther } from "ethers/lib/utils";
 import { ethers, waffle } from "hardhat";
 import { MockTWAPOracle, MockTWAPOracle__factory } from "typechain-types";
 
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
-import { formatEther, parseEther } from "ethers/lib/utils";
 
 const { provider } = waffle;
 
@@ -15,7 +15,6 @@ const MAX_TIME = 5;
 const MAX_LENGTH = 5;
 // this one is initialized for all tests
 const BUFFER_ID = 1;
-// this one is initialized for all tests
 // this one is un initialized
 const NEW_BUFFER_ID = 2;
 
@@ -105,7 +104,7 @@ describe.only("TWAP Oracle", function () {
     expect(result.cumulativeSum).to.equal(oneEther.toString());
   });
 
-  it.only("should add many prices to sum", async () => {
+  it("should add many prices to sum", async () => {
     const { timestamp: initialTimeStamp } =
       await oracleContract.readMetadataParsed(BUFFER_ID);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
@@ -134,7 +133,11 @@ describe.only("TWAP Oracle", function () {
       3
     );
 
-    expect(result0.cumulativeSum).to.equal(parseEther("1"));
+    expect(result0.cumulativeSum).to.equal(
+      parseEther("1")
+        .mul(result0.timestamp - initialTimeStamp)
+        .add(0)
+    );
 
     expect(result1.cumulativeSum).to.equal(
       parseEther("1")
@@ -153,6 +156,31 @@ describe.only("TWAP Oracle", function () {
         .mul(result3.timestamp - result2.timestamp)
         .add(result2.cumulativeSum)
     );
+  });
+
+  it("should fail to add price to sum if timestep is too small", async () => {
+    console.log("");
+    console.log("TEST");
+    const metadata1 = await oracleContract.readMetadataParsed(BUFFER_ID);
+    const metadata2 = await oracleContract.readMetadataParsed(NEW_BUFFER_ID);
+    console.log("metadata1", metadata1);
+    console.log("metadata2", metadata2);
+    // timestep is 2 (maxTime / maxLength)
+    await oracleContract.initializeBuffer(NEW_BUFFER_ID, 4, 2);
+    // this update happens too quickly so it fails silently
+    await oracleContract.updateBuffer(NEW_BUFFER_ID, parseEther("1"));
+    // wait long enough to update
+    await sleep(3000);
+    await oracleContract.updateBuffer(NEW_BUFFER_ID, parseEther("1"));
+    // this one also fails silently
+    await oracleContract.updateBuffer(NEW_BUFFER_ID, parseEther("1"));
+
+    const metadata = await oracleContract.readMetadataParsed(NEW_BUFFER_ID);
+    const { bufferLength, maxLength } = metadata;
+    console.log("maxLength", maxLength);
+    console.log("bufferLength", bufferLength);
+    console.log("metadata", metadata);
+    expect(bufferLength).to.equal(1);
   });
 
   it("should fail to read an item that's out of bounds", async () => {
