@@ -24,15 +24,15 @@ contract LP is MultiToken {
     mapping(uint256 => Reserve) public reserves;
     // The term address cannot be changed after deploy.
     // All funds are held in the term contract.
-    ITerm immutable term;
+    ITerm public immutable term;
     // The underlying token on which yield is earned
-    IERC20 immutable token;
-    uint8 immutable decimals;
-    // One expressed in the native token math
-    uint256 immutable one;
+    IERC20 public immutable token;
+    uint8 public immutable decimals;
+    // one expressed in the native token math
+    uint256 internal immutable _one;
 
     // The id for the unlocked deposit into the term, this is YT at expiry and start time 0
-    uint256 constant unlockedTermID = 1 << 255;
+    uint256 public constant unlockedTermID = 1 << 255;
 
     /// @notice Runs the initial deployment code
     /// @param _token The token which is deposited into this contract
@@ -48,7 +48,7 @@ contract LP is MultiToken {
         token = _token;
         uint8 _decimals = _token.decimals();
         decimals = _decimals;
-        one = 10**_decimals;
+        _one = 10**_decimals;
         term = _term;
     }
 
@@ -88,9 +88,9 @@ contract LP is MultiToken {
         );
 
         // Calculate the implicit price per share
-        uint256 pricePerShare = (amount * one) / depositedShares;
+        uint256 pricePerShare = (amount * _one) / depositedShares;
         // Call internal function to mint new lp from the new shares held by this contract
-        uint256 newLpToken = depositFromShares(
+        uint256 newLpToken = _depositFromShares(
             poolId,
             uint256(reserves[poolId].shares),
             uint256(reserves[poolId].bonds),
@@ -158,7 +158,7 @@ contract LP is MultiToken {
     ) external {
         // Burn lp token and free assets. Will also finalize the pool and so return
         // zero for the userBonds if it's after expiry time.
-        (uint256 userShares, uint256 userBonds) = withdrawToShares(
+        (uint256 userShares, uint256 userBonds) = _withdrawToShares(
             poolId,
             amount,
             msg.sender
@@ -182,7 +182,7 @@ contract LP is MultiToken {
         }
     }
 
-    /// @notice Allows a user to withdraw from an expired term and then deposit into a new one in one transaction
+    /// @notice Allows a user to withdraw from an expired term and then deposit into a new _one in _one transaction
     /// @param fromPoolId The identifier of the LP token which will be burned by this call
     /// @param toPoolId The identifier of the to LP token which will be created by this call
     /// @param amount The number of LP tokens to burn from the user
@@ -203,7 +203,7 @@ contract LP is MultiToken {
         );
         // Burn lp token and free assets. Will also finalize the pool and so return
         // zero for the userBonds if it's after expiry time.
-        (uint256 userShares, ) = withdrawToShares(
+        (uint256 userShares, ) = _withdrawToShares(
             fromPoolId,
             amount,
             msg.sender
@@ -211,7 +211,7 @@ contract LP is MultiToken {
         // In this case we have no price per share information so we must ask the pool for it
         uint256 pricePerShare = term.unlockedSharePrice();
         // Now the freed shares are deposited
-        uint256 newLpToken = depositFromShares(
+        uint256 newLpToken = _depositFromShares(
             toPoolId,
             uint256(reserves[toPoolId].shares),
             uint256(reserves[toPoolId].bonds),
@@ -233,7 +233,7 @@ contract LP is MultiToken {
     /// @param pricePerShare A multiplier which converts yielding shares to their net value.
     /// @param to The address to credit the LP token to.
     /// @return The number of LP tokens created by this action
-    function depositFromShares(
+    function _depositFromShares(
         uint256 poolId,
         uint256 currentShares,
         uint256 currentBonds,
@@ -254,14 +254,14 @@ contract LP is MultiToken {
         // IE: amount_bonds + amountShares*underlyingPerShare
         uint256 totalValue = currentShares * pricePerShare + currentBonds;
         // Calculate the needed bonds as a percent of the value
-        uint256 depositedAmount = (depositedShares * pricePerShare) / one;
+        uint256 depositedAmount = (depositedShares * pricePerShare) / _one;
         uint256 neededBonds = (depositedAmount * currentBonds) / totalValue;
         // The bond value is in terms of purely the underlying so to figure out how many shares we lock
         // we divide it by our price per share to convert to share value and convert it to 18 point
-        uint256 sharesToLock = (neededBonds * one) / pricePerShare;
+        uint256 sharesToLock = (neededBonds * _one) / pricePerShare;
         //  Lock shares to PTs while sending the resulting YT to the user
 
-        // Note need to declare dynamic memory types in this way even with one element
+        // Note need to declare dynamic memory types in this way even with _one element
         uint256[] memory ids = new uint256[](1);
         ids[0] = unlockedTermID;
         uint256[] memory amounts = new uint256[](1);
@@ -298,7 +298,7 @@ contract LP is MultiToken {
     /// @param amount The number of LP tokens to remove
     /// @param source The address who's tokens will be deleted.
     /// @return userShares The number of shares and bonds the user should receive
-    function withdrawToShares(
+    function _withdrawToShares(
         uint256 poolId,
         uint256 amount,
         address source
