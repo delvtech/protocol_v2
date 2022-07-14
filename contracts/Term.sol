@@ -479,8 +479,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         address destination,
         bool isCompound
     ) external returns (uint256) {
-        // make sure asset is a YT
-        require(assetId >> 255 == 1, "asset ID is not YT");
         // expiry must be greater than zero
         uint256 expiry = assetId & (2**(128) - 1);
         require(expiry > 0, "invalid expiry");
@@ -488,26 +486,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 startDate = ((assetId) & (2**255 - 1)) >> 128;
         require(startDate > 0, "invalid token start date");
 
-        // load the state for the term
-        YieldState memory state = yieldTerms[assetId];
-        // make sure a term exists for the input asset
-        // todo: is this logic good or should be &&?
-        require(state.pt != 0 || state.shares != 0, "no term for input asset");
-        // calculate the shares belonging to the user
-        uint256 userShares = (state.shares * amount) / totalSupply[assetId];
-        // remove shares from the yield state and the yt to burn from pt
+        // get the users shares and burn the yt
+        uint256 userShares = _removeYT(assetId, amount, msg.sender);
 
-        // todo: necessary to make sure we don't go into negative balances?
-        require(state.shares >= userShares, "inadequate share balance");
-        require(state.pt >= amount, "inadequate pt balance");
-
-        yieldTerms[assetId] = YieldState(
-            state.shares - uint128(userShares),
-            state.pt - uint128(amount)
-        );
-
-        // burn the yt from the user's balance
-        _burn(assetId, msg.sender, amount);
         uint256 value = _underlying(amount, ShareState.Locked);
 
         if (isCompound) {
@@ -542,11 +523,40 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         return (value - amount);
     }
 
+    function _removeYT(
+        uint256 assetId,
+        uint256 amount,
+        address source
+    ) internal returns (uint256) {
+        // make sure asset is a YT
+        require(assetId >> 255 == 1, "asset ID is not YT");
+        // load the state for the term
+        YieldState memory state = yieldTerms[assetId];
+        // make sure a term exists for the input asset
+        require(state.pt != 0 || state.shares != 0, "no term for input asset");
+        // calculate the shares belonging to the user
+        uint256 userShares = (state.shares * amount) / totalSupply[assetId];
+
+        // make sure we won't be adjusting to negative values
+        require(state.shares >= userShares, "inadequate share balance");
+        require(state.pt >= amount, "inadequate pt balance");
+
+        // burn the yt from the user's balance
+        _burn(assetId, source, amount);
+
+        // set the term state with adjusted values
+        yieldTerms[assetId] = YieldState(
+            state.shares - uint128(userShares),
+            state.pt - uint128(amount)
+        );
+
+        return userShares;
+    }
+
     /// @notice removes and burns input amount of PT's and YT's
     /// @param ytTokenId the pt to redeem
     /// @param ptTokenId the yt to redeem
     /// @param amount the quantity of asset to remove
-    // / @param source the address to burn the tokens from: do we need this or are we redeeming from msg.sender?
     function redeem(
         uint256 ytTokenId,
         uint256 ptTokenId,
@@ -556,41 +566,17 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 ytExpiry = ytTokenId & (2**(128) - 1);
         require(ytExpiry == ptTokenId, "tokens from different terms");
 
-        // load the price per share
-        uint256 pricePerShare = _underlying(one, ShareState.Locked);
-        // load the term state
-        YieldState memory yieldTerm = yieldTerms[ytTokenId];
+        // get the user's shares and burn yt
+        uint256 userShares = _removeYT(ytTokenId, amount, msg.sender);
 
         // load the term's value to calculate the interest
-        uint256 termValue = _underlying(yieldTerm.shares, ShareState.Locked);
+        uint256 termValue = _underlying(userShares, ShareState.Locked);
         uint256 termInterest = termValue - yieldTerm.pt;
 
-        uint256 totalYtSupply = totalSupply[ytTokenId];
-        // calculate the user's interest
-        uint256 userInterest = (termInterest * amount) / totalYtSupply;
-        // calculate the user's yt shares
-        uint256 userYtShares = userInterest / pricePerShare;
-        // burn the yt's
-        _burn(ytTokenId, msg.sender, amount);
-        // set the new yieldTerm state
-        yieldTerms[ytTokenId] = YieldState(
-            yieldTerm.shares - uint128(userYtShares),
-            yieldTerm.pt - uint128(amount)
-        );
-        // update the shares per expiry, ptTokenId = expiry
-        sharesPerExpiry[ptTokenId] -= userYtShares;
+        // calculate the user's interest in terms of shares
+        uint256 interestShares = ((value - amount) * userShares) / value;
 
-        uint256 totalPtSupply = totalSupply[ptTokenId];
-        // calculate the interest in shares
-        uint256 interestShares = termInterest / pricePerShare;
-        // calculate the total pt shares
-        // TODO: does this need to be calculated before subtracting the ytshares?
-        uint256 totalPtShares = sharesPerExpiry[ptTokenId] - interestShares;
-        // calculate the user's pt sharess
-        uint256 userPtShares = (totalPtShares * amount) / totalPtSupply;
-        // burn the pt's
-        _burn(ptTokenId, msg.sender, amount);
-        // update the shares per expiry
-        sharesPerExpiry[ptTokenId] = userPtShares;
+        // eventually
+        sharesPerExpiry[ptTokenId] -= userShares;
     }
 }
