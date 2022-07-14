@@ -15,6 +15,7 @@ contract MockYieldAdapter is IYieldAdapter, Term {
         IERC20 _token
     ) Term(_linkerCodeHash, _factory, _token) {
         vault = MockERC20YearnVault(mockYearnVault);
+        token.approve(address(vault), type(uint256).max);
     }
 
     /// Deposits based on funds available in the contract.
