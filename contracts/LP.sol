@@ -105,6 +105,7 @@ contract LP is MultiToken {
 
     /// @notice Allows a user to deposit an equal amount of bonds and yielding shares to match reserves.
     ///         Naturally unfriendly and should be called in weiroll bundle.
+    /// @param poolId The identifier of the LP pool to deposit into, in this version it's expiration time.
     /// @param ptDeposited The number of principal tokens deposited, this will set the ratio and
     ///                    the correct reserve matching percent of shares will be transferred from the user
     /// @param destination The address which will be credited with shares
