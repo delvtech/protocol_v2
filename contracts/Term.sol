@@ -568,12 +568,15 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
         // get the user's shares and burn yt
         uint256 userShares = _removeYT(ytTokenId, amount, msg.sender);
+        // withdraw that to the user
+        _withdraw(userShares, msg.sender, ShareState.Locked);
 
+        // below accounting WIP
         // calculate 1 USD in shares
-        uint256 value = one; // placeholder bc slight confusion
+        uint256 pricePerShare = _underlying(one, ShareState.Locked);
+        uint256 sharesPerDollar = 1 / pricePerShare;
 
-        sharesPerExpiry[ptTokenId] -= userShares;
-
+        sharesPerExpiry[ptTokenId] -= sharesPerDollar;
         _burn(ptTokenId, msg.sender, amount);
     }
 }
