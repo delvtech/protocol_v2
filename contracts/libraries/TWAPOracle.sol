@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
+import "hardhat/console.sol";
+
 contract TWAPOracle {
     mapping(uint256 => uint256[]) internal _buffers;
 
@@ -147,13 +149,99 @@ contract TWAPOracle {
     {
         (, , , , uint16 bufferLength) = readMetadataParsed(bufferId);
 
-        // TODO: do we need to check this?
         // because we use the length prop for metadata, we need to specifically check the index
         require(index >= 0 && index < bufferLength, "index out of bounds");
 
         uint256 value = _buffers[bufferId][index];
         cumulativeSum = uint224(value);
         timestamp = uint32(value >> 224);
+    }
+
+    /// @dev A public function to calculate the average weighted price over a timePeriod between
+    /// now and timeInSeconds earlier.
+    /// @param bufferId The ID of the buffer to initialize.
+    /// @param timeInSeconds Amount of time previous to now to average the price over.
+    /// @return averageWeightedPrice Price averaged over time range, weighted by time period for each price.
+    function calculateAverageWeightedPrice(
+        uint256 bufferId,
+        uint32 timeInSeconds
+    ) public view returns (uint256 averageWeightedPrice) {
+        (
+            ,
+            ,
+            uint16 headIndex,
+            uint16 maxLength,
+            uint16 bufferLength
+        ) = readMetadataParsed(bufferId);
+
+        uint16 index = headIndex;
+        // If the buffer is full, the oldest index is the next index, otherwise its the first
+        // element in the array.
+        uint16 oldestIndex = bufferLength == maxLength
+            ? (headIndex + 1) % maxLength
+            : 0;
+
+        (
+            uint32 currentTimeStamp,
+            uint224 cumulativeSum
+        ) = readSumAndTimestampForPool(bufferId, index);
+
+        // keep track of these for later calculations
+        uint32 endTime = currentTimeStamp;
+        uint224 currentSum;
+
+        // the point in time we work back to
+        uint256 requestedTimeStamp = endTime - uint256(timeInSeconds);
+
+        // Work our way backwards to requestedTimeStamp.  Because the buffer keeps track of
+        // cumulative sum, we don't need to add anything up, just find the first element that is
+        // older than the requestedTimeStamp.
+        while (currentTimeStamp >= requestedTimeStamp && index != oldestIndex) {
+            // Decrement index or rollback to end of buffer if we need to until we pass the
+            // the requestedTimeStamp.
+            index = index == 0 ? maxLength : index - 1;
+            (currentTimeStamp, currentSum) = readSumAndTimestampForPool(
+                bufferId,
+                index
+            );
+        }
+
+        // If we've reached the oldest value in the buffer, then we just take the cumulativeSum / time to get the
+        // average weighted price.
+        if (index == oldestIndex) {
+            averageWeightedPrice = cumulativeSum / (endTime - currentTimeStamp);
+            // Otherwise, we need to subtract the sums outside time range, add a partial sum if
+            // time requested is between two timestamps, and divide by the total time to get
+            // average weighted price.
+        } else {
+            uint16 nextIndex = (index + 1) % maxLength;
+            (
+                uint32 currentTimePlusOne,
+                uint224 currentSumPlusOne
+            ) = readSumAndTimestampForPool(bufferId, nextIndex);
+
+            // Get the sum between the two timestamps around the requested time.
+            uint256 sumDuringRequestedTime = uint256(currentSumPlusOne) -
+                uint256(currentSum);
+
+            // partialSum = sumDuringRequestedTime * partialTime
+            // because the denominator of partialTime is always >= the numerator, we can't
+            // calculate partialTime first otherwise it would always be zero.  So, we multiply by
+            // the numerator first, the divide by the denominator:
+            // uint256 partialTime = (currentTimePlusOne) - requestedTimeStamp) /
+            //                       (currentTimePlusOne - currentTimeStamp);
+            uint256 partialSum = sumDuringRequestedTime *
+                (uint256(currentTimePlusOne) - uint256(requestedTimeStamp));
+            partialSum =
+                partialSum /
+                (uint256(currentTimePlusOne) - uint256(currentTimeStamp));
+
+            averageWeightedPrice =
+                (uint256(cumulativeSum) -
+                    uint256(currentSumPlusOne) +
+                    partialSum) /
+                (uint256(endTime) - uint256(requestedTimeStamp));
+        }
     }
 
     /// @dev An internal method to combine all metadata parts into a uint256 value.

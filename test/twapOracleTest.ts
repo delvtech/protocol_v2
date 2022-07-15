@@ -3,7 +3,7 @@ import "module-alias/register";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { expect } from "chai";
 import { Signer } from "ethers";
-import { parseEther } from "ethers/lib/utils";
+import { formatEther, parseEther } from "ethers/lib/utils";
 import { ethers, waffle } from "hardhat";
 import { MockTWAPOracle, MockTWAPOracle__factory } from "typechain-types";
 
@@ -251,6 +251,7 @@ describe.only("TWAP Oracle", function () {
       BUFFER_ID,
       4
     );
+
     console.log(result0.cumulativeSum.toString());
     console.log(result1.cumulativeSum.toString());
     console.log(result2.cumulativeSum.toString());
@@ -262,6 +263,55 @@ describe.only("TWAP Oracle", function () {
     expect(result2.cumulativeSum.toString()).to.equal("3");
     expect(result3.cumulativeSum.toString()).to.equal("4");
     expect(result4.cumulativeSum.toString()).to.equal("5");
+  });
+
+  it.only("should calculate an average price", async () => {
+    // the price never changes, always one, but the cumulative sum is increasing
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await sleep(3000);
+
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    console.log("nowInSeconds", nowInSeconds);
+    // lets reach back 3 steps
+    const { timestamp: startTime } =
+      await oracleContract.readSumAndTimestampForPool(BUFFER_ID, 1);
+
+    const blockNumber = await provider.getBlockNumber();
+    const block = await provider.getBlock(blockNumber);
+    const lastBlockTimestamp = block.timestamp;
+    // should be about 9 seconds
+    const timeInSeconds = lastBlockTimestamp - startTime;
+
+    const averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatEther(averagePrice)).to.equal("1.0");
+  });
+
+  it("should work when less than one buffer element included", async () => {
+    expect(true).to.equal(false);
+  });
+
+  it("should work when exactlly one buffer element included", async () => {
+    expect(true).to.equal(false);
+  });
+
+  it("should work when all buffer elements included", async () => {
+    expect(true).to.equal(false);
+  });
+
+  it("should work when ", async () => {
+    expect(true).to.equal(false);
   });
 });
 
