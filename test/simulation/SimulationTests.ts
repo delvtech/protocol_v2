@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Contract, BigNumber } from "ethers";
+import { BigNumber } from "ethers";
 import forEach from "mocha-each";
 import fp from "evm-fp";
 import { BigNumber as MathjsBigNumber, all, create } from "mathjs";
@@ -93,7 +93,6 @@ describe("YieldSpaceMath Numerical Accuracy Tests", function () {
       const delta = Number(
         abs(sub(div(result.toString(), "1e18"), expected.toString()))
       );
-      console.log(delta);
       expect(delta).to.be.lessThanOrEqual(epsilon);
     }
   );
