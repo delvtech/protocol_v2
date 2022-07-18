@@ -34,7 +34,7 @@ function div(x: string, y: string): string {
   return (<MathjsBigNumber>math.divide!(mbn(x), mbn(y))).toString();
 }
 // This simulation loads the data from ./testTrades.json and makes sure that
-// our quotes are with-in episilon of the quotes from the python script
+// our quotes are with-in epsilon of the quotes from the python script
 describe("YieldSpaceMath Numerical Accuracy Tests", function () {
   let DECIMALS: number;
   let EPSILON: number;
