@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import "hardhat/console.sol";
 
-contract TWAPOracle {
+contract TWAROracle {
     mapping(uint256 => uint256[]) internal _buffers;
 
     /// @dev An initialization function for the buffer.  During initialization, the maxLength is
@@ -191,7 +191,7 @@ contract TWAPOracle {
         uint224 currentSum;
 
         // the point in time we work back to
-        uint256 requestedTimeStamp = endTime - uint256(timeInSeconds);
+        uint256 requestedTimeStamp = block.timestamp - uint256(timeInSeconds);
 
         // Work our way backwards to requestedTimeStamp.  Because the buffer keeps track of
         // cumulative sum, we don't need to add anything up, just find the first element that is

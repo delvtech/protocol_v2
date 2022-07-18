@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "../libraries/TWAPOracle.sol";
+import "../libraries/TWAROracle.sol";
 
-contract MockTWAPOracle is TWAPOracle {
+contract MockTWAROracle is TWAROracle {
     function initializeBuffer(
         uint256 bufferId,
         uint16 maxTime,

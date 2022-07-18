@@ -5,7 +5,7 @@ import { expect } from "chai";
 import { Signer } from "ethers";
 import { formatEther, parseEther } from "ethers/lib/utils";
 import { ethers, waffle } from "hardhat";
-import { MockTWAPOracle, MockTWAPOracle__factory } from "typechain-types";
+import { MockTWAROracle, MockTWAROracle__factory } from "typechain-types";
 
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
 
@@ -18,16 +18,16 @@ const BUFFER_ID = 1;
 // this one is un initialized
 const NEW_BUFFER_ID = 2;
 
-describe.only("TWAP Oracle", function () {
+describe.only("TWAR Oracle", function () {
   let signers: SignerWithAddress[];
-  let oracleDeployer: MockTWAPOracle__factory;
-  let oracleContract: MockTWAPOracle;
+  let oracleDeployer: MockTWAROracle__factory;
+  let oracleContract: MockTWAROracle;
 
   before(async function () {
     await createSnapshot(provider);
     signers = await ethers.getSigners();
 
-    oracleDeployer = new MockTWAPOracle__factory(signers[0] as Signer);
+    oracleDeployer = new MockTWAROracle__factory(signers[0] as Signer);
 
     oracleContract = await oracleDeployer.deploy();
     await oracleContract.initializeBuffer(BUFFER_ID, MAX_TIME, MAX_LENGTH);
