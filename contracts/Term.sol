@@ -561,7 +561,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 ytTokenId,
         uint256 ptTokenId,
         uint256 amount
-    ) external onlyAuthorized {
+    ) external onlyAuthorized returns (uint256) {
         // make sure the inputs are from the same expiry
         uint256 ytExpiry = ytTokenId & (2**(128) - 1);
         require(ytExpiry == ptTokenId, "tokens from different terms");
@@ -578,5 +578,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
         sharesPerExpiry[ptTokenId] -= sharesPerDollar;
         _burn(ptTokenId, msg.sender, amount);
+
+        return (userShares);
     }
 }
