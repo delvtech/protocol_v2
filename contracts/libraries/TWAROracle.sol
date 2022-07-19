@@ -11,7 +11,7 @@ contract TWAROracle {
     mapping(uint256 => uint256[]) internal _buffers;
 
     /// @dev An initialization function for the buffer.  During initialization, the maxLength is
-    /// set to the value passed in, minTimeStep and timestamp are set to values for thecurrent block.
+    /// set to the value passed in, minTimeStep and timestamp are set to values for the current block.
     /// 0 when the first item is added.
     /// @param bufferId The ID of the buffer to initialize.
     /// @param maxTime The maximum time in seconds the buffer will provide history for.  This cannot
@@ -77,7 +77,7 @@ contract TWAROracle {
 
     /// @dev An internal function to update a buffer.  Takes a price, calculates the cumulative
     /// sum, then records it along with the timestamp in the following manner:
-    /// [uint32 timestamp][uint224 cumulativeSume]
+    /// [uint32 timestamp][uint224 cumulativeSum]
     /// @param bufferId The ID of the buffer to initialize.
     /// @param price The current price of the token we are tracking a sum for.
     function _updateBuffer(uint256 bufferId, uint224 price) internal {
@@ -89,11 +89,11 @@ contract TWAROracle {
             uint16 bufferLength
         ) = readMetadataParsed(bufferId);
 
-        uint32 timestep = uint32(block.timestamp) - previousTimestamp;
+        uint32 timeStep = uint32(block.timestamp) - previousTimestamp;
         // Fail silently if enough time has not passed.  We don't reject here because we want
         // calling contracts to try to update often without reverting.
-        // Also, if the buffer is unitialized, don't allow updates.
-        if (timestep < minTimeStep || maxLength == 0) {
+        // Also, if the buffer is uninitialized, don't allow updates.
+        if (timeStep < minTimeStep || maxLength == 0) {
             return;
         }
 
