@@ -1,9 +1,15 @@
+import { advanceBlock } from "./helpers/time";
 import "module-alias/register";
 
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { expect } from "chai";
-import { Signer } from "ethers";
-import { formatEther, parseEther } from "ethers/lib/utils";
+import { BigNumber, Signer } from "ethers";
+import {
+  formatEther,
+  formatUnits,
+  parseEther,
+  parseUnits,
+} from "ethers/lib/utils";
 import { ethers, waffle } from "hardhat";
 import { MockTWAROracle, MockTWAROracle__factory } from "typechain-types";
 
@@ -265,30 +271,28 @@ describe.only("TWAR Oracle", function () {
     expect(result4.cumulativeSum.toString()).to.equal("5");
   });
 
-  it.only("should calculate an average price", async () => {
+  it("should calculate an average price", async () => {
     // the price never changes, always one, but the cumulative sum is increasing
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
     await sleep(3000);
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
     await sleep(3000);
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
     await sleep(3000);
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
     await sleep(3000);
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
     await sleep(3000);
 
-    const nowInSeconds = Math.floor(Date.now() / 1000);
-    console.log("nowInSeconds", nowInSeconds);
     // lets reach back 3 steps
     const { timestamp: startTime } =
-      await oracleContract.readSumAndTimestampForPool(BUFFER_ID, 1);
+      await oracleContract.readSumAndTimestampForPool(BUFFER_ID, 2);
 
     const blockNumber = await provider.getBlockNumber();
     const block = await provider.getBlock(blockNumber);
     const lastBlockTimestamp = block.timestamp;
-    // should be about 9 seconds
-    const timeInSeconds = lastBlockTimestamp - startTime;
+    // should be about 10  seconds, between position 1 and 2
+    const timeInSeconds = lastBlockTimestamp - startTime + 1;
 
     const averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
@@ -298,20 +302,205 @@ describe.only("TWAR Oracle", function () {
     expect(formatEther(averagePrice)).to.equal("1.0");
   });
 
-  it("should work when less than one buffer element included", async () => {
-    expect(true).to.equal(false);
+  it("should work when no buffer elements included", async () => {
+    // the price never changes, always one, but the cumulative sum is increasing
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
+    await sleep(3000);
+    // record a new block so when we try to provide a time that's less than 3s we won't
+    // even hit the last update to the buffer
+    await advanceBlock(provider);
+
+    // let's barely step back, shouldn't even go back to the last recorded update to the buffer
+    const timeInSeconds = 2;
+    console.log("timeInSeconds", timeInSeconds);
+
+    const averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatEther(averagePrice)).to.equal("1.0");
   });
 
   it("should work when exactlly one buffer element included", async () => {
-    expect(true).to.equal(false);
+    // the price never changes, always one, but the cumulative sum is increasing
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
+
+    // let's barely step back, should just cover one update
+    const timeInSeconds = 2;
+    console.log("timeInSeconds", timeInSeconds);
+
+    const averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatEther(averagePrice)).to.equal("1.0");
   });
 
   it("should work when all buffer elements included", async () => {
-    expect(true).to.equal(false);
+    // the price never changes, always one, but the cumulative sum is increasing
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
+
+    // this is much larger than the 12s of recorded time between all updates
+    const timeInSeconds = 50;
+    console.log("timeInSeconds", timeInSeconds);
+
+    const averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatEther(averagePrice)).to.equal("1.0");
   });
 
-  it("should work when ", async () => {
-    expect(true).to.equal(false);
+  it("should work when wrapping the buffer", async () => {
+    // the price never changes, always one, but the cumulative sum is increasing
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 6
+
+    // this is much larger than the 15s of recorded time between all updates, will include all the
+    // elements and wrap the buffer
+    const timeInSeconds = 50;
+    console.log("timeInSeconds", timeInSeconds);
+
+    const averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatEther(averagePrice)).to.equal("1.0");
+  });
+
+  it("should fail when there are less than two elements in the buffer", async () => {
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
+    try {
+      await oracleContract.calculateAverageWeightedPrice(BUFFER_ID, 1);
+    } catch (error) {
+      if (isErrorWithReason(error)) {
+        expect(error.reason).to.include("not enough elements");
+      } else {
+        throw error;
+      }
+    }
+  });
+
+  it("should work when there are only two elements in the buffer", async () => {
+    // the price never changes, always one, but the cumulative sum is increasing
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
+
+    // grab the one element
+    let timeInSeconds = 1;
+    console.log("timeInSeconds", timeInSeconds);
+
+    let averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatEther(averagePrice)).to.equal("1.0");
+
+    // go way past the one element's timestamp
+    timeInSeconds = 50;
+    averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatEther(averagePrice)).to.equal("1.0");
+
+    await sleep(3000);
+    // record a new block so when we try to provide a time that's less than 3s we won't
+    // even hit the last update to the buffer
+    await advanceBlock(provider);
+
+    // don't grab the one element
+    timeInSeconds = 1;
+    console.log("timeInSeconds", timeInSeconds);
+
+    averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatEther(averagePrice)).to.equal("1.0");
+  });
+
+  it.only("should work with smaller decimal tokens", async () => {
+    const parseUSDC = (value: string) => parseUnits(value, 6);
+    const formatUSDC = (value: BigNumber) => formatUnits(value, 6);
+    // the price never changes, always one, but the cumulative sum is increasing
+    await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 0, sum 1
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 1, sum 2
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 2, sum 3
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 3, sum 4
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 4, sum 5
+    await sleep(3000);
+    await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 0, sum 6
+
+    // this is much larger than the 15s of recorded time between all updates, will include all the
+    // elements and wrap the buffer
+    let timeInSeconds = 50;
+    console.log("timeInSeconds", timeInSeconds);
+
+    let averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatUSDC(averagePrice)).to.equal("1.0");
+
+    await sleep(3000);
+    await advanceBlock(provider);
+    // timeInSeconds won't even reach back to the last update, but we should still use that average price
+    timeInSeconds = 1;
+    console.log("timeInSeconds", timeInSeconds);
+
+    averagePrice = await oracleContract.calculateAverageWeightedPrice(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatUSDC(averagePrice)).to.equal("1.0");
   });
 });
 

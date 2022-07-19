@@ -3,6 +3,10 @@ pragma solidity ^0.8.15;
 
 import "hardhat/console.sol";
 
+/// @notice A Time Weighted Average Rate Oracle to calculate the value over a given time period.
+/// @dev Stores values in customizable circular buffers.  Values are stored as the cumulative sum
+/// where cumSum = value * timeDelta + prevCumSum.  The time delta is the time that has elapsed
+/// since the previous update.
 contract TWAROracle {
     mapping(uint256 => uint256[]) internal _buffers;
 
@@ -18,7 +22,7 @@ contract TWAROracle {
         uint16 maxTime,
         uint16 maxLength
     ) internal {
-        require(maxLength > 0, "min length is 1");
+        require(maxLength > 1, "min length is 1");
 
         (, , , uint16 _maxLength, ) = readMetadataParsed(bufferId);
         require(_maxLength == 0, "buffer already initialized");
@@ -88,35 +92,40 @@ contract TWAROracle {
         uint32 timestep = uint32(block.timestamp) - previousTimestamp;
         // Fail silently if enough time has not passed.  We don't reject here because we want
         // calling contracts to try to update often without reverting.
-        if (timestep < minTimeStep) {
+        // Also, if the buffer is unitialized, don't allow updates.
+        if (timestep < minTimeStep || maxLength == 0) {
             return;
         }
 
-        uint256 value;
+        // grab the previous sum (if available)
+        uint224 previousSum;
         uint256[] storage buffer = _buffers[bufferId];
-
         if (bufferLength != 0) {
-            value = buffer[headIndex];
+            // Cast because the value is a concatenated 32 bit timestamp and 224 bit sum.
+            previousSum = uint224(buffer[headIndex]);
         }
 
         uint224 timeDelta = uint224(
             uint32(block.timestamp) - previousTimestamp
         );
 
-        uint224 cumulativeSum;
-        uint224 previousSum = uint224(value);
-        cumulativeSum = price * timeDelta + previousSum;
+        // cumulative sum = price * time + previous sum
+        uint224 cumulativeSum = price * timeDelta + previousSum;
 
+        // Pack the timestamp and sum together.
         uint256 sumAndTimestamp = (uint256(block.timestamp) << 224) |
             uint256(cumulativeSum);
 
+        // Don't increment headIndex if this is the first value added.
+        // Otherwise, increment the index and rollover to zero if we pass maxLength.
         if (bufferLength == 0) {
-            // don't increment headIndex if this is the first value added
             headIndex = 0;
         } else {
             headIndex = (headIndex + 1) % maxLength;
         }
 
+        // We continue to increase the buffer length until we hit the max length, at which point
+        // the buffer length remains maxed out and the oldest item will be overwritten.
         if (bufferLength < maxLength) {
             bufferLength++;
         }
@@ -129,12 +138,13 @@ contract TWAROracle {
             bufferLength
         );
 
-        // updateBuffer
+        // update the metadata
         assembly {
             // length is stored at position 0 for dynamic arrays
             // we are overloading this to store metadata to be more efficient
             sstore(buffer.slot, metadata)
         }
+
         buffer[headIndex] = sumAndTimestamp;
     }
 
@@ -150,7 +160,7 @@ contract TWAROracle {
         (, , , , uint16 bufferLength) = readMetadataParsed(bufferId);
 
         // because we use the length prop for metadata, we need to specifically check the index
-        require(index >= 0 && index < bufferLength, "index out of bounds");
+        require(index < bufferLength, "index out of bounds");
 
         uint256 value = _buffers[bufferId][index];
         cumulativeSum = uint224(value);
@@ -174,42 +184,57 @@ contract TWAROracle {
             uint16 bufferLength
         ) = readMetadataParsed(bufferId);
 
-        uint16 index = headIndex;
+        // We can't calculate the price from just one element since we there is no previous
+        // timestamp.
+        require(bufferLength > 1, "not enough elements");
+
         // If the buffer is full, the oldest index is the next index, otherwise its the first
         // element in the array.
         uint16 oldestIndex = bufferLength == maxLength
             ? (headIndex + 1) % maxLength
             : 0;
 
+        // Keep track of these for later calculations.
+        uint32 endTime = uint32(block.timestamp);
+        uint224 currentSum;
+
+        // The point in time we work back to.
+        uint256 requestedTimeStamp = block.timestamp - uint256(timeInSeconds);
+
+        // Get initial values for currentTimeStamp, cumulativeSum and index for the while loop.
         (
             uint32 currentTimeStamp,
             uint224 cumulativeSum
-        ) = readSumAndTimestampForPool(bufferId, index);
+        ) = readSumAndTimestampForPool(bufferId, headIndex);
 
-        // keep track of these for later calculations
-        uint32 endTime = currentTimeStamp;
-        uint224 currentSum;
-
-        // the point in time we work back to
-        uint256 requestedTimeStamp = block.timestamp - uint256(timeInSeconds);
-
+        uint16 index = headIndex;
         // Work our way backwards to requestedTimeStamp.  Because the buffer keeps track of
         // cumulative sum, we don't need to add anything up, just find the first element that is
         // older than the requestedTimeStamp.
         while (currentTimeStamp >= requestedTimeStamp && index != oldestIndex) {
+            console.log("currentTimeStamp", currentTimeStamp);
             // Decrement index or rollback to end of buffer if we need to until we pass the
             // the requestedTimeStamp.
-            index = index == 0 ? maxLength : index - 1;
+            index = index == 0 ? maxLength - 1 : index - 1;
+            console.log("index", index);
             (currentTimeStamp, currentSum) = readSumAndTimestampForPool(
                 bufferId,
                 index
             );
         }
 
+        console.log("currentTimeStamp", currentTimeStamp);
+        console.log("endTime", endTime);
         // If we've reached the oldest value in the buffer, then we just take the cumulativeSum / time to get the
         // average weighted price.
         if (index == oldestIndex) {
-            averageWeightedPrice = cumulativeSum / (endTime - currentTimeStamp);
+            // Note that e still subtract the currentSum.  The current sum involves the price
+            // between currentTimeStamp and the previousTimeStamp, which we don't have since
+            // we are at the oldest timestamp already, so we drop it.
+            averageWeightedPrice =
+                (cumulativeSum - currentSum) /
+                (endTime - currentTimeStamp);
+
             // Otherwise, we need to subtract the sums outside time range, add a partial sum if
             // time requested is between two timestamps, and divide by the total time to get
             // average weighted price.
