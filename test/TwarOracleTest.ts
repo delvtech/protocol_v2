@@ -164,8 +164,8 @@ describe("TWAR Oracle", function () {
     );
   });
 
-  it("should fail to add price to sum if timestep is too small", async () => {
-    // timestep is 2 (maxTime / maxLength)
+  it("should fail to add price to sum if time step is too small", async () => {
+    // time step is 2 (maxTime / maxLength)
     await oracleContract.initializeBuffer(NEW_BUFFER_ID, 4, 2);
     // this update happens too quickly so it fails silently
     await oracleContract.updateBuffer(NEW_BUFFER_ID, parseEther("1"));
@@ -330,7 +330,7 @@ describe("TWAR Oracle", function () {
     expect(formatEther(averagePrice)).to.equal("1.0");
   });
 
-  it("should work when exactlly one buffer element included", async () => {
+  it("should work when exactly one buffer element included", async () => {
     // the price never changes, always one, but the cumulative sum is increasing
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
     await sleep(3000);
