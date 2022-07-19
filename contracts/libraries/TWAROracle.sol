@@ -73,12 +73,12 @@ contract TWAROracle {
         minTimeStep = uint32(metadata >> 80);
     }
 
-    /// @dev An internal function to update a buffer.  Takes a price, calculates the cumulative
+    /// @dev An internal function to update a buffer.  Takes a value, calculates the cumulative
     /// sum, then records it along with the timeStamp in the following manner:
     /// [uint32 timeStamp][uint224 cumulativeSum]
     /// @param bufferId The ID of the buffer to initialize.
-    /// @param price The current price of the token we are tracking a sum for.
-    function _updateBuffer(uint256 bufferId, uint224 price) internal {
+    /// @param value The latest value we are tracking an average for.
+    function _updateBuffer(uint256 bufferId, uint224 value) internal {
         (
             uint32 minTimeStep,
             uint32 previousTimeStamp,
@@ -107,8 +107,8 @@ contract TWAROracle {
             uint32(block.timestamp) - previousTimeStamp
         );
 
-        // cumulative sum = price * time + previous sum
-        uint224 cumulativeSum = price * timeDelta + previousSum;
+        // cumulative sum = value * time + previous sum
+        uint224 cumulativeSum = value * timeDelta + previousSum;
 
         // Pack the timeStamp and sum together.
         uint256 sumAndTimeStamp = (uint256(block.timestamp) << 224) |
@@ -165,15 +165,15 @@ contract TWAROracle {
         timeStamp = uint32(value >> 224);
     }
 
-    /// @dev A public function to calculate the average weighted price over a timePeriod between
+    /// @dev A public function to calculate the average weighted value over a timePeriod between
     /// now and timeInSeconds earlier.
     /// @param bufferId The ID of the buffer to initialize.
-    /// @param timeInSeconds Amount of time previous to now to average the price over.
-    /// @return averageWeightedPrice Price averaged over time range, weighted by time period for each price.
-    function calculateAverageWeightedPrice(
+    /// @param timeInSeconds Amount of time previous to now to average the value over.
+    /// @return averageWeightedValue Value averaged over time range, weighted by time period for each value.
+    function calculateAverageWeightedValue(
         uint256 bufferId,
         uint32 timeInSeconds
-    ) public view returns (uint256 averageWeightedPrice) {
+    ) public view returns (uint256 averageWeightedValue) {
         (
             ,
             ,
@@ -182,7 +182,7 @@ contract TWAROracle {
             uint16 bufferLength
         ) = readMetadataParsed(bufferId);
 
-        // We can't calculate the price from just one element since we there is no previous
+        // We can't calculate the value from just one element since we there is no previous
         // timeStamp.
         require(bufferLength > 1, "not enough elements");
 
@@ -206,7 +206,7 @@ contract TWAROracle {
         ) = readSumAndTimeStampForPool(bufferId, headIndex);
         uint16 index = headIndex;
 
-        // If the requested time doesn't reach far enough back, then we just return the last price.
+        // If the requested time doesn't reach far enough back, then we just return the last value.
         if (requestedTimeStamp > currentTimeStamp) {
             uint16 previousIndex = index == 0 ? maxLength - 1 : index - 1;
             (
@@ -214,10 +214,10 @@ contract TWAROracle {
                 uint224 previousSum
             ) = readSumAndTimeStampForPool(bufferId, previousIndex);
 
-            averageWeightedPrice =
+            averageWeightedValue =
                 (cumulativeSum - previousSum) /
                 (currentTimeStamp - previousTimeStamp);
-            return averageWeightedPrice;
+            return averageWeightedValue;
         }
         // Work our way backwards to requestedTimeStamp.  Because the buffer keeps track of
         // cumulative sum, we don't need to add anything up, just find the first element that is
@@ -233,18 +233,18 @@ contract TWAROracle {
         }
 
         // If we've reached the oldest value in the buffer, then we just take the cumulativeSum / time to get the
-        // average weighted price.
+        // average weighted value.
         if (index == oldestIndex) {
-            // Note that we still subtract the currentSum.  The current sum involves the price
+            // Note that we still subtract the currentSum.  The current sum involves the value
             // between currentTimeStamp and the previousTimeStamp, which we don't have since
             // we are at the oldest timeStamp already, so we drop it.
-            averageWeightedPrice =
+            averageWeightedValue =
                 (cumulativeSum - currentSum) /
                 (endTime - currentTimeStamp);
 
             // Otherwise, we need to subtract the sums outside time range, add a partial sum if
             // time requested is between two timeStamps, and divide by the total time to get
-            // average weighted price.
+            // average weighted value.
         } else {
             uint16 nextIndex = (index + 1) % maxLength;
             (
@@ -268,7 +268,7 @@ contract TWAROracle {
                 partialSum /
                 (uint256(currentTimePlusOne) - uint256(currentTimeStamp));
 
-            averageWeightedPrice =
+            averageWeightedValue =
                 (uint256(cumulativeSum) -
                     uint256(currentSumPlusOne) +
                     partialSum) /
