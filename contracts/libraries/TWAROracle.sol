@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "hardhat/console.sol";
-
 /// @notice A Time Weighted Average Rate Oracle to calculate the value over a given time period.
 /// @dev Stores values in customizable circular buffers.  Values are stored as the cumulative sum
 /// where cumSum = value * timeDelta + prevCumSum.  The time delta is the time that has elapsed
@@ -212,19 +210,15 @@ contract TWAROracle {
         // cumulative sum, we don't need to add anything up, just find the first element that is
         // older than the requestedTimeStamp.
         while (currentTimeStamp >= requestedTimeStamp && index != oldestIndex) {
-            console.log("currentTimeStamp", currentTimeStamp);
             // Decrement index or rollback to end of buffer if we need to until we pass the
             // the requestedTimeStamp.
             index = index == 0 ? maxLength - 1 : index - 1;
-            console.log("index", index);
             (currentTimeStamp, currentSum) = readSumAndTimestampForPool(
                 bufferId,
                 index
             );
         }
 
-        console.log("currentTimeStamp", currentTimeStamp);
-        console.log("endTime", endTime);
         // If we've reached the oldest value in the buffer, then we just take the cumulativeSum / time to get the
         // average weighted price.
         if (index == oldestIndex) {

@@ -258,11 +258,6 @@ describe("TWAR Oracle", function () {
       4
     );
 
-    console.log(result0.cumulativeSum.toString());
-    console.log(result1.cumulativeSum.toString());
-    console.log(result2.cumulativeSum.toString());
-    console.log(result3.cumulativeSum.toString());
-    console.log(result4.cumulativeSum.toString());
     // buffer[0] is 6 because the the buffer rolled over and replaced '1'
     expect(result0.cumulativeSum.toString()).to.equal("6");
     expect(result1.cumulativeSum.toString()).to.equal("2");
@@ -320,7 +315,6 @@ describe("TWAR Oracle", function () {
 
     // let's barely step back, shouldn't even go back to the last recorded update to the buffer
     const timeInSeconds = 2;
-    console.log("timeInSeconds", timeInSeconds);
 
     const averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
@@ -344,7 +338,6 @@ describe("TWAR Oracle", function () {
 
     // let's barely step back, should just cover one update
     const timeInSeconds = 2;
-    console.log("timeInSeconds", timeInSeconds);
 
     const averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
@@ -368,7 +361,6 @@ describe("TWAR Oracle", function () {
 
     // this is much larger than the 12s of recorded time between all updates
     const timeInSeconds = 50;
-    console.log("timeInSeconds", timeInSeconds);
 
     const averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
@@ -395,7 +387,6 @@ describe("TWAR Oracle", function () {
     // this is much larger than the 15s of recorded time between all updates, will include all the
     // elements and wrap the buffer
     const timeInSeconds = 50;
-    console.log("timeInSeconds", timeInSeconds);
 
     const averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
@@ -426,7 +417,6 @@ describe("TWAR Oracle", function () {
 
     // grab the one element
     let timeInSeconds = 1;
-    console.log("timeInSeconds", timeInSeconds);
 
     let averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
@@ -451,7 +441,6 @@ describe("TWAR Oracle", function () {
 
     // don't grab the one element
     timeInSeconds = 1;
-    console.log("timeInSeconds", timeInSeconds);
 
     averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
@@ -461,7 +450,7 @@ describe("TWAR Oracle", function () {
     expect(formatEther(averagePrice)).to.equal("1.0");
   });
 
-  it.only("should work with smaller decimal tokens", async () => {
+  it("should work with smaller decimal tokens", async () => {
     const parseUSDC = (value: string) => parseUnits(value, 6);
     const formatUSDC = (value: BigNumber) => formatUnits(value, 6);
     // the price never changes, always one, but the cumulative sum is increasing
@@ -480,7 +469,6 @@ describe("TWAR Oracle", function () {
     // this is much larger than the 15s of recorded time between all updates, will include all the
     // elements and wrap the buffer
     let timeInSeconds = 50;
-    console.log("timeInSeconds", timeInSeconds);
 
     let averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
@@ -493,7 +481,6 @@ describe("TWAR Oracle", function () {
     await advanceBlock(provider);
     // timeInSeconds won't even reach back to the last update, but we should still use that average price
     timeInSeconds = 1;
-    console.log("timeInSeconds", timeInSeconds);
 
     averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
