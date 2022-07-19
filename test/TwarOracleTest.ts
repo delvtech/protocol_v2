@@ -91,7 +91,7 @@ describe("TWAR Oracle", function () {
     const block = await provider.getBlock("latest");
     expect(initialMetadataParsed).to.deep.equal([
       1, // minTimeStep
-      block.timestamp, // timestamp
+      block.timestamp, // timeStamp
       0, // headIndex
       5, // maxLength
       0, // bufferLength
@@ -101,17 +101,17 @@ describe("TWAR Oracle", function () {
   it("should add first price to sum", async () => {
     const oneEther = parseEther("1");
     await oracleContract.updateBuffer(BUFFER_ID, oneEther);
-    const result = await oracleContract.readSumAndTimestampForPool(
+    const result = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       0
     );
     const block = await provider.getBlock("latest");
-    expect(result.timestamp).to.equal(block.timestamp);
+    expect(result.timeStamp).to.equal(block.timestamp);
     expect(result.cumulativeSum).to.equal(oneEther.toString());
   });
 
   it("should add many prices to sum", async () => {
-    const { timestamp: initialTimeStamp } =
+    const { timeStamp: initialTimeStamp } =
       await oracleContract.readMetadataParsed(BUFFER_ID);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
     await sleep(1000);
@@ -122,44 +122,44 @@ describe("TWAR Oracle", function () {
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
     await sleep(1000);
 
-    const result0 = await oracleContract.readSumAndTimestampForPool(
+    const result0 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       0
     );
-    const result1 = await oracleContract.readSumAndTimestampForPool(
+    const result1 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       1
     );
-    const result2 = await oracleContract.readSumAndTimestampForPool(
+    const result2 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       2
     );
-    const result3 = await oracleContract.readSumAndTimestampForPool(
+    const result3 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       3
     );
 
     expect(result0.cumulativeSum).to.equal(
       parseEther("1")
-        .mul(result0.timestamp - initialTimeStamp)
+        .mul(result0.timeStamp - initialTimeStamp)
         .add(0)
     );
 
     expect(result1.cumulativeSum).to.equal(
       parseEther("1")
-        .mul(result1.timestamp - result0.timestamp)
+        .mul(result1.timeStamp - result0.timeStamp)
         .add(result0.cumulativeSum)
     );
 
     expect(result2.cumulativeSum).to.equal(
       parseEther("1")
-        .mul(result2.timestamp - result1.timestamp)
+        .mul(result2.timeStamp - result1.timeStamp)
         .add(result1.cumulativeSum)
     );
 
     expect(result3.cumulativeSum).to.equal(
       parseEther("1")
-        .mul(result3.timestamp - result2.timestamp)
+        .mul(result3.timeStamp - result2.timeStamp)
         .add(result2.cumulativeSum)
     );
   });
@@ -182,7 +182,7 @@ describe("TWAR Oracle", function () {
 
   it("should fail to read an item that's out of bounds", async () => {
     try {
-      await oracleContract.readSumAndTimestampForPool(BUFFER_ID, 0);
+      await oracleContract.readSumAndTimeStampForPool(BUFFER_ID, 0);
     } catch (error) {
       if (isErrorWithReason(error)) {
         expect(error.reason).to.include("index out of bounds");
@@ -192,14 +192,14 @@ describe("TWAR Oracle", function () {
     }
 
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    const result = await oracleContract.readSumAndTimestampForPool(
+    const result = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       0
     );
     expect(result.cumulativeSum.toString()).to.equal("1");
 
     try {
-      await oracleContract.readSumAndTimestampForPool(BUFFER_ID, 1);
+      await oracleContract.readSumAndTimeStampForPool(BUFFER_ID, 1);
     } catch (error) {
       if (isErrorWithReason(error)) {
         expect(error.reason).to.include("index out of bounds");
@@ -226,8 +226,7 @@ describe("TWAR Oracle", function () {
 
     const metadata = await oracleContract.readMetadataParsed(BUFFER_ID);
     // headIndex now back at zero, maxLength still 5, bufferLength now 5
-    const blockNumber = await provider.getBlockNumber();
-    const block = await provider.getBlock(blockNumber);
+    const block = await provider.getBlock("latest");
 
     expect(metadata).to.deep.equal([
       1, // minTimeStep
@@ -237,23 +236,23 @@ describe("TWAR Oracle", function () {
       5, // bufferLength
     ]);
 
-    const result0 = await oracleContract.readSumAndTimestampForPool(
+    const result0 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       0
     );
-    const result1 = await oracleContract.readSumAndTimestampForPool(
+    const result1 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       1
     );
-    const result2 = await oracleContract.readSumAndTimestampForPool(
+    const result2 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       2
     );
-    const result3 = await oracleContract.readSumAndTimestampForPool(
+    const result3 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       3
     );
-    const result4 = await oracleContract.readSumAndTimestampForPool(
+    const result4 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
       4
     );
@@ -280,14 +279,13 @@ describe("TWAR Oracle", function () {
     await sleep(3000);
 
     // lets reach back 3 steps
-    const { timestamp: startTime } =
-      await oracleContract.readSumAndTimestampForPool(BUFFER_ID, 2);
+    const { timeStamp: startTime } =
+      await oracleContract.readSumAndTimeStampForPool(BUFFER_ID, 2);
 
-    const blockNumber = await provider.getBlockNumber();
-    const block = await provider.getBlock(blockNumber);
-    const lastBlockTimestamp = block.timestamp;
+    const block = await provider.getBlock("latest");
+    const lastBlockTimeStamp = block.timestamp;
     // should be about 10  seconds, between position 1 and 2
-    const timeInSeconds = lastBlockTimestamp - startTime + 1;
+    const timeInSeconds = lastBlockTimeStamp - startTime + 1;
 
     const averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,
@@ -297,6 +295,8 @@ describe("TWAR Oracle", function () {
     expect(formatEther(averagePrice)).to.equal("1.0");
   });
 
+  // Tests when there are many elements, but the timeInSeconds isn't large
+  // enough to reach the newest update.  It should return the last average price.
   it("should work when no buffer elements included", async () => {
     // the price never changes, always one, but the cumulative sum is increasing
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
@@ -307,7 +307,7 @@ describe("TWAR Oracle", function () {
     await sleep(3000);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
     await sleep(3000);
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("2")); // position 4, sum 5
     await sleep(3000);
     // record a new block so when we try to provide a time that's less than 3s we won't
     // even hit the last update to the buffer
@@ -321,7 +321,7 @@ describe("TWAR Oracle", function () {
       timeInSeconds
     );
 
-    expect(formatEther(averagePrice)).to.equal("1.0");
+    expect(formatEther(averagePrice)).to.equal("2.0");
   });
 
   it("should work when exactly one buffer element included", async () => {
@@ -425,7 +425,7 @@ describe("TWAR Oracle", function () {
 
     expect(formatEther(averagePrice)).to.equal("1.0");
 
-    // go way past the one element's timestamp
+    // go way past the one element's timeStamp
     timeInSeconds = 50;
     averagePrice = await oracleContract.calculateAverageWeightedPrice(
       BUFFER_ID,

@@ -9,7 +9,7 @@ contract TWAROracle {
     mapping(uint256 => uint256[]) internal _buffers;
 
     /// @dev An initialization function for the buffer.  During initialization, the maxLength is
-    /// set to the value passed in, minTimeStep and timestamp are set to values for the current block.
+    /// set to the value passed in, minTimeStep and timeStamp are set to values for the current block.
     /// 0 when the first item is added.
     /// @param bufferId The ID of the buffer to initialize.
     /// @param maxTime The maximum time in seconds the buffer will provide history for.  This cannot
@@ -47,13 +47,13 @@ contract TWAROracle {
     /// @dev gets the parsed metadata for the buffer which includes headIndex, maxLength and
     /// bufferLength.
     /// @param bufferId The ID of the buffer to read metadata from.
-    /// @return minTimeStep timestamp headIndex maxLength bufferLength as a tuple of uint16's
+    /// @return minTimeStep timeStamp headIndex maxLength bufferLength as a tuple of uint16's
     function readMetadataParsed(uint256 bufferId)
         public
         view
         returns (
             uint32 minTimeStep,
-            uint32 timestamp,
+            uint32 timeStamp,
             uint16 headIndex,
             uint16 maxLength,
             uint16 bufferLength
@@ -68,26 +68,26 @@ contract TWAROracle {
         // 16 + 16
         headIndex = uint16(metadata >> 32);
         // 16 + 16 + 16
-        timestamp = uint32(metadata >> 48);
+        timeStamp = uint32(metadata >> 48);
         // 16 + 16 + 16 + 32
         minTimeStep = uint32(metadata >> 80);
     }
 
     /// @dev An internal function to update a buffer.  Takes a price, calculates the cumulative
-    /// sum, then records it along with the timestamp in the following manner:
-    /// [uint32 timestamp][uint224 cumulativeSum]
+    /// sum, then records it along with the timeStamp in the following manner:
+    /// [uint32 timeStamp][uint224 cumulativeSum]
     /// @param bufferId The ID of the buffer to initialize.
     /// @param price The current price of the token we are tracking a sum for.
     function _updateBuffer(uint256 bufferId, uint224 price) internal {
         (
             uint32 minTimeStep,
-            uint32 previousTimestamp,
+            uint32 previousTimeStamp,
             uint16 headIndex,
             uint16 maxLength,
             uint16 bufferLength
         ) = readMetadataParsed(bufferId);
 
-        uint32 timeStep = uint32(block.timestamp) - previousTimestamp;
+        uint32 timeStep = uint32(block.timestamp) - previousTimeStamp;
         // Fail silently if enough time has not passed.  We don't reject here because we want
         // calling contracts to try to update often without reverting.
         // Also, if the buffer is uninitialized, don't allow updates.
@@ -99,19 +99,19 @@ contract TWAROracle {
         uint224 previousSum;
         uint256[] storage buffer = _buffers[bufferId];
         if (bufferLength != 0) {
-            // Cast because the value is a concatenated 32 bit timestamp and 224 bit sum.
+            // Cast because the value is a concatenated 32 bit timeStamp and 224 bit sum.
             previousSum = uint224(buffer[headIndex]);
         }
 
         uint224 timeDelta = uint224(
-            uint32(block.timestamp) - previousTimestamp
+            uint32(block.timestamp) - previousTimeStamp
         );
 
         // cumulative sum = price * time + previous sum
         uint224 cumulativeSum = price * timeDelta + previousSum;
 
-        // Pack the timestamp and sum together.
-        uint256 sumAndTimestamp = (uint256(block.timestamp) << 224) |
+        // Pack the timeStamp and sum together.
+        uint256 sumAndTimeStamp = (uint256(block.timestamp) << 224) |
             uint256(cumulativeSum);
 
         // Don't increment headIndex if this is the first value added.
@@ -143,17 +143,17 @@ contract TWAROracle {
             sstore(buffer.slot, metadata)
         }
 
-        buffer[headIndex] = sumAndTimestamp;
+        buffer[headIndex] = sumAndTimeStamp;
     }
 
-    /// @dev A public function to read the timestamp&sum value from the specified index and buffer.
+    /// @dev A public function to read the timeStamp&sum value from the specified index and buffer.
     /// @param bufferId The ID of the buffer to initialize.
     /// @param index The index to read a value at.
-    /// @return timestamp cumulativeSum 4byte timestamp and 28 byte sum
-    function readSumAndTimestampForPool(uint256 bufferId, uint16 index)
+    /// @return timeStamp cumulativeSum 4byte timeStamp and 28 byte sum
+    function readSumAndTimeStampForPool(uint256 bufferId, uint16 index)
         public
         view
-        returns (uint32 timestamp, uint224 cumulativeSum)
+        returns (uint32 timeStamp, uint224 cumulativeSum)
     {
         (, , , , uint16 bufferLength) = readMetadataParsed(bufferId);
 
@@ -162,7 +162,7 @@ contract TWAROracle {
 
         uint256 value = _buffers[bufferId][index];
         cumulativeSum = uint224(value);
-        timestamp = uint32(value >> 224);
+        timeStamp = uint32(value >> 224);
     }
 
     /// @dev A public function to calculate the average weighted price over a timePeriod between
@@ -183,7 +183,7 @@ contract TWAROracle {
         ) = readMetadataParsed(bufferId);
 
         // We can't calculate the price from just one element since we there is no previous
-        // timestamp.
+        // timeStamp.
         require(bufferLength > 1, "not enough elements");
 
         // If the buffer is full, the oldest index is the next index, otherwise its the first
@@ -203,9 +203,22 @@ contract TWAROracle {
         (
             uint32 currentTimeStamp,
             uint224 cumulativeSum
-        ) = readSumAndTimestampForPool(bufferId, headIndex);
-
+        ) = readSumAndTimeStampForPool(bufferId, headIndex);
         uint16 index = headIndex;
+
+        // If the requested time doesn't reach far enough back, then we just return the last price.
+        if (requestedTimeStamp > currentTimeStamp) {
+            uint16 previousIndex = index == 0 ? maxLength - 1 : index - 1;
+            (
+                uint32 previousTimeStamp,
+                uint224 previousSum
+            ) = readSumAndTimeStampForPool(bufferId, previousIndex);
+
+            averageWeightedPrice =
+                (cumulativeSum - previousSum) /
+                (currentTimeStamp - previousTimeStamp);
+            return averageWeightedPrice;
+        }
         // Work our way backwards to requestedTimeStamp.  Because the buffer keeps track of
         // cumulative sum, we don't need to add anything up, just find the first element that is
         // older than the requestedTimeStamp.
@@ -213,7 +226,7 @@ contract TWAROracle {
             // Decrement index or rollback to end of buffer if we need to until we pass the
             // the requestedTimeStamp.
             index = index == 0 ? maxLength - 1 : index - 1;
-            (currentTimeStamp, currentSum) = readSumAndTimestampForPool(
+            (currentTimeStamp, currentSum) = readSumAndTimeStampForPool(
                 bufferId,
                 index
             );
@@ -222,24 +235,24 @@ contract TWAROracle {
         // If we've reached the oldest value in the buffer, then we just take the cumulativeSum / time to get the
         // average weighted price.
         if (index == oldestIndex) {
-            // Note that e still subtract the currentSum.  The current sum involves the price
+            // Note that we still subtract the currentSum.  The current sum involves the price
             // between currentTimeStamp and the previousTimeStamp, which we don't have since
-            // we are at the oldest timestamp already, so we drop it.
+            // we are at the oldest timeStamp already, so we drop it.
             averageWeightedPrice =
                 (cumulativeSum - currentSum) /
                 (endTime - currentTimeStamp);
 
             // Otherwise, we need to subtract the sums outside time range, add a partial sum if
-            // time requested is between two timestamps, and divide by the total time to get
+            // time requested is between two timeStamps, and divide by the total time to get
             // average weighted price.
         } else {
             uint16 nextIndex = (index + 1) % maxLength;
             (
                 uint32 currentTimePlusOne,
                 uint224 currentSumPlusOne
-            ) = readSumAndTimestampForPool(bufferId, nextIndex);
+            ) = readSumAndTimeStampForPool(bufferId, nextIndex);
 
-            // Get the sum between the two timestamps around the requested time.
+            // Get the sum between the two timeStamps around the requested time.
             uint256 sumDuringRequestedTime = uint256(currentSumPlusOne) -
                 uint256(currentSum);
 
@@ -268,10 +281,10 @@ contract TWAROracle {
     /// @param maxLength The maximum length of the buffer.
     /// @param bufferLength The current length of the buffer.
     /// @return metadata Metadata encoded in a uint256 value.
-    // [u144 unused][uint32 minTimeStep][uint32 timestamp][u16 headIndex][u16 maxLength][u16 length]
+    // [u144 unused][uint32 minTimeStep][uint32 timeStamp][u16 headIndex][u16 maxLength][u16 length]
     function _combineMetadata(
         uint32 minTimeStep,
-        uint32 timestamp,
+        uint32 timeStamp,
         uint16 headIndex,
         uint16 maxLength,
         uint16 bufferLength
@@ -280,7 +293,7 @@ contract TWAROracle {
             // 16 + 16 + 16 + 32
             (uint256(minTimeStep) << 80) |
             // 16 + 16 + 16
-            (uint256(timestamp) << 48) |
+            (uint256(timeStamp) << 48) |
             // 16 + 16
             (uint256(headIndex) << 32) |
             // 16
