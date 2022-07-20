@@ -220,6 +220,7 @@ contract MultiToken is IMultiToken {
         address caller
     ) internal {
         perTokenApprovals[tokenID][caller][operator] = amount;
+        // Emit an event to track approval
         emit Approval(caller, operator, amount);
     }
 
