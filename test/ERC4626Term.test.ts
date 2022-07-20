@@ -846,8 +846,7 @@ describe.only("ERC4626Term", () => {
       });
     });
 
-    // deposit into an unlocked term
-    describe.only("_convert - unlocked to locked", () => {
+    describe("_convert - unlocked to locked", () => {
       beforeEach(async () => {
         // first lock amount into user shares
         await term
@@ -1014,6 +1013,89 @@ describe.only("ERC4626Term", () => {
         expect(underlyingWithdrawn).to.be.eq($ether("1000"));
         expect(vaultShares).to.be.eq($ether("900"));
         expect(sharesIssued).to.be.eq($ether("-1000"));
+      });
+    });
+
+    describe("_convert - locked to unlocked", () => {
+      beforeEach(async () => {
+        // we need to create a lock position
+        await term
+          .connect(user)
+          .lock(
+            [],
+            [],
+            $ether(100_000),
+            user.address,
+            user.address,
+            TERM_START,
+            TERM_END
+          );
+        // and the unlocked position (so there exists a reserve)
+        await term
+          .connect(user)
+          .lock(
+            [],
+            [],
+            $ether(100_000),
+            user.address,
+            user.address,
+            TERM_START,
+            0
+          );
+      });
+
+      it("initial state", async () => {
+        // token balances, reserves and shares issued should be as expected
+        expect(await term.underlyingReserve()).to.be.eq(TARGET_RESERVE);
+        expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
+
+        expect(await term.vaultShareReserve()).to.be.eq($ether(67_500));
+        expect(await vault.balanceOf(term.address)).to.be.eq($ether(157_500));
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
+          $ether(100_000)
+        );
+        expect(await term.totalSupply(TERM_END)).to.be.eq($ether(100_000));
+
+        expect(await term.balanceOf(TERM_END, user.address)).to.be.eq(
+          $ether(100_000)
+        );
+      });
+
+      it("should convert users locked shares into unlocked shares", async () => {
+        // advance time past expiry
+        await advanceTime(TERM_END - TERM_START + HOUR);
+
+        // tx
+        const receipt = await (
+          await term
+            .connect(user)
+            .lock(
+              [TERM_END],
+              [$ether(1_000)],
+              0,
+              user.address,
+              user.address,
+              TERM_START,
+              0
+            )
+        ).wait(1);
+
+        expect(receipt.status).to.be.eq(1);
+
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
+          $ether(101_000)
+        );
+        expect(await term.totalSupply(TERM_END)).to.be.eq($ether(99_000));
+
+        expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
+          $ether(101_000)
+        );
+        expect(await term.balanceOf(TERM_END, user.address)).to.be.eq(
+          $ether(99_000)
+        );
+
+        expect(await term.vaultShareReserve()).to.be.eq($ether(68_400)); // +900 vaultShares
+        expect(await vault.balanceOf(term.address)).to.be.eq($ether(157_500));
       });
     });
   });

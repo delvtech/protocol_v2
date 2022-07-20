@@ -188,7 +188,7 @@ contract ERC4626Term is Term {
 
         shares =
             (vaultSharesAsUnderlying * totalSupply[UNLOCKED_YT_ID]) /
-            impliedUnderlyingReserve;
+            impliedUnderlyingReserve; // NOTE: zero divide here if reserves are not initialised
 
         _setReserves(underlyingReserve, vaultShareReserve + _vaultShares);
     }
