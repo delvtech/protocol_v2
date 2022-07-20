@@ -20,12 +20,17 @@ contract TWAROracle {
         uint16 maxTime,
         uint16 maxLength
     ) internal {
+        // maxLength of zero indicates a buffer has not been initialized.  Upper value for
+        // maxLength checked by the fact that it is uint16.
         require(maxLength > 1, "min length is 1");
 
         (, , , uint16 _maxLength, ) = readMetadataParsed(bufferId);
         require(_maxLength == 0, "buffer already initialized");
 
+        // The minimum time required to pass before an update will be made to a buffer.
         uint32 minTimeStep = uint32(maxTime) / uint32(maxLength);
+        // This is more of a sanity check.  Note that minimum time steps that are less time than a
+        // block can lead to dangerous side effects.
         require(minTimeStep >= 1, "minimum time step is 1");
 
         uint256 metadata = _combineMetadata(
@@ -36,6 +41,7 @@ contract TWAROracle {
             0
         );
 
+        // Get a reference to the buffer we want to initialize and save the initial metadata.
         uint256[] storage buffer = _buffers[bufferId];
         assembly {
             // length is stored at position 0 for dynamic arrays
@@ -44,7 +50,7 @@ contract TWAROracle {
         }
     }
 
-    /// @dev gets the parsed metadata for the buffer which includes headIndex, maxLength and
+    /// @dev Gets the parsed metadata for the buffer which includes headIndex, maxLength and
     /// bufferLength.
     /// @param bufferId The ID of the buffer to read metadata from.
     /// @return minTimeStep timeStamp headIndex maxLength bufferLength as a tuple of uint16's
@@ -76,8 +82,8 @@ contract TWAROracle {
     /// @dev An internal function to update a buffer.  Takes a value, calculates the cumulative
     /// sum, then records it along with the timeStamp in the following manner:
     /// [uint32 timeStamp][uint224 cumulativeSum]
-    /// @param bufferId The ID of the buffer to initialize.
-    /// @param value The latest value we are tracking an average for.
+    /// @param bufferId The ID of the buffer to update.
+    /// @param value The value to add to the buffer.
     function _updateBuffer(uint256 bufferId, uint224 value) internal {
         (
             uint32 minTimeStep,
@@ -89,20 +95,21 @@ contract TWAROracle {
 
         uint32 timeStep = uint32(block.timestamp) - previousTimeStamp;
         // Fail silently if enough time has not passed.  We don't reject here because we want
-        // calling contracts to try to update often without reverting.
-        // Also, if the buffer is uninitialized, don't allow updates.
+        // calling contracts to try to update often without reverting. Also, if the buffer is
+        // uninitialized, don't allow updates.
         if (timeStep < minTimeStep || maxLength == 0) {
             return;
         }
 
-        // grab the previous sum (if available)
+        // Grab the previous sum (if available).
         uint224 previousSum;
         uint256[] storage buffer = _buffers[bufferId];
         if (bufferLength != 0) {
-            // Cast because the value is a concatenated 32 bit timeStamp and 224 bit sum.
+            // Cast to uint224 to drop the upper 32 bits that hold the timestamp.
             previousSum = uint224(buffer[headIndex]);
         }
 
+        // The time between now and the previous update.
         uint224 timeDelta = uint224(
             uint32(block.timestamp) - previousTimeStamp
         );
@@ -110,7 +117,7 @@ contract TWAROracle {
         // cumulative sum = value * time + previous sum
         uint224 cumulativeSum = value * timeDelta + previousSum;
 
-        // Pack the timeStamp and sum together.
+        // Pack the timeStamp and cumulativeSum together.
         uint256 sumAndTimeStamp = (uint256(block.timestamp) << 224) |
             uint256(cumulativeSum);
 
@@ -138,8 +145,8 @@ contract TWAROracle {
 
         // update the metadata
         assembly {
-            // length is stored at position 0 for dynamic arrays
-            // we are overloading this to store metadata to be more efficient
+            // length is stored at position 0 for dynamic arrays.
+            // We are overloading this to store metadata for gas savings.
             sstore(buffer.slot, metadata)
         }
 
@@ -149,7 +156,7 @@ contract TWAROracle {
     /// @dev A public function to read the timeStamp&sum value from the specified index and buffer.
     /// @param bufferId The ID of the buffer to initialize.
     /// @param index The index to read a value at.
-    /// @return timeStamp cumulativeSum 4byte timeStamp and 28 byte sum
+    /// @return timeStamp cumulativeSum 32bit timeStamp and 224bit sum
     function readSumAndTimeStampForPool(uint256 bufferId, uint16 index)
         public
         view
@@ -157,7 +164,7 @@ contract TWAROracle {
     {
         (, , , , uint16 bufferLength) = readMetadataParsed(bufferId);
 
-        // because we use the length prop for metadata, we need to specifically check the index
+        // Because we use the length prop for metadata, we need to specifically check the index.
         require(index < bufferLength, "index out of bounds");
 
         uint256 value = _buffers[bufferId][index];
@@ -166,10 +173,15 @@ contract TWAROracle {
     }
 
     /// @dev A public function to calculate the average weighted value over a timePeriod between
-    /// now and timeInSeconds earlier.
+    /// now and timeInSeconds earlier.  This is accomplished via an iterative approach by working
+    /// backwards in time until we find the update who's timeStamp is older than the requested
+    /// time, subtracting that previous sum and any partial sum if the requested time falls between
+    /// two timestamps in the buffer.
     /// @param bufferId The ID of the buffer to initialize.
     /// @param timeInSeconds Amount of time previous to now to average the value over.
-    /// @return averageWeightedValue Value averaged over time range, weighted by time period for each value.
+    /// @return averageWeightedValue Value averaged over time range, weighted by time period for
+    /// each value.  The time period for each value is the time from the previous update to the
+    /// current block's time stamp.
     function calculateAverageWeightedValue(
         uint256 bufferId,
         uint32 timeInSeconds
@@ -182,8 +194,7 @@ contract TWAROracle {
             uint16 bufferLength
         ) = readMetadataParsed(bufferId);
 
-        // We can't calculate the value from just one element since we there is no previous
-        // timeStamp.
+        // We can't calculate the value from just one element since there is no previous timeStamp.
         require(bufferLength > 1, "not enough elements");
 
         // If the buffer is full, the oldest index is the next index, otherwise its the first
@@ -206,7 +217,11 @@ contract TWAROracle {
         ) = readSumAndTimeStampForPool(bufferId, headIndex);
         uint16 index = headIndex;
 
+        // Edge case:
         // If the requested time doesn't reach far enough back, then we just return the last value.
+        // To get the value we basically undo the cumulative sum:
+        // cumulativeSum = value * time + previousSum
+        // value = (cumulativeSum - previousSum) / (currentTimeStamp - previousTimeStamp)
         if (requestedTimeStamp > currentTimeStamp) {
             uint16 previousIndex = index == 0 ? maxLength - 1 : index - 1;
             (
@@ -219,6 +234,8 @@ contract TWAROracle {
                 (currentTimeStamp - previousTimeStamp);
             return averageWeightedValue;
         }
+
+        // Normal case:
         // Work our way backwards to requestedTimeStamp.  Because the buffer keeps track of
         // cumulative sum, we don't need to add anything up, just find the first element that is
         // older than the requestedTimeStamp.
@@ -232,16 +249,18 @@ contract TWAROracle {
             );
         }
 
-        // If we've reached the oldest value in the buffer, then we just take the cumulativeSum / time to get the
-        // average weighted value.
+        // Edge case:
+        // If we've reached the oldest value in the buffer, then we just take the cumulativeSum
+        // divided by the time to get the average weighted value.
         if (index == oldestIndex) {
-            // Note that we still subtract the currentSum.  The current sum involves the value
-            // between currentTimeStamp and the previousTimeStamp, which we don't have since
-            // we are at the oldest timeStamp already, so we drop it.
+            // Note The currentSum involves the value between currentTimeStamp and the
+            // previousTimeStamp. Since there is no previousTimeStamp for the oldest sum
+            // we have to drop the oldest sum.
             averageWeightedValue =
-                (cumulativeSum - currentSum) /
+                (cumulativeSum - currentSum) / // currentSum is the oldest sum.
                 (endTime - currentTimeStamp);
 
+            // Normal case:
             // Otherwise, we need to subtract the sums outside time range, add a partial sum if
             // time requested is between two timeStamps, and divide by the total time to get
             // average weighted value.
