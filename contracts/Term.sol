@@ -111,6 +111,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
         uint256 previousId = 0;
+
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < assetIds.length; i++) {
@@ -134,9 +135,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             } else {
                 releasedSharesLocked += shares;
             }
+
             // No matter the source add the value to the running total
             totalValue += value;
         }
+
+        console.log("releaseSharesUnlocked: %s", releasedSharesUnlocked);
+        console.log("releaseSharesLocked: %s", releasedSharesLocked);
 
         // Add the correct share type to the output
         totalShares = expiration == 0
@@ -155,8 +160,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             }
         } else {
             // Only process a conversion if one is needed.
-            if (releasedSharesLocked != 0) {
-                // Turns the locked shares into unlocked shares
+            if (releasedSharesUnlocked != 0) {
+                // Turns the unlocked shares into locked shares
                 totalShares += _convert(
                     ShareState.Unlocked,
                     releasedSharesUnlocked

@@ -204,11 +204,14 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
 
+        // NOTE: Shares MUST be burnt/removed from accounting for term before
+        // calling convert unlocked.
         uint256 sharesAsUnderlying = (_shares * impliedUnderlyingReserve) /
-            totalSupply[UNLOCKED_YT_ID];
+            (_shares + totalSupply[UNLOCKED_YT_ID]);
 
         vaultShares = vault.previewWithdraw(sharesAsUnderlying);
 
+        // TODO Should we consider adjustment of underlyingReserve when this is exceeded??
         require(vaultShares <= vaultShareReserve, "not enough vault shares");
 
         _setReserves(underlyingReserve, vaultShareReserve - vaultShares);

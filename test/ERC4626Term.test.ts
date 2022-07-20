@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { BigNumber } from "ethers";
 import { ethers, waffle } from "hardhat";
 import { HOUR, MAX_UINT256, WEEK, YEAR, ZERO } from "test/helpers/constants";
-import { $ether, now } from "test/helpers/utils";
+import { $ether, now, printEther } from "test/helpers/utils";
 import {
   ERC4626Term,
   ERC4626Term__factory,
@@ -21,14 +21,14 @@ const { provider } = waffle;
 // TEST two deposits and two withdraws in one block
 // Refactor to use lock/unlock
 //
-const MAX_RESERVE = $ether("50000");
-const TARGET_RESERVE = $ether("25000");
-const VAULT_SHARE_PRICE = $ether("0.9");
+const MAX_RESERVE = $ether(50_000);
+const TARGET_RESERVE = $ether(25_000);
+const VAULT_SHARE_PRICE = $ether(0.9);
 
 const TERM_START = now() + HOUR; // we tack on an hour so that ytBeginDate defaults to blockTimestamp
 const TERM_END = TERM_START + YEAR; // This becomes the ID
 
-describe("ERC4626Term", () => {
+describe.only("ERC4626Term", () => {
   let token: MockERC20;
   let vault: MockERC4626;
   let term: ERC4626Term;
@@ -70,13 +70,15 @@ describe("ERC4626Term", () => {
     UNLOCKED_YT_ID = await term.UNLOCKED_YT_ID();
 
     // set price ratio of vaultShares and underlying
-    await token.connect(deployer).mint(deployer.address, $ether("10000"));
+    // We set the ratio of vaultShares and underlying asset at 10 underlying to
+    // 9 vaultShares so as to emulate some active vault scenario
+    await token.connect(deployer).mint(deployer.address, $ether(10_000));
     await token.connect(deployer).approve(vault.address, MAX_UINT256);
     await vault.connect(deployer).deposit($ether("9000"), deployer.address);
-    await token.connect(deployer).transfer(vault.address, $ether("1000"));
+    await token.connect(deployer).transfer(vault.address, $ether(1_000));
 
     // mint and set approvals for user on term
-    await token.mint(user.address, $ether("1000000"));
+    await token.mint(user.address, $ether(1_000_000));
     await token.connect(user).approve(term.address, MAX_UINT256);
   });
 
@@ -843,6 +845,88 @@ describe("ERC4626Term", () => {
         expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(ZERO);
       });
     });
+
+    // deposit into an unlocked term
+    describe.only("_convert - unlocked to locked", () => {
+      beforeEach(async () => {
+        // first lock amount into user shares
+        await term
+          .connect(user)
+          .lock(
+            [],
+            [],
+            $ether(100_000),
+            user.address,
+            user.address,
+            TERM_START,
+            0
+          );
+      });
+
+      it("initial state", async () => {
+        // token balances, reserves and shares issued should be as expected
+        expect(await term.underlyingReserve()).to.be.eq(TARGET_RESERVE);
+        expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
+        expect(await term.vaultShareReserve()).to.be.eq($ether(67_500));
+        expect(await vault.balanceOf(term.address)).to.be.eq($ether(67_500));
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
+          $ether(100_000)
+        );
+        expect(await term.totalSupply(TERM_END)).to.be.eq(ZERO);
+
+        // user should have no principal tokens
+        expect(await term.balanceOf(TERM_END, user.address)).to.be.eq(ZERO);
+      });
+
+      it("should convert users unlocked shares into locked shares", async () => {
+        // tx
+        const receipt = await (
+          await term
+            .connect(user)
+            .lock(
+              [UNLOCKED_YT_ID],
+              [$ether(1_000)],
+              0,
+              user.address,
+              user.address,
+              TERM_START,
+              TERM_END
+            )
+        ).wait(1);
+
+        expect(receipt.status).to.be.eq(1);
+
+        expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq($ether(99_000));
+        expect(await term.totalSupply(TERM_END)).to.be.eq($ether(1_000));
+
+        expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
+          $ether(99_000)
+        );
+        expect(await term.balanceOf(TERM_END, user.address)).to.be.eq(
+          $ether(1_000)
+        );
+
+        expect(await term.vaultShareReserve()).to.be.eq($ether(66_600));
+        expect(await vault.balanceOf(term.address)).to.be.eq($ether(67_500));
+      });
+
+      it("should revert conversion if there are not enough vaultShares in the reserve", async () => {
+        // tx
+        const tx = term
+          .connect(user)
+          .lock(
+            [UNLOCKED_YT_ID],
+            [$ether(99_000)],
+            0,
+            user.address,
+            user.address,
+            TERM_START,
+            TERM_END
+          );
+
+        await expect(tx).to.be.revertedWith("not enough vault shares");
+      });
+    });
   });
 
   describe("ShareState.Locked", () => {
@@ -885,52 +969,52 @@ describe("ERC4626Term", () => {
         expect(sharesIssued).to.be.eq($ether("1000"));
       });
     });
-  });
 
-  describe("_withdraw", () => {
-    before(async () => {
-      await term
-        .connect(user)
-        .lock(
-          [],
-          [],
-          $ether("1000"),
-          user.address,
-          user.address,
-          TERM_START,
-          TERM_END
-        );
-    });
-
-    it("should redeem shares for underlying directly", async () => {
-      const prevSupply = await term.totalSupply(TERM_END);
-
-      await advanceTime(YEAR + WEEK);
-
-      const receipt = await (
+    describe("_withdraw", () => {
+      before(async () => {
         await term
           .connect(user)
-          .unlock(user.address, [TERM_END], [$ether("1000")])
-      ).wait(1);
-      expect(receipt.status).to.be.eq(1);
+          .lock(
+            [],
+            [],
+            $ether("1000"),
+            user.address,
+            user.address,
+            TERM_START,
+            TERM_END
+          );
+      });
 
-      const vaultWithdrawEvents = await vault.queryFilter(
-        vault.filters.Withdraw(),
-        receipt.blockHash
-      );
-      expect(vaultWithdrawEvents).to.not.be.empty;
+      it("should redeem shares for underlying directly", async () => {
+        const prevSupply = await term.totalSupply(TERM_END);
 
-      const [
-        {
-          args: { assets: underlyingWithdrawn, shares: vaultShares },
-        },
-      ] = vaultWithdrawEvents;
+        await advanceTime(YEAR + WEEK);
 
-      const sharesIssued = (await term.totalSupply(TERM_END)).sub(prevSupply);
+        const receipt = await (
+          await term
+            .connect(user)
+            .unlock(user.address, [TERM_END], [$ether("1000")])
+        ).wait(1);
+        expect(receipt.status).to.be.eq(1);
 
-      expect(underlyingWithdrawn).to.be.eq($ether("1000"));
-      expect(vaultShares).to.be.eq($ether("900"));
-      expect(sharesIssued).to.be.eq($ether("-1000"));
+        const vaultWithdrawEvents = await vault.queryFilter(
+          vault.filters.Withdraw(),
+          receipt.blockHash
+        );
+        expect(vaultWithdrawEvents).to.not.be.empty;
+
+        const [
+          {
+            args: { assets: underlyingWithdrawn, shares: vaultShares },
+          },
+        ] = vaultWithdrawEvents;
+
+        const sharesIssued = (await term.totalSupply(TERM_END)).sub(prevSupply);
+
+        expect(underlyingWithdrawn).to.be.eq($ether("1000"));
+        expect(vaultShares).to.be.eq($ether("900"));
+        expect(sharesIssued).to.be.eq($ether("-1000"));
+      });
     });
   });
 });

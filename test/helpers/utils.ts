@@ -6,4 +6,5 @@ export const printEther = (num: BigNumber): void => {
 
 export const now = () => Math.floor(Date.now() / 1000);
 
-export const $ether = (s: string) => ethers.utils.parseEther(s);
+export const $ether = (s: string | number) =>
+  ethers.utils.parseEther(s.toString());
