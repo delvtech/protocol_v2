@@ -166,7 +166,7 @@ contract MultiToken is IMultiToken {
         // from the source and add to the destination.
         balanceOf[tokenID][from] -= amount;
         balanceOf[tokenID][to] += amount;
-        emit TransferSingle(caller, from, to, tokenID, amount);
+        emit Transfer(caller, from, to, tokenID, amount);
     }
 
     /// @notice Allows a user to approve an operator to use all of their assets
@@ -237,7 +237,7 @@ contract MultiToken is IMultiToken {
         balanceOf[tokenID][to] += amount;
         totalSupply[tokenID] += amount;
         // Emit an event to track minting
-        emit TransferSingle(msg.sender, address(0), to, tokenID, amount);
+        emit Transfer(msg.sender, address(0), to, tokenID, amount);
     }
 
     /// @notice Burning function to remove tokens
@@ -254,7 +254,7 @@ contract MultiToken is IMultiToken {
         balanceOf[tokenID][from] -= amount;
         totalSupply[tokenID] -= amount;
         // Emit an event to track burning
-        emit TransferSingle(msg.sender, from, address(0), tokenID, amount);
+        emit Transfer(msg.sender, from, address(0), tokenID, amount);
     }
 
     /// @notice Transfers several assets from one account to another
