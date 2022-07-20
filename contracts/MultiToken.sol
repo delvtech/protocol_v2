@@ -100,80 +100,83 @@ contract MultiToken is IMultiToken {
 
     /// @notice Transfers an amount of assets from the source to the destination
     /// @param tokenID The token identifier
-    /// @param source The address who's balance will be reduced
-    /// @param destination The address who's balance will be increased
+    /// @param from The address who's balance will be reduced
+    /// @param to The address who's balance will be increased
     /// @param amount The amount of token to move
     function transferFrom(
         uint256 tokenID,
-        address source,
-        address destination,
+        address from,
+        address to,
         uint256 amount
     ) external override {
         // Forward to our internal version
-        _transferFrom(tokenID, source, destination, amount, msg.sender);
+        _transferFrom(tokenID, from, to, amount, msg.sender);
     }
 
     /// @notice Permission-ed transfer for the bridge to access, only callable by
     ///         the ERC20 linking bridge
     /// @param tokenID The token identifier
-    /// @param source The address who's balance will be reduced
-    /// @param destination The address who's balance will be increased
+    /// @param from The address who's balance will be reduced
+    /// @param to The address who's balance will be increased
     /// @param amount The amount of token to move
     /// @param caller The msg.sender from the bridge
     function transferFromBridge(
         uint256 tokenID,
-        address source,
-        address destination,
+        address from,
+        address to,
         uint256 amount,
         address caller
     ) external override onlyLinker(tokenID) {
         // Route to our internal transfer
-        _transferFrom(tokenID, source, destination, amount, caller);
+        _transferFrom(tokenID, from, to, amount, caller);
     }
 
     /// @notice Preforms the actual transfer logic
     /// @param tokenID The token identifier
-    /// @param source The address who's balance will be reduced
-    /// @param destination The address who's balance will be increased
+    /// @param from The address who's balance will be reduced
+    /// @param to The address who's balance will be increased
     /// @param amount The amount of token to move
     /// @param caller The msg.sender either here or in the compatibility link contract
     function _transferFrom(
         uint256 tokenID,
-        address source,
-        address destination,
+        address from,
+        address to,
         uint256 amount,
         address caller
     ) internal {
         // If ethereum transaction sender is calling no need for further validation
-        if (caller != source) {
+        if (caller != from) {
             // Or if the transaction sender can access all user assets, no need for
             // more validation
-            if (!isApprovedForAll[source][caller]) {
+            if (!isApprovedForAll[from][caller]) {
                 // Finally we load the per asset approval
-                uint256 approved = perTokenApprovals[tokenID][source][caller];
+                uint256 approved = perTokenApprovals[tokenID][from][caller];
                 // If it is not an infinite approval
                 if (approved != type(uint256).max) {
                     // Then we subtract the amount the caller wants to use
                     // from how much they can use, reverting on underflow.
                     // NOTE - This reverts without message for unapproved callers when
                     //         debugging that's the likely source of any mystery reverts
-                    perTokenApprovals[tokenID][source][caller] -= amount;
+                    perTokenApprovals[tokenID][from][caller] -= amount;
                 }
             }
         }
 
         // Reaching this point implies the transfer is authorized so we remove
         // from the source and add to the destination.
-        balanceOf[tokenID][source] -= amount;
-        balanceOf[tokenID][destination] += amount;
+        balanceOf[tokenID][from] -= amount;
+        balanceOf[tokenID][to] += amount;
+        emit TransferSingle(caller, from, to, tokenID, amount);
     }
 
     /// @notice Allows a user to approve an operator to use all of their assets
-    /// @param _operator The eth address which can access the caller's assets
-    /// @param _approved True to approve, false to remove approval
-    function setApprovalForAll(address _operator, bool _approved) public {
+    /// @param operator The eth address which can access the caller's assets
+    /// @param approved True to approve, false to remove approval
+    function setApprovalForAll(address operator, bool approved) public {
         // set the appropriate state
-        isApprovedForAll[msg.sender][_operator] = _approved;
+        isApprovedForAll[msg.sender][operator] = approved;
+        // Emit an event to track approval
+        emit ApprovalForAll(msg.sender, operator, approved);
     }
 
     /// @notice Allows a user to set an approval for an individual asset with specific amount.
@@ -217,6 +220,7 @@ contract MultiToken is IMultiToken {
         address caller
     ) internal {
         perTokenApprovals[tokenID][caller][operator] = amount;
+        emit Approval(caller, operator, amount);
     }
 
     /// @notice Minting function to create tokens
@@ -231,21 +235,25 @@ contract MultiToken is IMultiToken {
     ) internal {
         balanceOf[tokenID][to] += amount;
         totalSupply[tokenID] += amount;
+        // Emit an event to track minting
+        emit TransferSingle(msg.sender, address(0), to, tokenID, amount);
     }
 
     /// @notice Burning function to remove tokens
     /// @param tokenID The asset type to remove
-    /// @param source The address who's balance to decrease
+    /// @param from The address who's balance to decrease
     /// @param amount The number of tokens to remove
     /// @dev Must be used from inheriting contracts
     function _burn(
         uint256 tokenID,
-        address source,
+        address from,
         uint256 amount
     ) internal {
         // Decrement from the source and supply
-        balanceOf[tokenID][source] -= amount;
+        balanceOf[tokenID][from] -= amount;
         totalSupply[tokenID] -= amount;
+        // Emit an event to track burning
+        emit TransferSingle(msg.sender, from, address(0), tokenID, amount);
     }
 
     /// @notice Transfers several assets from one account to another
@@ -322,5 +330,7 @@ contract MultiToken is IMultiToken {
         nonces[owner]++;
         // set the state
         isApprovedForAll[owner][spender] = _approved;
+        // Emit an event to track approval
+        emit ApprovalForAll(owner, spender, _approved);
     }
 }
