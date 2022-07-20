@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 interface IMultiToken {
-    event Transfer(
+    event TransferSingle(
         address indexed operator,
         address indexed from,
         address indexed to,
