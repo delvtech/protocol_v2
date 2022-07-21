@@ -101,7 +101,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         if (underlyingAmount != 0) {
             // Transfer in shares
             token.transferFrom(msg.sender, address(this), underlyingAmount);
-            // We check if the deposit should be in the locked or unlocked stat
+            // We check if the deposit should be in the locked or unlocked state
             // Note - The code path difference is that locked must be invested while
             //        for some hard to withdraw yield strategies the unlocked term may not be
             (totalShares, totalValue) = _deposit(destinationState);
@@ -139,9 +139,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             // No matter the source add the value to the running total
             totalValue += value;
         }
-
-        console.log("releaseSharesUnlocked: %s", releasedSharesUnlocked);
-        console.log("releaseSharesLocked: %s", releasedSharesLocked);
 
         // Add the correct share type to the output
         totalShares = expiration == 0
