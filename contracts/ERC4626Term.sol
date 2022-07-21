@@ -7,8 +7,6 @@ import "./interfaces/IERC4626.sol";
 import "./interfaces/IERC20.sol";
 import "./MultiToken.sol";
 
-import "hardhat/console.sol";
-
 contract ERC4626Term is Term {
     IERC4626 public immutable vault;
 

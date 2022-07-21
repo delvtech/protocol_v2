@@ -5,7 +5,6 @@ import "./MultiToken.sol";
 import "./interfaces/IYieldAdapter.sol";
 import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
-import "hardhat/console.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter {
     // Struct to store packed yield term info, packed into one sstore
