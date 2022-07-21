@@ -575,17 +575,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // multiply this YieldState iinstance's shares by the ratio
         // of the YTs the user wants to redeem (i.e. amount) to totalYTSupply
         // for this YieldState instance.
-        uint128 ytSharesRedeemable = uint128(
+        uint128 totalSharesRedeemable = uint128(
             (state.shares * amount) / totalSupply[ytId]
         );
-
-        // convert the amount of PTs being redeemed to shares
-        // by dividing by price per share
-        uint128 ptSharesRedeemable = uint128(
-            (amount * one) / _underlying(one, ShareState.Locked)
-        );
-        // Calculate the totalRedeemableShares
-        uint128 totalSharesRedeemable = ytSharesRedeemable + ptSharesRedeemable;
         // Update local YieldState instance with adjusted values
         state.shares -= totalSharesRedeemable;
         state.pt -= uint128(amount);
