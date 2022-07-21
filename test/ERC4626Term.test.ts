@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { BigNumber } from "ethers";
 import { ethers, waffle } from "hardhat";
 import { HOUR, MAX_UINT256, WEEK, YEAR, ZERO } from "test/helpers/constants";
-import { $ether, now, printEther } from "test/helpers/utils";
+import { $ether, now } from "test/helpers/utils";
 import {
   ERC4626Term,
   ERC4626Term__factory,
@@ -28,7 +28,7 @@ const VAULT_SHARE_PRICE = $ether(0.9);
 const TERM_START = now() + HOUR; // we tack on an hour so that ytBeginDate defaults to blockTimestamp
 const TERM_END = TERM_START + YEAR; // This becomes the ID
 
-describe.only("ERC4626Term", () => {
+describe("ERC4626Term", () => {
   let token: MockERC20;
   let vault: MockERC4626;
   let term: ERC4626Term;
@@ -970,7 +970,7 @@ describe.only("ERC4626Term", () => {
     });
 
     describe("_withdraw", () => {
-      before(async () => {
+      beforeEach(async () => {
         await term
           .connect(user)
           .lock(
@@ -987,7 +987,7 @@ describe.only("ERC4626Term", () => {
       it("should redeem shares for underlying directly", async () => {
         const prevSupply = await term.totalSupply(TERM_END);
 
-        await advanceTime(YEAR + WEEK);
+        await advanceTime(provider, YEAR + WEEK);
 
         const receipt = await (
           await term
@@ -1030,6 +1030,7 @@ describe.only("ERC4626Term", () => {
             TERM_START,
             TERM_END
           );
+
         // and the unlocked position (so there exists a reserve)
         await term
           .connect(user)
@@ -1063,7 +1064,7 @@ describe.only("ERC4626Term", () => {
 
       it("should convert users locked shares into unlocked shares", async () => {
         // advance time past expiry
-        await advanceTime(TERM_END - TERM_START + HOUR);
+        await advanceTime(provider, TERM_END - TERM_START + HOUR);
 
         // tx
         const receipt = await (

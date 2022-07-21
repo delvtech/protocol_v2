@@ -4,6 +4,8 @@ pragma solidity ^0.8.15;
 import "contracts/libraries/TypedFixedPointMathLib.sol";
 import "contracts/libraries/FixedPointMathLib.sol";
 
+import "hardhat/console.sol";
+
 contract MockFixedPointMath {
     function add(uint256 x, uint256 y) public view returns (uint256 result) {
         uint256 startGas = gasleft();
