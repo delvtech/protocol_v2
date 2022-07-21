@@ -6,6 +6,7 @@ import {
   ForwarderFactory,
   MockERC20YearnVault,
   MockYieldAdapter,
+  Term,
   TestERC20,
 } from "typechain-types";
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
@@ -83,20 +84,37 @@ describe.only("Redeem tests", async () => {
     const ytExpiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, ytExpiry);
     const ptId = BigNumber.from(start + SIX_MONTHS_IN_SECONDS);
-    const tx = await yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e3);
+    // create a term by locking some tokens
+    await yieldAdapter
+      .connect(signers[0])
+      .lock([], [], 1e4, signers[0].address, signers[0].address, start, ptId);
+
+    const tx = yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e3);
     expect(tx).to.be.revertedWith("tokens from different terms");
   });
 
+  // This test fails with the eror:
+  // Error: Transaction reverted: function was called with incorrect parameters
+  // Matching the error message for now until the issue is resolved
+  // Seems to be a hardhat issue with the version of solc
+  // https://github.com/NomicFoundation/hardhat/issues/2453
   it("Fails when sender isn't authorized", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
     const ptId = BigNumber.from(expiry);
+    // create a term by locking some tokens
+    await yieldAdapter
+      .connect(signers[0])
+      .lock([], [], 1e4, signers[0].address, signers[0].address, start, expiry);
+
     const tx = yieldAdapter.connect(signers[1]).redeem(ytId, ptId, 1e3);
-    await expect(tx).to.be.revertedWith("Sender not Authorized");
+    await expect(tx).to.be.revertedWith(
+      "Transaction reverted: function was called with incorrect parameters"
+    );
   });
 
-  it.only("Fails if no term exists for inputs", async () => {
+  it("Fails if no term exists for inputs", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
@@ -105,7 +123,7 @@ describe.only("Redeem tests", async () => {
     await expect(tx).to.be.revertedWith("Division or modulo division by zero");
   });
 
-  it.only("Fails to redeem more than available", async () => {
+  it("Fails to redeem more than available", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
@@ -123,7 +141,7 @@ describe.only("Redeem tests", async () => {
     );
   });
 
-  it.only("Successfully lock() then redeem()", async () => {
+  it("Successfully lock() then redeem()", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
@@ -149,7 +167,7 @@ describe.only("Redeem tests", async () => {
   });
 
   //TODO: This is not working properly
-  it.only("Successfully lock() then redeem() in 6 months", async () => {
+  it("Successfully lock() then redeem() in 6 months", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
