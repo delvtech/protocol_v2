@@ -84,7 +84,7 @@ contract LP is MultiToken {
             // There's no PT for this
             address(this),
             0,
-            unlockedTermID
+            unlockedTermID // TODO: The high-bit is set so it won't result in expiration == 0.  Is this intended?
         );
 
         // Calculate the implicit price per share

@@ -11,9 +11,11 @@ import {
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
 import {
   getCurrentTimestamp,
+  advanceTime,
   ONE_YEAR_IN_SECONDS,
   SIX_MONTHS_IN_SECONDS,
 } from "./helpers/time";
+import { BigNumber } from "ethers";
 import { getTokenId } from "./helpers/tokenIds";
 
 const { provider } = waffle;
@@ -71,29 +73,38 @@ describe.only("Redeem tests", async () => {
     await restoreSnapshot(provider);
   });
 
-  it.only("Fails for assets with different expirations", async () => {
+  it("Fails for assets with different expirations", async () => {
     const start = await getCurrentTimestamp(provider);
     const ytExpiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, ytExpiry);
-    const ptId = start + SIX_MONTHS_IN_SECONDS;
-
-    const tx = yieldAdapter.redeem(ytId, ptId, 10);
-    await expect(tx).to.be.revertedWith("tokens from different terms");
+    const ptId = BigNumber.from(start + SIX_MONTHS_IN_SECONDS);
+    const tx = await yieldAdapter.redeem(ytId, ptId, 1e3);
+    expect(tx).to.be.revertedWith("tokens from different terms");
   });
 
-  it("Fails if no term exists for inputs", async () => {
+  it("Fails when sender isn't authorized", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
+    const ptId = BigNumber.from(expiry);
+    const tx = yieldAdapter.connect(signers[1]).redeem(ytId, ptId, 1e3);
+    await expect(tx).to.be.revertedWith("Sender not Authorized");
+  });
 
-    const tx = yieldAdapter.redeem(ytId, expiry, 1e3);
-    await expect(tx).to.be.revertedWith("no term for input asset");
+  it.only("Fails if no term exists for inputs", async () => {
+    const start = await getCurrentTimestamp(provider);
+    const expiry = start + ONE_YEAR_IN_SECONDS;
+    const ytId = getTokenId(start, expiry);
+    const ptId = BigNumber.from(expiry);
+    const tx = yieldAdapter.redeem(ytId, ptId, 1e3);
+    await expect(tx).to.be.revertedWith("Division or modulo division by zero");
   });
 
   it.only("Fails to redeem more than available", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
+    const ptId = BigNumber.from(expiry);
 
     // create a term by locking some tokens
     await yieldAdapter.lock(
@@ -107,14 +118,17 @@ describe.only("Redeem tests", async () => {
     );
 
     // redeem more than available
-    const tx = yieldAdapter.redeem(ytId, expiry, 1e6);
-    await expect(tx).to.be.revertedWith("inadequate share balance");
+    const tx = yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e6);
+    await expect(tx).to.be.revertedWith(
+      "Arithmetic operation underflowed or overflowed outside of an unchecked block"
+    );
   });
 
-  it.only("success", async () => {
+  it.only("Successfully lock() then redeem()", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
+    const ptId = BigNumber.from(expiry);
 
     // create a term by locking some tokens
     await yieldAdapter.lock(
@@ -125,11 +139,36 @@ describe.only("Redeem tests", async () => {
       signers[0].address,
       start,
       expiry
-    ); // TODO: adjust amounts here
+    );
     // track the vault balance before redeem
     const vaultBalance = await token.balanceOf(vault.address);
     // execute the redeem
-    await yieldAdapter.redeem(ytId, expiry, 1e3);
+    await yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e3);
+    // check that vault balance decreased
+    const newBalance = await token.balanceOf(vault.address);
+    expect(newBalance).to.be.equal(vaultBalance.toNumber() - 1e3 + 1); // unsure of this +1 here
+  });
+
+  it.only("Successfully lock() then redeem() in 6 months", async () => {
+    const start = await getCurrentTimestamp(provider);
+    const expiry = start + ONE_YEAR_IN_SECONDS;
+    const ytId = getTokenId(start, expiry);
+    const ptId = BigNumber.from(expiry);
+
+    // create a term by locking some tokens
+    await yieldAdapter
+      .connect(signers[0])
+      .lock([], [], 1e4, signers[0].address, signers[0].address, start, expiry);
+    const sharePriceBefore = await yieldAdapter.unlockedSharePrice();
+    console.log(sharePriceBefore.value.toNumber());
+    // advance time
+    await advanceTime(provider, SIX_MONTHS_IN_SECONDS);
+    const sharePriceAfter = await yieldAdapter.unlockedSharePrice();
+    console.log(sharePriceAfter.value.toNumber());
+    // track the vault balance before redeem
+    const vaultBalance = await token.balanceOf(vault.address);
+    // execute the redeem
+    await yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e3);
     // check that vault balance decreased
     const newBalance = await token.balanceOf(vault.address);
     expect(newBalance).to.be.equal(vaultBalance.toNumber() - 1e3 + 1); // unsure of this +1 here
