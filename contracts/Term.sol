@@ -275,14 +275,14 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             // Return that this is a 100% discount so no PT are made
             return value;
         } else {
-            uint256 ytTokenId = (1 << 255) + (startTime << 128) + expiration;
+            uint256 ytId = (1 << 255) + (startTime << 128) + expiration;
             // For new YT, we split into two cases ones at this block and back dated
             if (startTime == block.timestamp) {
                 // Initiate a new term
-                _mint(ytTokenId, destination, value);
+                _mint(ytId, destination, value);
                 // Increase recorded share data
-                yieldTerms[ytTokenId].shares += uint128(totalShares);
-                yieldTerms[ytTokenId].pt += uint128(value);
+                yieldTerms[ytId].shares += uint128(totalShares);
+                yieldTerms[ytId].pt += uint128(value);
                 sharesPerExpiry[expiration] += totalShares;
                 // No interest earned and no discount.
                 return 0;
@@ -290,7 +290,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 // In this case the yield token is being backdated to match a pre-existing term
                 // We require that it already existed, or we would not be able to capture accurate
                 // interest rate data in the period
-                YieldState memory state = yieldTerms[ytTokenId];
+                YieldState memory state = yieldTerms[ytId];
                 require(state.shares != 0 && state.pt != 0, "Todo nice error");
                 // We calculate the current fair value of the YT by dividing the interest
                 // earned by the number of YT. We can get the interest earned by subtracting
@@ -303,13 +303,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 // Cost per yt is (interestEarned/total_yt) so the total discount is how many
                 // YT the user wants to mint [ie 'value']
                 uint256 totalDiscount = (value * interestEarned) /
-                    totalSupply[ytTokenId];
+                    totalSupply[ytId];
                 // Now we mint the YT for the user
-                _mint(ytTokenId, destination, value);
+                _mint(ytId, destination, value);
                 // Update the reserve information for this YT term, and the total shares
                 // backing the PT it will create.
                 // NOTE - Reverts here if the interest is over 100% for the YT being minted
-                yieldTerms[ytTokenId] = YieldState(
+                yieldTerms[ytId] = YieldState(
                     state.shares + uint128(totalShares),
                     state.pt + uint128(value - totalDiscount)
                 );
@@ -542,14 +542,14 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         return (value - amount);
     }
 
-    /// @notice removes and burns input amount of PT's and YT's
-    /// @param ytTokenId the pt to redeem
-    /// @param ptTokenId the yt to redeem
+    /// @notice removes and burns input amount of YT's and PT's
+    /// @param ytId the yt to redeem
+    /// @param ptId the pt to redeem
     /// @param amount the quantity of asset to remove
     /// @return the underlying value withdrawn
     function redeem(
-        uint256 ytTokenId,
-        uint256 ptTokenId,
+        uint256 ytId,
+        uint256 ptId,
         uint256 amount
     ) external onlyAuthorized returns (uint256) {
         // ytID 256 bits:
@@ -565,18 +565,18 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
         // The YTs and PTs must be from the same term and therefore
         // the expiration times must be equal
-        uint256 ytExpiry = ytTokenId & (2**(128) - 1);
-        require(ytExpiry == ptTokenId, "tokens from different terms");
+        uint256 ytExpiry = ytId & (2**(128) - 1);
+        require(ytExpiry == ptId, "tokens from different terms");
 
         // YTs can have different start times for a particular expiry.
         // This means that each YieldState instance is backed by
         // a different amount of underlying at a different share price.
-        YieldState memory state = yieldTerms[ytTokenId];
+        YieldState memory state = yieldTerms[ytId];
         // multiply this YieldState iinstance's shares by the ratio
         // of the YTs the user wants to redeem (i.e. amount) to totalYTSupply
         // for this YieldState instance.
         uint128 ytSharesRedeemable = uint128(
-            state.shares * (amount / totalSupply[ytTokenId])
+            state.shares * (amount / totalSupply[ytId])
         );
         // convert the amount of PTs being redeemed to shares
         // by dividing by price per share
@@ -589,14 +589,14 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         state.shares -= totalSharesRedeemable;
         state.pt -= uint128(amount);
         // burn the yts and pts being redeemed
-        _burn(ytTokenId, msg.sender, amount);
-        _burn(ptTokenId, msg.sender, amount);
+        _burn(ytId, msg.sender, amount);
+        _burn(ptId, msg.sender, amount);
         // update storage instance
-        yieldTerms[ytTokenId] = state;
+        yieldTerms[ytId] = state;
         // Update the sharesPerExpiry. Note that the sum of the shares
         // in each YieldState instance with the same expiry should match
         // this value
-        sharesPerExpiry[ptTokenId] -= totalSharesRedeemable;
+        sharesPerExpiry[ptId] -= totalSharesRedeemable;
         // withdraw shares from vault to user and return the amount of underlying withdrawn
         return _withdraw(totalSharesRedeemable, msg.sender, ShareState.Locked);
     }
