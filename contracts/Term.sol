@@ -11,7 +11,6 @@ import "hardhat/console.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
-    // TODO: I'd like to rename this to something else
     struct YieldState {
         uint128 shares;
         uint128 pt;
@@ -27,7 +26,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     mapping(uint256 => uint256) public sharesPerExpiry;
     // Maps the YT ID packed as [1][start time][expiry] to the shares and principal tokens
     // which exist for this yield start point
-    // TODO: I'd like to rename this to something else
     mapping(uint256 => YieldState) public yieldTerms;
     // When terms are finalized we cache the final price per share and outstanding total interest
     mapping(uint256 => FinalizedState) public finalizedTerms;
@@ -249,7 +247,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
     /// @notice Quotes the price per share for unlocked tokens
     /// @return the price per share of unlocked shares
-    function unlockedSharePrice() external returns (uint256) {
+    function unlockedSharePrice() external override returns (uint256) {
         return _underlying(one, ShareState.Unlocked);
     }
 
@@ -411,7 +409,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 amount
     ) internal returns (uint256, uint256) {
         // To release YT we calculate the implied earning of the differential between final price per share
-        // and the sored price per share at the time of YT creation.
+        // and the stored price per share at the time of YT creation.
         YieldState memory yieldTerm = yieldTerms[assetId];
         uint256 termEndingValue = (yieldTerm.shares *
             finalState.pricePerShare) / one;
@@ -574,27 +572,16 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // This means that each YieldState instance is backed by
         // a different amount of underlying at a different share price.
         YieldState memory state = yieldTerms[ytTokenId];
-        // Get the current pricePerShare that is reported by the vault
-        uint256 pricePerShare = _underlying(one, ShareState.Locked);
-        // Calculate the currentUnderlyingValue of all the shares in this YieldState instance
-        uint256 currentUnderlyingValue = state.shares * pricePerShare;
-        // We know that totalSupply[ytTokenId] represents the number of YTs
-        // corresponding to this YieldState instance bc they both are keyed
-        // with the same ytTokenId (startTime|expirationTime).
-        uint256 totalYts = totalSupply[ytTokenId];
-        // accruedInterest is the currentUnderlyingValue minus the
-        // underlying amount deposited (i.e. totalYts)
-        uint256 accruedInterest = currentUnderlyingValue - totalYts;
-        // ytSharesRedeemable is the accruedInterest times the proportion
-        // of yts being redeemed (i.e amount) to totalYts divided by share price
+        // multiply this YieldState iinstance's shares by the ratio
+        // of the YTs the user wants to redeem (i.e. amount) to totalYTSupply
+        // for this YieldState instance.
         uint128 ytSharesRedeemable = uint128(
-            (accruedInterest * amount) / totalYts / pricePerShare
+            state.shares * (amount / totalSupply[ytTokenId])
         );
-        // ptSharesRedeemable is the underlying amount deposited (i.e. totalYts) times
-        // the proportion of pts being redeemed (i.e. amount) to the number of
-        // PTs backing this YieldState instance (i.e. state.pt) divided by share price
+        // convert the amount of PTs being redeemed to shares
+        // by dividing by price per share
         uint128 ptSharesRedeemable = uint128(
-            (totalYts * amount) / state.pt / pricePerShare
+            (amount * one) / _underlying(one, ShareState.Locked)
         );
         // Calculate the totalRedeemableShares
         uint128 totalSharesRedeemable = ytSharesRedeemable + ptSharesRedeemable;
