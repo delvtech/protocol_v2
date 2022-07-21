@@ -67,10 +67,15 @@ contract MockYieldAdapter is IYieldAdapter, Term {
         override
         returns (uint256)
     {
-        uint256 amount = vault.pricePerShare() * shares;
+        uint256 amount = (vault.pricePerShare() * shares) / one;
         if (state == ShareState.Unlocked) {
             amount = amount / 2;
         }
         return amount;
+    }
+
+    // This is for testing
+    function lockedSharePrice() public view returns (uint256) {
+        return (vault.pricePerShare() / one);
     }
 }

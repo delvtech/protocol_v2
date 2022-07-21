@@ -55,7 +55,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         token = _token;
         uint8 _decimals = _token.decimals();
         decimals = _decimals;
-        one = 1 << decimals;
+        one = 10**decimals;
         _authorize(_owner);
     }
 
@@ -576,8 +576,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // of the YTs the user wants to redeem (i.e. amount) to totalYTSupply
         // for this YieldState instance.
         uint128 ytSharesRedeemable = uint128(
-            state.shares * (amount / totalSupply[ytId])
+            (state.shares * amount) / totalSupply[ytId]
         );
+
         // convert the amount of PTs being redeemed to shares
         // by dividing by price per share
         uint128 ptSharesRedeemable = uint128(

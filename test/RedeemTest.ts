@@ -91,7 +91,7 @@ describe.only("Redeem tests", async () => {
     await expect(tx).to.be.revertedWith("Sender not Authorized");
   });
 
-  it.only("Fails if no term exists for inputs", async () => {
+  it("Fails if no term exists for inputs", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
@@ -100,22 +100,16 @@ describe.only("Redeem tests", async () => {
     await expect(tx).to.be.revertedWith("Division or modulo division by zero");
   });
 
-  it.only("Fails to redeem more than available", async () => {
+  it("Fails to redeem more than available", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
     const ptId = BigNumber.from(expiry);
 
     // create a term by locking some tokens
-    await yieldAdapter.lock(
-      [],
-      [],
-      1e4,
-      signers[0].address,
-      signers[0].address,
-      start,
-      expiry
-    );
+    await yieldAdapter
+      .connect(signers[0])
+      .lock([], [], 1e4, signers[0].address, signers[0].address, start, expiry);
 
     // redeem more than available
     const tx = yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e6);
@@ -143,10 +137,10 @@ describe.only("Redeem tests", async () => {
     // track the vault balance before redeem
     const vaultBalance = await token.balanceOf(vault.address);
     // execute the redeem
-    await yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e3);
+    await yieldAdapter.redeem(ytId, ptId, 1e3);
     // check that vault balance decreased
     const newBalance = await token.balanceOf(vault.address);
-    expect(newBalance).to.be.equal(vaultBalance.toNumber() - 1e3 + 1); // unsure of this +1 here
+    expect(newBalance).to.be.equal(vaultBalance.toNumber() - 1e3); // unsure of this +1 here
   });
 
   it.only("Successfully lock() then redeem() in 6 months", async () => {
@@ -156,21 +150,27 @@ describe.only("Redeem tests", async () => {
     const ptId = BigNumber.from(expiry);
 
     // create a term by locking some tokens
-    await yieldAdapter
-      .connect(signers[0])
-      .lock([], [], 1e4, signers[0].address, signers[0].address, start, expiry);
-    const sharePriceBefore = await yieldAdapter.unlockedSharePrice();
-    console.log(sharePriceBefore.value.toNumber());
+    await yieldAdapter.lock(
+      [],
+      [],
+      1e4,
+      signers[0].address,
+      signers[0].address,
+      start,
+      expiry
+    );
+    const sharePriceBefore = await yieldAdapter.lockedSharePrice();
+    //console.log(sharePriceBefore.toNumber());
     // advance time
     await advanceTime(provider, SIX_MONTHS_IN_SECONDS);
-    const sharePriceAfter = await yieldAdapter.unlockedSharePrice();
-    console.log(sharePriceAfter.value.toNumber());
+    const sharePriceAfter = await yieldAdapter.lockedSharePrice();
+    //console.log(sharePriceAfter.toNumber());
     // track the vault balance before redeem
     const vaultBalance = await token.balanceOf(vault.address);
     // execute the redeem
-    await yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e3);
+    await yieldAdapter.redeem(ytId, ptId, 1e3);
     // check that vault balance decreased
     const newBalance = await token.balanceOf(vault.address);
-    expect(newBalance).to.be.equal(vaultBalance.toNumber() - 1e3 + 1); // unsure of this +1 here
+    expect(newBalance).to.be.equal(vaultBalance.toNumber() - 1e3); // unsure of this +1 here
   });
 });
