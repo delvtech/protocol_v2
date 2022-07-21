@@ -1,14 +1,16 @@
+cache/
 out/
 node_modules/
-.sethrc
 artifacts/
 typechain-types/
-cache/
 gasReporterOutput.json
 .DS_Store
 coverage.json
 coverage/
-contracts/balancer-core-v2
-balancer-core-v2
-test/simulation/analysis/
 typechain/
+
+# Foundry files
+forge-cache/
+!/broadcast
+/broadcast/*
+/broadcast/*/31337/

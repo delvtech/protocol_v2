@@ -11,6 +11,7 @@
     "build": "npx hardhat compile",
     "clean": "npx hardhat clean",
     "test": "npx hardhat compile && npx hardhat test --config hardhat.config.test.ts",
+    "sim": "npx hardhat compile && npx hardhat test --config hardhat.config.test.ts ./test/simulation/*.ts",
     "typecheck": "npx hardhat compile && npx tsc --noEmit -p tsconfig.json",
     "coverage": "COVERAGE=true NODE_OPTIONS=--max_old_space_size=8192 npx hardhat coverage --solcoverjs \".solcover.js\" --testfiles \"./test/**/*.ts\"",
     "test:quick": "npx hardhat test --no-compile --config hardhat.config.test.ts",
