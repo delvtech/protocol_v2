@@ -275,14 +275,14 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             // Return that this is a 100% discount so no PT are made
             return value;
         } else {
-            uint256 ytId = (1 << 255) + (startTime << 128) + expiration;
+            uint256 yieldTokenId = (1 << 255) + (startTime << 128) + expiration;
             // For new YT, we split into two cases ones at this block and back dated
             if (startTime == block.timestamp) {
                 // Initiate a new term
-                _mint(ytId, destination, value);
+                _mint(yieldTokenId, destination, value);
                 // Increase recorded share data
-                yieldTerms[ytId].shares += uint128(totalShares);
-                yieldTerms[ytId].pt += uint128(value);
+                yieldTerms[yieldTokenId].shares += uint128(totalShares);
+                yieldTerms[yieldTokenId].pt += uint128(value);
                 sharesPerExpiry[expiration] += totalShares;
                 // No interest earned and no discount.
                 return 0;
@@ -290,7 +290,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 // In this case the yield token is being backdated to match a pre-existing term
                 // We require that it already existed, or we would not be able to capture accurate
                 // interest rate data in the period
-                YieldState memory state = yieldTerms[ytId];
+                YieldState memory state = yieldTerms[yieldTokenId];
                 require(state.shares != 0 && state.pt != 0, "Todo nice error");
                 // We calculate the current fair value of the YT by dividing the interest
                 // earned by the number of YT. We can get the interest earned by subtracting
@@ -303,13 +303,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 // Cost per yt is (interestEarned/total_yt) so the total discount is how many
                 // YT the user wants to mint [ie 'value']
                 uint256 totalDiscount = (value * interestEarned) /
-                    totalSupply[ytId];
+                    totalSupply[yieldTokenId];
                 // Now we mint the YT for the user
-                _mint(ytId, destination, value);
+                _mint(yieldTokenId, destination, value);
                 // Update the reserve information for this YT term, and the total shares
                 // backing the PT it will create.
                 // NOTE - Reverts here if the interest is over 100% for the YT being minted
-                yieldTerms[ytId] = YieldState(
+                yieldTerms[yieldTokenId] = YieldState(
                     state.shares + uint128(totalShares),
                     state.pt + uint128(value - totalDiscount)
                 );
@@ -543,53 +543,53 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     }
 
     /// @notice removes and burns input amount of YT's and PT's
-    /// @param ytId the yt to redeem
-    /// @param ptId the pt to redeem
+    /// @param yieldTokenId the yt to redeem
+    /// @param principalTokenId the pt to redeem
     /// @param amount the quantity of asset to remove
     /// @return the underlying value withdrawn
     function redeem(
-        uint256 ytId,
-        uint256 ptId,
+        uint256 yieldTokenId,
+        uint256 principalTokenId,
         uint256 amount
     ) external onlyAuthorized returns (uint256) {
-        // ytID 256 bits:
+        // yieldTokenId 256 bits:
         //        |      1 BIT    |     127 BITS     |  128 BITS  |
         //        |       255     |     254 - 128    |  127 - 0   |
         //        | YT IDENTIFIER |    START TIME    | EXPIRATION |
         //           (1 << 255) + (startTime << 128) + expiration
 
-        // ptID 128 bits:
+        // principalTokenId 128 bits:
         //        |  128 BITS  |
         //        |  127 - 0   |
         //        | EXPIRATION |
 
         // The YTs and PTs must be from the same term and therefore
         // the expiration times must be equal
-        uint256 ytExpiry = ytId & (2**(128) - 1);
-        require(ytExpiry == ptId, "tokens from different terms");
+        uint256 ytExpiry = yieldTokenId & (2**(128) - 1);
+        require(ytExpiry == principalTokenId, "tokens from different terms");
 
         // YTs can have different start times for a particular expiry.
         // This means that each YieldState instance is backed by
         // a different amount of underlying at a different share price.
-        YieldState memory state = yieldTerms[ytId];
-        // multiply this YieldState iinstance's shares by the ratio
+        YieldState memory state = yieldTerms[yieldTokenId];
+        // multiply this YieldState instance's shares by the ratio
         // of the YTs the user wants to redeem (i.e. amount) to totalYTSupply
         // for this YieldState instance.
         uint128 totalSharesRedeemable = uint128(
-            (state.shares * amount) / totalSupply[ytId]
+            (state.shares * amount) / totalSupply[yieldTokenId]
         );
         // Update local YieldState instance with adjusted values
         state.shares -= totalSharesRedeemable;
         state.pt -= uint128(amount);
         // burn the yts and pts being redeemed
-        _burn(ytId, msg.sender, amount);
-        _burn(ptId, msg.sender, amount);
+        _burn(yieldTokenId, msg.sender, amount);
+        _burn(principalTokenId, msg.sender, amount);
         // update storage instance
-        yieldTerms[ytId] = state;
+        yieldTerms[yieldTokenId] = state;
         // Update the sharesPerExpiry. Note that the sum of the shares
         // in each YieldState instance with the same expiry should match
         // this value
-        sharesPerExpiry[ptId] -= totalSharesRedeemable;
+        sharesPerExpiry[principalTokenId] -= totalSharesRedeemable;
         // withdraw shares from vault to user and return the amount of underlying withdrawn
         return _withdraw(totalSharesRedeemable, msg.sender, ShareState.Locked);
     }

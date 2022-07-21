@@ -28,6 +28,7 @@ describe.only("Redeem tests", async () => {
   let yieldAdapter: MockYieldAdapter;
 
   before(async () => {
+    await createSnapshot(provider);
     signers = await ethers.getSigners();
 
     const factoryFactory = await ethers.getContractFactory(
@@ -63,6 +64,10 @@ describe.only("Redeem tests", async () => {
     // set allowance for the yieldAdapter contract
     await token.connect(signers[0]).approve(yieldAdapter.address, 12e6);
     await token.connect(signers[1]).approve(yieldAdapter.address, 12e6);
+  });
+
+  after(async () => {
+    await restoreSnapshot(provider);
   });
 
   beforeEach(async () => {
