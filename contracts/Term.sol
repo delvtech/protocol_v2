@@ -7,8 +7,6 @@ import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
 
-import "hardhat/console.sol";
-
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
     struct YieldState {
@@ -45,18 +43,19 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
     /// @param _token The ERC20 which is deposited into this contract
+    /// @param _authorized this addresss is allowed to call the permissioned redeem method
     constructor(
         bytes32 _linkerCodeHash,
         address _factory,
         IERC20 _token,
-        address _owner
+        address _authorized
     ) MultiToken(_linkerCodeHash, _factory) {
         // Set the immutable token data
         token = _token;
         uint8 _decimals = _token.decimals();
         decimals = _decimals;
         one = 10**decimals;
-        _authorize(_owner);
+        _authorize(_authorized);
     }
 
     /// @dev Takes an input as a mix of the underlying token, expired PT and YT, and unlocked shares

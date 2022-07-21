@@ -166,7 +166,8 @@ describe.only("Redeem tests", async () => {
     expect(newBalance).to.be.equal(vaultBalance.toNumber() - 1e3); // unsure of this +1 here
   });
 
-  //TODO: This is not working properly
+  // TODO: This doesn't properly test the impact of interest accruing.
+  // This can be implemented and properly ported to Foundry later
   it("Successfully lock() then redeem() in 6 months", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
