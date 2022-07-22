@@ -201,6 +201,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < tokenIds.length; i++) {
+            // Requiring strict sorting is a cheap way to check for uniqueness
+            require(previousId < tokenIds[i], "Todo: Not unique or not sorted");
+            previousId = tokenIds[i];
+
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
             (uint256 shares, ) = _releaseAsset(
