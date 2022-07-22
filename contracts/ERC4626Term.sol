@@ -8,12 +8,17 @@ import "./interfaces/IERC20.sol";
 import "./MultiToken.sol";
 
 contract ERC4626Term is Term {
+    // address of ERC4626 vault
     IERC4626 public immutable vault;
 
+    // accounts for the balance of "unlocked" underlying for this term
     uint128 private _underlyingReserve;
+    // accounts for the balance of "unlocked" vaultShares for this term
     uint128 private _vaultShareReserve;
 
+    // upper limit of balance of _underlyingReserve allowed in this contract
     uint256 public immutable maxReserve;
+    // desired amount of underlying
     uint256 public immutable targetReserve;
 
     constructor(
@@ -52,7 +57,7 @@ contract ERC4626Term is Term {
     {
         underlyingDeposited =
             token.balanceOf(address(this)) -
-            uint256(_underlyingReserve);
+            underlyingReserve();
 
         vaultShares = vault.deposit(underlyingDeposited, address(this));
     }
