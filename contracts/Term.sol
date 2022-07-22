@@ -153,8 +153,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
             }
         } else {
             // Only process a conversion if one is needed.
-            if (releasedSharesLocked != 0) {
-                // Turns the locked shares into unlocked shares
+            if (releasedSharesUnlocked != 0) {
+                // Turns the unlocked shares into locked shares
                 totalShares += _convert(
                     ShareState.Unlocked,
                     releasedSharesUnlocked
@@ -386,6 +386,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter {
         yieldTerms[UNLOCKED_YT_ID].shares = uint128(termShares - userShares);
         // Query the value of these shares
         uint256 shareValue = _underlying(userShares, ShareState.Unlocked);
+        // Burn from the user
+        _burn(UNLOCKED_YT_ID, source, amount);
         // Return the shares released and their value
         return (userShares, shareValue);
     }
