@@ -64,7 +64,10 @@ contract ERC4626Term is Term {
             token.balanceOf(address(this)) -
             underlyingReserve();
 
-        // In a Locked context, the vault
+        // In a Locked ShareState, shares are issued proportionally to the
+        // amount of vaultShares issued for the underlying deposited. In this
+        // context we say that shares and vaultShares are equal and
+        // interchangeable
         shares = vault.deposit(underlyingDeposited, address(this));
     }
 
@@ -72,6 +75,7 @@ contract ERC4626Term is Term {
         internal
         returns (uint256 shares, uint256 underlyingDeposited)
     {
+        // See reserveDetails()
         (
             uint256 underlyingReserve,
             uint256 vaultShareReserve,
@@ -79,29 +83,57 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
 
+        // We derive the underlyingDeposited by the user by getting the
+        // difference of the underlyingReserve and the current underlying
+        // balance of the contract
         underlyingDeposited =
             token.balanceOf(address(this)) -
             underlyingReserve;
 
+        // In an Unlocked ShareState, shares are issued proportionally to the
+        // impliedUnderlyingReserve which is a derived value representing the
+        // sum of the underlyingReserve and the underlying value of the
+        // vaultShareReserve.
+        //
+        // If the impliedUnderlyingReserve is 0, shares are issued directly 1:1
+        // as the initial case would not have any accrued interest causing a
+        // divergence in the ratio of shares:impliedUnderlying
         if (impliedUnderlyingReserve == 0) {
             shares = underlyingDeposited;
         } else {
+            // In the more general case, we compute the amount of shares for
+            // underlyingDeposited by the ratio of total unlocked shares and
+            // the amount of impliedUnderlying across the two reserves
             shares =
                 (underlyingDeposited * totalSupply[UNLOCKED_YT_ID]) /
                 impliedUnderlyingReserve;
         }
 
+        // Calculate the sum total of underlying in the contract
         uint256 proposedUnderlyingReserve = underlyingReserve +
             underlyingDeposited;
 
+        // If sum total of underlying exceeds the maxReserve we rebalance to the
+        // targetReserve.
         if (proposedUnderlyingReserve > maxReserve) {
-            uint256 issuedVaultShares = vault.deposit(
+            // When maxReserve is exceeded, the sum total of underlying on the
+            // contract less the targetReserve amount is deposited giving an
+            // amount of vaultShares
+            uint256 vaultShares = vault.deposit(
                 proposedUnderlyingReserve - targetReserve,
                 address(this)
             );
 
-            _setReserves(targetReserve, vaultShareReserve + issuedVaultShares);
+            // We reset the accounting for both reserves adding the newly issued
+            // vaultShares to the vaultShareReserve and setting the
+            // underlyingReserve to the targetReserve
+            _setReserves(targetReserve, vaultShareReserve + vaultShares);
         } else {
+            // This is the more gas efficient path where if the user is
+            // depositing an amount of underlying that causes the
+            // underlyingReserve to not exceed the maxReserve than we delay
+            // that deposit until a future depositor exceeds the limit. The user
+            // is still issued shares proportional
             _setReserves(proposedUnderlyingReserve, vaultShareReserve);
         }
     }
