@@ -26,7 +26,7 @@ contract ERC4626Term is Term {
         maxReserve = _maxReserve;
         targetReserve = _maxReserve / 2;
         token.approve(address(_vault), type(uint256).max);
-        token.approve(address(this), type(uint256).max);
+        //token.approve(address(this), type(uint256).max);
     }
 
     function underlyingReserve() public view returns (uint256) {
@@ -131,7 +131,7 @@ contract ERC4626Term is Term {
 
         if (underlyingDue <= underlyingReserve) {
             _setReserves(underlyingReserve - underlyingDue, vaultShareReserve);
-            token.transferFrom(address(this), _dest, underlyingDue);
+            token.transfer(_dest, underlyingDue);
         } else {
             if (underlyingDue > vaultShareReserveAsUnderlying) {
                 uint256 underlyingRedeemed = vault.redeem(
@@ -140,7 +140,7 @@ contract ERC4626Term is Term {
                     address(this)
                 );
 
-                token.transferFrom(address(this), _dest, underlyingDue);
+                token.transfer(_dest, underlyingDue);
                 _setReserves(
                     underlyingReserve - (underlyingDue - underlyingRedeemed),
                     0
