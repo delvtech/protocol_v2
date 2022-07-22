@@ -65,6 +65,8 @@ describe.only("Redeem tests", async () => {
     // set allowance for the yieldAdapter contract
     await token.connect(signers[0]).approve(yieldAdapter.address, 12e6);
     await token.connect(signers[1]).approve(yieldAdapter.address, 12e6);
+    // authorize signer 0 to be able to call redeem
+    await yieldAdapter.connect(signers[0]).authorize(signers[0].address);
   });
 
   after(async () => {
@@ -88,7 +90,6 @@ describe.only("Redeem tests", async () => {
     await yieldAdapter
       .connect(signers[0])
       .lock([], [], 1e4, signers[0].address, signers[0].address, start, ptId);
-
     const tx = yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e3);
     expect(tx).to.be.revertedWith("tokens from different terms");
   });
