@@ -10,10 +10,11 @@ contract MockYieldAdapter is IYieldAdapter, Term {
 
     constructor(
         address mockYearnVault,
+        address governance,
         bytes32 _linkerCodeHash,
         address _factory,
         IERC20 _token
-    ) Term(_linkerCodeHash, _factory, _token) {
+    ) Term(_linkerCodeHash, _factory, _token, governance) {
         vault = MockERC20YearnVault(mockYearnVault);
         token.approve(address(vault), type(uint256).max);
     }
@@ -66,10 +67,15 @@ contract MockYieldAdapter is IYieldAdapter, Term {
         override
         returns (uint256)
     {
-        uint256 amount = vault.pricePerShare() * shares;
+        uint256 amount = (vault.pricePerShare() * shares) / one;
         if (state == ShareState.Unlocked) {
             amount = amount / 2;
         }
         return amount;
+    }
+
+    // This is for testing
+    function lockedSharePrice() public view returns (uint256) {
+        return (vault.pricePerShare() / one);
     }
 }

@@ -50,6 +50,7 @@ describe("Convert YT Tests", async () => {
     );
     yieldAdapter = await adapterFactory.deploy(
       vault.address,
+      signers[0].address,
       await factory.ERC20LINK_HASH(),
       factory.address,
       token.address
