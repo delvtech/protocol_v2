@@ -28,7 +28,7 @@ const VAULT_SHARE_PRICE = $ether(0.9);
 const TERM_START = now() + HOUR; // we tack on an hour so that ytBeginDate defaults to blockTimestamp
 const TERM_END = TERM_START + YEAR; // This becomes the ID
 
-describe("ERC4626Term", () => {
+describe.only("ERC4626Term", () => {
   let token: MockERC20;
   let vault: MockERC4626;
   let term: ERC4626Term;

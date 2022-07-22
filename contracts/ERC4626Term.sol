@@ -50,10 +50,9 @@ contract ERC4626Term is Term {
         internal
         returns (uint256 vaultShares, uint256 underlyingDeposited)
     {
-        (uint256 underlyingReserve, , , ) = reserveDetails();
         underlyingDeposited =
             token.balanceOf(address(this)) -
-            underlyingReserve;
+            uint256(_underlyingReserve);
 
         vaultShares = vault.deposit(underlyingDeposited, address(this));
     }
@@ -209,7 +208,6 @@ contract ERC4626Term is Term {
 
         vaultShares = vault.previewWithdraw(sharesAsUnderlying);
 
-        // TODO Should we consider adjustment of underlyingReserve when this is exceeded??
         require(vaultShares <= vaultShareReserve, "not enough vault shares");
 
         _setReserves(underlyingReserve, vaultShareReserve - vaultShares);
@@ -241,16 +239,15 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         )
     {
-        (underlyingReserve, vaultShareReserve) = _getReserves();
+        (underlyingReserve, vaultShareReserve) = (
+            uint256(_underlyingReserve),
+            uint256(_vaultShareReserve)
+        );
 
         vaultShareReserveAsUnderlying = vault.previewRedeem(vaultShareReserve);
 
         impliedUnderlyingReserve = (underlyingReserve +
             vaultShareReserveAsUnderlying);
-    }
-
-    function _getReserves() internal view returns (uint256, uint256) {
-        return (uint256(_underlyingReserve), uint256(_vaultShareReserve));
     }
 
     function _setReserves(
