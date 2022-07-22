@@ -2,6 +2,9 @@
   "name": "element-protocol",
   "version": "2.0.0",
   "description": "Element protocol v2 smart contract",
+  "engines": {
+    "node": "^14"
+  },
   "scripts": {
     "solhint": "npx solhint -f table contracts/*.sol contracts/**/*.sol contracts/**/**/*.sol",
     "spell-check": "npx cspell ./**/**/**.sol --gitignore && npx cspell ./**/**/**.ts --gitignore",
