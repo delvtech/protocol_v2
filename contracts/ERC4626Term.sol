@@ -42,6 +42,8 @@ contract ERC4626Term is Term {
         return uint256(_vaultShareReserve);
     }
 
+    // @notice Deposits underlying into yield source and issues shares
+    // @param _state The context in which the shares for this term are categorised for
     function _deposit(ShareState _state)
         internal
         override
@@ -53,13 +55,17 @@ contract ERC4626Term is Term {
 
     function _depositLocked()
         internal
-        returns (uint256 vaultShares, uint256 underlyingDeposited)
+        returns (uint256 shares, uint256 underlyingDeposited)
     {
+        // We derive the underlyingDeposited by the user by getting the
+        // difference of the underlyingReserve and the current underlying
+        // balance of the contract
         underlyingDeposited =
             token.balanceOf(address(this)) -
             underlyingReserve();
 
-        vaultShares = vault.deposit(underlyingDeposited, address(this));
+        // In a Locked context, the vault
+        shares = vault.deposit(underlyingDeposited, address(this));
     }
 
     function _depositUnlocked()
