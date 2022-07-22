@@ -163,7 +163,7 @@ describe.only("Redeem tests", async () => {
     await yieldAdapter.redeem(ytId, ptId, 1e3);
     // check that vault balance decreased
     const newBalance = await token.balanceOf(vault.address);
-    expect(newBalance).to.be.equal(vaultBalance.toNumber() - 1e3); // unsure of this +1 here
+    expect(newBalance).to.be.equal(vaultBalance.toNumber() - 1e3);
   });
 
   // TODO: This doesn't properly test the impact of interest accruing.
