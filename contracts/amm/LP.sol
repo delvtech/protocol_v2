@@ -44,6 +44,7 @@ contract LP is MultiToken {
     ) MultiToken(_linkerCodeHash, _factory) {
         token = _term.token();
         uint8 _decimals = token.decimals();
+        require(_decimals <= 18);
         decimals = _decimals;
         _one = 10**_decimals;
         term = _term;

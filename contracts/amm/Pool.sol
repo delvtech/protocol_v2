@@ -1,21 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.14;
 
-import { LP } from "./LP.sol";
-import { DateString } from "../libraries/DateString.sol";
-import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { TypedFixedPointMathLib, UFixedPoint } from "../libraries/TypedFixedPointMathLib.sol";
-import { IMultiToken } from "../interfaces/IMultiToken.sol";
-import { SafeCast } from "../libraries/SafeCast.sol";
-import { ITerm } from "../interfaces/ITerm.sol";
+import "./LP.sol";
+import "../libraries/FixedPoint.sol";
+import "../interfaces/IMultiToken.sol";
+import "../interfaces/ITerm.sol";
 
 /// TODO: Downcasting checks
 contract Pool is LP {
-    using SafeCast for uint256;
-    using SafeCast for int256;
-    using SafeERC20 for IERC20;
-    using TypedFixedPointMathLib for UFixedPoint;
     using TypedFixedPointMathLib for uint256;
+    // This lets us call internal functions on uint256
+    using this for uint256;
 
     uint256 public constant ONE_18 = 1e18;
 
@@ -123,16 +118,7 @@ contract Pool is LP {
         override
         returns (string memory)
     {
-        return
-            _processString(
-                string(
-                    abi.encodePacked(
-                        "LP",
-                        IMultiToken(address(term)).name(poolId)
-                    )
-                ),
-                poolId
-            );
+        return (string(abi.encodePacked("LP: ", term.name(poolId))));
     }
 
     /// @notice Returns the symbol of the sub token i.e LP token supported
@@ -144,16 +130,7 @@ contract Pool is LP {
         override
         returns (string memory)
     {
-        return
-            _processString(
-                string(
-                    abi.encodePacked(
-                        "LP",
-                        IMultiToken(address(term)).symbol(poolId)
-                    )
-                ),
-                poolId
-            );
+        return (string(abi.encodePacked("LP: ", term.symbol(poolId))));
     }
 
     /// @notice Used to initialize the reserves of the pool for given poolIds.
@@ -161,20 +138,20 @@ contract Pool is LP {
     ///         - It mints corresponding LP token equal to the amount of bonds supply,i.e. `bondsIn`.
     /// @dev    Alice wants to initialize the pool to earn some sweet fee on its
     ///         PT holdings.
-    ///         Alice have 120 PTs and 100 DAI while initialization of pool supports
+    ///         Alice has 120 PTs and 100 DAI while initialization of pool supports
     ///         Tokenized vault shares instead of underlying tokens so she would first
     ///         converts her DAI (base or underlying token) into the TV shares.
     ///         100 DAI --->(Supported Term)---> 100 shares.
-    ///         Now Alice can intitalize the pool with 120 PTs as `bondsIn` and 100 as `sharesIn`.
-    /// @param  poolId New poolId which will get supported by this pool.
-    /// @param  sharesIn Amount of shares used to initialize the reserves.
+    ///         Now Alice can init the pool with 120 PTs as `bondsIn` and 100 as `sharesIn`.
+    /// @param  poolId New poolId which will get supported by this pool, equal to bond expiry
+    /// @param  sharesIn Amount of tokens used to initialize the reserves.
     /// @param  bondsIn Amount of bonds used to initialize the reserves.
     /// @param  timeStretch No. of seconds in our timescale.
     /// @param  recipient Address which will receive the minted LP tokens.
     /// @return mintedLpTokens No. of minted LP tokens amount for provided `poolIds`.
     function registerPoolId(
         uint256 poolId,
-        uint256 sharesIn,
+        uint256 amount,
         uint256 bondsIn,
         uint32 timeStretch,
         address recipient
@@ -185,30 +162,32 @@ contract Pool is LP {
         require(totalSupply[poolId] == uint256(0), "todo nice errors");
         // Make sure the timestretch is non-zero.
         require(timeStretch > uint32(0), "todo nice errors");
-        // Make sure the provided bondsIn and sharesIn are non-zero values.
-        require(sharesIn > 0 && bondsIn > 0, "todo nice errors");
-        // Receiver of the LP tokens
-        recipient = recipient == address(0) ? msg.sender : recipient;
+        // Make sure the provided bondsIn and amount are non-zero values.
+        require(amount > 0 && bondsIn > 0, "todo nice errors");
         // Transfer the bondsIn
-        IMultiToken(address(term)).transferFrom(
-            poolId,
-            msg.sender,
+        term.transferFrom(poolId, msg.sender, address(this), bondsIn);
+        // Transfer tokens from the user
+        token.transferFrom(msg.sender, address(this), amount);
+        // Make a deposit to the unlocked shares in the term for the user
+        // The implied initial share price [ie mu] can be calculated using this
+        uint256[] memory empty = new uint256[](0);
+        // Deposit the underlying token in to the tokenized vault
+        // to get the shares of it.
+        (, uint256 sharesMinted) = term.lock(
+            empty,
+            empty,
+            amount,
             address(this),
-            bondsIn
-        );
-        // Transfer the sharesIn
-        IMultiToken(address(term)).transferFrom(
-            _UNLOCK_TERM_ID,
-            msg.sender,
+            // There's no PT for this
             address(this),
-            sharesIn
+            0,
+            _UNLOCK_TERM_ID
         );
-        // Initialize the reserves.
-        _update(poolId, bondsIn.toUint128(), sharesIn.toUint128());
-        // TODO: Whether we are going to dynamically fetch the value of mu or passed an param.
-        uint256 mu = 5; // assigning a constant value to make it work for now, Once there is an aggreement it would be replaced
-        // `mu` should be greator than 0.
-        require(mu != uint256(0), "todo nice errors");
+        // We want to store the mu as an 18 point fraction
+        uint256 mu = (sharesMinted._normalize()) /
+            // Initialize the reserves.
+            _update(poolId, uint128(bondsIn), uint128(sharesMinted));
+
         // Add the timestretch into the mapping corresponds to the poolId.
         parameters[poolId] = SubPoolParameters(timeStretch, uint224(mu));
         // Mint LP tokens to the recipient.
@@ -238,8 +217,6 @@ contract Pool is LP {
         require(poolId > block.timestamp, "Todo nice time error");
         // Validate that `amount` is non zero.
         require(amount != uint256(0), "nice todo errors");
-        // Use `msg.sender` as receiver if the provided receiver is zero address.
-        receiver = receiver == address(0) ? msg.sender : receiver;
         // Read the cached reserves for the unlocked shares and bonds ,i.e. PT.
         Reserve memory cachedReserve = reserves[poolId];
         // Should check for the support with the pool.
@@ -299,8 +276,6 @@ contract Pool is LP {
         require(poolId > block.timestamp, "Todo nice time error");
         // Validate that `amount` is non zero.
         require(amountOut != uint256(0), "nice todo errors");
-        // Use `msg.sender` as recepient if the provided recepient is zero address.
-        recepient = recepient == address(0) ? msg.sender : recepient;
         // Read the cached reserves for the unlocked YT and bonds ,i.e. PT.
         uint128 cSharesReserve = reserves[poolId].shares;
         uint128 cBondsReserve = reserves[poolId].bonds;
@@ -383,17 +358,10 @@ contract Pool is LP {
         )
     {
         // Transfer the funds to the contract
-        IERC20(address(token)).safeTransferFrom(
-            msg.sender,
-            address(this),
-            amount
-        );
+        token.transferFrom(msg.sender, address(this), amount);
 
         // We deposit into the unlocked position of the term in order to calculate
         // the price per share and therefore implied interest rate.
-        // This is the step that deposits all value provided into the yield source
-        // Note - we need a pointless storage to memory to convince the solidity type checker
-        // to understand the type of []
         uint256[] memory empty = new uint256[](0);
         // Deposit the underlying token in to the tokenized vault
         // to get the shares of it.
@@ -518,44 +486,34 @@ contract Pool is LP {
         }
     }
 
-    /// @notice Return the bond balance of the contract, subtracting the fees from the actual balance.
-    /// @param poolId Identifier of the bond token whose balance gets queried.
-    function getBondBalance(uint256 poolId)
-        public
-        view
-        returns (uint128 _bondBalance)
-    {
-        return
-            (_getUnCheckedBondBalance(poolId) -
-                uint256(fees[poolId].feesInBonds)).toUint128();
-    }
-
     /// @notice Update the `tradeFee` by the governance contract.
     function updateTradeFee(uint256 newTradeFee) external onlyGovernance {
-        emit TradeFeeUpdated(tradeFee, tradeFee = newTradeFee);
+        // Emit an event showing update
+        emit TradeFeeUpdated(tradeFee, newTradeFee);
+        // change the state
+        tradeFee = newTradeFee;
     }
 
-    function _getUnCheckedBondBalance(uint256 poolId)
-        internal
-        view
-        returns (uint256)
-    {
-        return IMultiToken(address(term)).balanceOf(poolId, address(this));
+    function _normalize(uint256 input) internal returns (uint256) {
+        if (_decimals < 18) {
+            unchecked {
+                uint256 adjustFactor = 10**(18 - _decimals);
+                return input * adjustFactor;
+            }
+        } else {
+            return input;
+        }
     }
 
-    function buyBondsPreview(uint256 sharesIn, uint256 poolId)
-        external
-        view
-        returns (uint128 _expectedBondOut)
-    {
-        // Read the cached reserves for the unlocked YT and bonds ,i.e. PT.
-        Reserve memory cachedReserve = reserves[poolId];
-        return
-            _buyBondsPreview(
-                sharesIn.toUFixedPoint(),
-                uint256(cachedReserve.shares).toUFixedPoint(),
-                uint256(cachedReserve.bonds).toUFixedPoint()
-            );
+    function _denormalize(uint256 input) internal returns (uint256) {
+        if (_decimals < 18) {
+            unchecked {
+                uint256 adjustFactor = 10**(18 - _decimals);
+                return input / adjustFactor;
+            }
+        } else {
+            return input;
+        }
     }
 
     function _buyBondsPreview(
@@ -572,14 +530,5 @@ contract Pool is LP {
         UFixedPoint bondsReserve
     ) internal view returns (uint128 _expectedSharesOut) {
         // TODO - Access the library to know the amount.
-    }
-
-    /// @dev Used to create the name and symbol of the LP token using the given `_prefix` and `_sufix`.
-    function _processString(string memory _prefix, uint256 suffix)
-        internal
-        pure
-        returns (string memory _generatedString)
-    {
-        return DateString.encodeAndWriteTimestamp(_prefix, suffix);
     }
 }
