@@ -51,7 +51,7 @@ contract AaveProxy is Term {
 
         // set the reserve maximum and target
         maxReserve = _maxReserve;
-        targetReserve = maxReserve / 2; // TODO: generic math, do we want something different?
+        targetReserve = maxReserve / 2;
 
         // Set approval for the proxy
         token.approve(address(pool), type(uint256).max);
@@ -83,7 +83,6 @@ contract AaveProxy is Term {
 
         // make the deposit into aave
         // adjust the amount deposited by the underlying reserve
-        // TODO this address or msg.sender
         pool.supply(address(token), depositAmount, address(this), 0);
 
         // load the balance of aTokens after depositing
@@ -115,7 +114,6 @@ contract AaveProxy is Term {
             shares = depositAmount;
         } else {
             // else we adjust the share price
-            // TODO this calculation
             shares =
                 (depositAmount * totalSupply[UNLOCKED_YT_ID]) /
                 impliedUnderlyingReserve;
@@ -126,7 +124,6 @@ contract AaveProxy is Term {
         if (proposedUnderlyingReserve > maxReserve) {
             // if the proposed amount is greater than the max reserve we deposit
             // the excess into the actual aave pool
-            // TODO this address or msg.sender
             pool.supply(
                 address(token),
                 proposedUnderlyingReserve - targetReserve,
@@ -166,7 +163,6 @@ contract AaveProxy is Term {
         // get the underlying amount that's implied in the proxy
         uint256 impliedUnderlyingReserve = atokenInUnderlying +
             _underlyingReserve;
-        // TODO: this calculation
         uint256 shares = (atokenInUnderlying * totalSupply[UNLOCKED_YT_ID]) /
             impliedUnderlyingReserve;
         // adjust the atoken reserve value
@@ -231,7 +227,6 @@ contract AaveProxy is Term {
         uint256 impliedUnderlyingReserve = _atokenReserveInUnderlying() +
             _underlyingReserve;
         // calculate the amount desired from the withdrawal
-        // TODO this calculation
         uint256 underlyingDue = (amount * impliedUnderlyingReserve) /
             (amount + totalSupply[UNLOCKED_YT_ID]);
 
