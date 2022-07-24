@@ -2,23 +2,22 @@
 pragma solidity ^0.8.15;
 
 import "hardhat/console.sol";
-import "contracts/libraries/TypedFixedPointMathLib.sol";
-import "contracts/libraries/YieldSpaceMathLib.sol";
+import "contracts/libraries/YieldSpaceMath.sol";
 
 contract MockYieldSpaceMath {
     function calculateOutGivenIn(
-        UFixedPoint shareReserves,
-        UFixedPoint bondReserves,
-        UFixedPoint totalSupply,
-        UFixedPoint bondIn,
-        UFixedPoint t,
-        UFixedPoint s,
-        UFixedPoint c,
-        UFixedPoint mu,
+        uint256 shareReserves,
+        uint256 bondReserves,
+        uint256 totalSupply,
+        uint256 bondIn,
+        uint256 t,
+        uint256 s,
+        uint256 c,
+        uint256 mu,
         bool isBondOut
-    ) public view returns (UFixedPoint result) {
+    ) public view returns (uint256 result) {
         uint256 startGas = gasleft();
-        result = YieldSpaceMathLib.calculateOutGivenIn(
+        result = YieldSpaceMath.calculateOutGivenIn(
             shareReserves,
             bondReserves,
             totalSupply,

@@ -14,10 +14,18 @@ interface ITerm is IMultiToken {
         uint256[] memory internalAmount,
         uint256[] memory internalAssets,
         uint256 underlyingAmount,
+        bool hasPreFunding,
         address ytDestination,
         address ptDestination,
         uint256 ytBeginDate,
         uint256 expiration
+    ) external returns (uint256, uint256);
+
+    function depositUnlocked(
+        uint256 underlyingAmount,
+        uint256 ptAmount,
+        uint256 ptId,
+        address destination
     ) external returns (uint256, uint256);
 
     /// @notice removes all PTs and YTS input
@@ -31,7 +39,7 @@ interface ITerm is IMultiToken {
         uint256[] memory amount
     ) external returns (uint256);
 
-    function unlockedSharePrice() external returns (uint256);
+    function unlockedSharePrice() external view returns (uint256);
 
     function token() external view returns (IERC20);
 }

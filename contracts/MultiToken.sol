@@ -96,6 +96,7 @@ contract MultiToken is IMultiToken {
     /// @return Address of the ERC20 forwarder contract.
     function _deriveForwarderAddress(uint256 tokenId)
         internal
+        view
         returns (address)
     {
         // Get the salt which is used by the deploying contract

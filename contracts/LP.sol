@@ -32,7 +32,7 @@ contract LP is MultiToken {
     uint256 internal immutable _one;
 
     // The id for the unlocked deposit into the term, this is YT at expiry and start time 0
-    uint256 public constant unlockedTermID = 1 << 255;
+    uint256 public constant _UNLOCKED_TERM_ID = 1 << 255;
 
     /// @notice Runs the initial deployment code
     /// @param _token The token which is deposited into this contract
@@ -75,20 +75,11 @@ contract LP is MultiToken {
         // This is the step that deposits all value provided into the yield source
         // Note - we need a pointless storage to memory to convince the solidity type checker
         // to understand the type of []
-        uint256[] memory empty = new uint256[](0);
-        (uint256 depositedShares, ) = term.lock(
-            empty,
-            empty,
-            amount,
-            address(this),
-            // There's no PT for this
-            address(this),
-            0,
-            unlockedTermID
-        );
+        (uint256 valueDeposited, uint256 depositedShares) = term
+            .depositUnlocked(amount, 0, 0, address(this));
 
         // Calculate the implicit price per share
-        uint256 pricePerShare = (amount * _one) / depositedShares;
+        uint256 pricePerShare = (valueDeposited * _one) / depositedShares;
         // Call internal function to mint new lp from the new shares held by this contract
         uint256 newLpToken = _depositFromShares(
             poolId,
@@ -128,7 +119,7 @@ contract LP is MultiToken {
         uint256 sharesNeeded = (loadedShares * bondsDeposited) / loadedBonds;
         // Transfer shares from user
         term.transferFrom(
-            unlockedTermID,
+            _UNLOCKED_TERM_ID,
             msg.sender,
             address(this),
             sharesNeeded
@@ -169,7 +160,7 @@ contract LP is MultiToken {
 
         // Create the arrays for a withdraw from term
         uint256[] memory ids = new uint256[](1);
-        ids[0] = unlockedTermID;
+        ids[0] = _UNLOCKED_TERM_ID;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = userShares;
         // Do the withdraw to user account
@@ -263,7 +254,7 @@ contract LP is MultiToken {
 
         // Note need to declare dynamic memory types in this way even with _one element
         uint256[] memory ids = new uint256[](1);
-        ids[0] = unlockedTermID;
+        ids[0] = _UNLOCKED_TERM_ID;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = sharesToLock;
         // then make the call
@@ -271,6 +262,7 @@ contract LP is MultiToken {
             ids,
             amounts,
             0,
+            false,
             to,
             address(this),
             block.timestamp,
@@ -312,26 +304,16 @@ contract LP is MultiToken {
         // So if the pool is expired and has not withdrawn then we must withdraw
         // Leverage that the poolId == expiration
         if (block.timestamp >= poolId && reserveBonds != 0) {
-            // In this misnomer case we 'lock' the bonds from their PT state
-            // to an unlocked token, which matches the rest of the reserves.
-            // This ensures that the LP earns interest post expiry even if not withdrawing
-            uint256[] memory ids = new uint256[](1);
-            ids[0] = poolId;
-            uint256[] memory amounts = new uint256[](1);
-            amounts[0] = uint256(reserveBonds);
-            (uint256 sharesDeposited, ) = term.lock(
-                ids,
-                amounts,
+            // Create new unlocked shares from the expired PT
+            (, uint256 sharesCreated) = term.depositUnlocked(
                 0,
-                // there's no yt from this
-                address(this),
-                address(this),
-                0,
-                unlockedTermID
+                reserveBonds,
+                poolId,
+                address(this)
             );
             // Now we update the cached reserves
             reserveBonds = 0;
-            reserveShares += sharesDeposited;
+            reserveShares += sharesCreated;
         }
 
         // Cache the total supply for withdraws
