@@ -7,7 +7,7 @@ import "contracts/libraries/Errors.sol";
 /// @author Element Finance
 library FixedPointMath {
     int256 internal constant _ONE_18 = 1e18;
-    uint256 internal constant ONE_18 = 1e18;
+    uint256 public constant ONE_18 = 1e18;
 
     /// @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/FixedPoint.sol)
     function add(uint256 a, uint256 b) internal pure returns (uint256) {

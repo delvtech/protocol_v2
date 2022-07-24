@@ -32,7 +32,7 @@ contract LP is MultiToken {
     uint256 internal immutable _one;
 
     // The id for the unlocked deposit into the term, this is YT at expiry and start time 0
-    uint256 public constant _UNLOCKED_TERM_ID = 1 << 255;
+    uint256 internal constant _UNLOCKED_TERM_ID = 1 << 255;
 
     /// @notice Runs the initial deployment code
     /// @param _token The token which is deposited into this contract
