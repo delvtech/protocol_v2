@@ -49,18 +49,19 @@ import "./MultiToken.sol";
 /// and exit LP positions by depositing and withdrawing underlying to and from
 /// the reserve instead of directly depositing to the ERC4626 vault.
 /// TODO Explain AMM efficiences also
+///
 contract ERC4626Term is Term {
-    // address of ERC4626 vault
+    /// address of ERC4626 vault
     IERC4626 public immutable vault;
 
-    // accounts for the balance of "unlocked" underlying for this term
+    /// accounts for the balance of "unlocked" underlying for this term
     uint128 private _underlyingReserve;
-    // accounts for the balance of "unlocked" vaultShares for this term
+    /// accounts for the balance of "unlocked" vaultShares for this term
     uint128 private _vaultShareReserve;
 
-    // upper limit of balance of _underlyingReserve allowed in this contract
+    /// upper limit of balance of _underlyingReserve allowed in this contract
     uint256 public immutable maxReserve;
-    // desired amount of underlying
+    /// desired amount of underlying
     uint256 public immutable targetReserve;
 
     /// @notice Associates the vault to the protocol and sets reserve limits
@@ -103,7 +104,7 @@ contract ERC4626Term is Term {
         internal
         returns (uint256 shares, uint256 underlying)
     {
-        /// underlying is calculated by getting the differential balance of the
+        /// Underlying is calculated by getting the differential balance of the
         /// contract and the reserve of underlying.
         underlying =
             token.balanceOf(address(this)) -
@@ -244,7 +245,8 @@ contract ERC4626Term is Term {
         /// NOTE: There is an accounting caveat here as the `_shares` amount has
         /// been previously burned from the shares totalSupply. This must be
         /// accounted for so shares are redeemed in the correct ratio
-        uint256 underlying = (_shares * impliedUnderlyingReserve) /
+        underlying =
+            (_shares * impliedUnderlyingReserve) /
             (_shares + totalSupply[UNLOCKED_YT_ID]);
 
         /// Accounting of the reserves when withdrawing works as follows:
