@@ -82,20 +82,6 @@ contract ERC4626Term is Term {
         token.approve(address(_vault), type(uint256).max);
     }
 
-    /// @notice Amount of underlying held in reserve for the "Unlocked" context
-    /// @return Returns the number of underlying held in the `_underlyingReserve`
-    function underlyingReserve() public view returns (uint256) {
-        return uint256(_underlyingReserve);
-    }
-
-    /// @notice Amount of vaultShares held in reserve in the contract. This
-    ///         is only representative of the amount of vaultShares held in the
-    ///         "Unlocked" context.
-    /// @return Returns the number of vaultShares held in the `_vaultShareReserve`
-    function vaultShareReserve() public view returns (uint256) {
-        return uint256(_vaultShareReserve);
-    }
-
     /// @notice Deposits underlying into the ERC4626 vault and issues shares
     /// @param _state The context designation of the resulting shares
     /// @return Returns a tuple of number of shares and the value of those
@@ -119,7 +105,9 @@ contract ERC4626Term is Term {
     {
         /// underlying is calculated by getting the differential balance of the
         /// contract and the reserve of underlying.
-        underlying = token.balanceOf(address(this)) - underlyingReserve();
+        underlying =
+            token.balanceOf(address(this)) -
+            uint256(_underlyingReserve);
 
         /// deposits directly into the vault
         shares = vault.deposit(underlying, address(this));
