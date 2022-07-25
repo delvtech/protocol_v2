@@ -18,6 +18,9 @@ contract Pool is LP {
         BUY_SHARES
     }
 
+    // Constant Year in seconds, note there's no native support because of leap seconds
+    uint256 internal constant ONE_YEAR = 31536000;
+
     /// A percentage commission get charge on every trade & get distributed to LPs.
     /// It is in 18 decimals
     uint128 public tradeFee;
@@ -538,7 +541,7 @@ contract Pool is LP {
         // Normalize the seconds till expiry into 18 point
         uint256 timeToExpiry = (poolId - block.timestamp) * FixedPoint.ONE_18;
         // Express this as a fraction of seconds in year
-        timeToExpiry = timeToExpiry / (31536000);
+        timeToExpiry = timeToExpiry / (ONE_YEAR);
         // Get an 18 point fraction of 1/(time stretch)
         // Note - Because params.timestretch is in 3 point decimal
         //        we have to divide that out in the constant (10^18 * 10^3 = 10^21)
