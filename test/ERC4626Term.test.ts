@@ -63,7 +63,8 @@ describe("ERC4626Term", () => {
         vault.address,
         linkCodeHash,
         forwaderFactory.address,
-        MAX_RESERVE
+        MAX_RESERVE,
+        deployer.address
       );
 
     // get ID to track share total supply

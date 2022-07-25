@@ -70,13 +70,15 @@ contract ERC4626Term is Term {
     /// @param _factory The factory which is used to deploy the linking contracts
     /// @param _maxReserve Upper bound of underlying which can be held in the
     ///                    reserve
+    /// @param _owner this addresss will be made owner
     /// @dev Also sets the targetReserve to be a half of the maxReserve.
     constructor(
         IERC4626 _vault,
         bytes32 _linkerCodeHash,
         address _factory,
-        uint256 _maxReserve
-    ) Term(_linkerCodeHash, _factory, IERC20(_vault.asset())) {
+        uint256 _maxReserve,
+        address _owner
+    ) Term(_linkerCodeHash, _factory, IERC20(_vault.asset()), owner) {
         vault = _vault;
         maxReserve = _maxReserve;
         targetReserve = _maxReserve / 2;
