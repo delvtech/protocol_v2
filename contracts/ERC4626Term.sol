@@ -35,21 +35,20 @@ import "./MultiToken.sol";
 ///
 /// "shares" here differ from the "Locked" context so that the protocol can
 /// implement a gas reserve for an improved LP experience for small users and an
-/// overall more performative position for all LPers than protocol V1. In
-/// context of the wider architecture outside of this contract, the "shares"
-/// are a perpetual claim on a reserve of underlying withheld in the contract
-/// and underlying generating yield in the ERC4626 vault. This will price "
-/// shares" differently and will be less performative than the equivalent
-/// "Locked" shares over the duration of a term.
-/// The tradeoff for this decrease in performance is that small users can
-/// directly deposit and withdraw into and from the underlying reserve without
-/// having to interact with the ERC4626 vault, making LPing more gas efficient.
-/// Also, in comparison to the AMM architecture of V1 of the protocol, 50% of
-/// LPers underlying had to be used for market-making and could not be fully
-/// utilised to generate yield. By introducing an internally accountable
-/// adjusted abstraction over the yield position, LPers can utilise almost all
-/// of their capital while market making.
-///
+/// overall more performative position for all LPers than version 1 of the
+/// Element Protocol by comparison.
+/// In context of the wider architecture outside of this contract, the "shares"
+/// here represent a perpetual claim on a capped reserve of underlying withheld
+/// in the contract and underlying deposits generating yield in the ERC4626
+/// vault. This means that because the total sum of underlying is not deposited
+/// into the ERC4626 vault, by comparison with ShareState.Locked, there will
+/// be marginally less yield accrued throughout the duration of a term and price
+/// "unlocked" shares marginally worse than the equivalent "locked" shares.
+/// The tradeoff for having this reserve of underlying withheld from being
+/// deposited and accruing yield is so that smaller users can cheaply enter
+/// and exit LP positions by depositing and withdrawing underlying to and from
+/// the reserve instead of directly depositing to the ERC4626 vault.
+/// TODO Explain AMM efficiences also
 contract ERC4626Term is Term {
     // address of ERC4626 vault
     IERC4626 public immutable vault;
