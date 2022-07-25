@@ -112,8 +112,8 @@ contract ERC4626Term is Term {
 
     /// @notice Deposits underlying directly into the vault and issues "shares"
     ///         1:1 with the amount of vaultShares returned
-    /// @return Returns a tuple of number of shares and the value of those
-    ///         shares in underlying
+    /// @return shares Amount of shares issued
+    /// @return underlying Underlying value of shares issued
     function _depositLocked()
         internal
         returns (uint256 shares, uint256 underlying)
@@ -129,8 +129,8 @@ contract ERC4626Term is Term {
     /// @notice Deposits underlying either directly into the `underlyingReserve`
     ///         or does a rebalancing of the `underlyingReserve` into the
     ///         `vaultShareReserve`.
-    /// @return Returns a tuple of number of shares and the value of those
-    ///         shares in underlying
+    /// @return shares Amount of shares issued
+    /// @return underlying Underlying value of shares issued
     function _depositUnlocked()
         internal
         returns (uint256 shares, uint256 underlying)
@@ -221,7 +221,8 @@ contract ERC4626Term is Term {
     ///         "shares" which are directly proportional to "vaultShares"
     /// @param _shares Amount of "shares" user will redeem for underlying
     /// @param _dest Address underlying will be sent to
-    /// @return Returns the amount of underlying redeemed for amount of shares
+    /// @return underlying Returns the amount of underlying redeemed for amount
+    ///         of shares
     function _withdrawLocked(uint256 _shares, address _dest)
         internal
         returns (uint256 underlying)
@@ -235,7 +236,8 @@ contract ERC4626Term is Term {
     ///         `vaultShareReserve` for more underlying
     /// @param _shares Amount of "shares" user will redeem for underlying
     /// @param _dest Address underlying will be sent to
-    /// @return Returns the amount of underlying redeemed for amount of shares
+    /// @return underlying Returns the amount of underlying redeemed for amount
+    ///         of shares
     function _withdrawUnlocked(uint256 _shares, address _dest)
         internal
         returns (uint256 underlying)
@@ -346,7 +348,7 @@ contract ERC4626Term is Term {
 
     /// @notice Converts "locked" shares into "unlocked" shares
     /// @param _lockedShares Amount of "locked" shares to be exchanged
-    /// @return Amount of "unlocked" shares exchanged for
+    /// @return unlockedShares Amount of "unlocked" shares exchanged for
     function _convertLocked(uint256 _lockedShares)
         internal
         returns (uint256 unlockedShares)
@@ -376,7 +378,7 @@ contract ERC4626Term is Term {
 
     /// @notice Converts "unlocked" shares into "locked" shares
     /// @param _unlockedShares Amount of "unlocked" shares which will be exchanged
-    /// @return Amount of "locked" shares exchanged for
+    /// @return lockedShares Amount of "locked" shares exchanged for
     function _convertUnlocked(uint256 _unlockedShares)
         internal
         returns (uint256 lockedShares)
@@ -434,10 +436,16 @@ contract ERC4626Term is Term {
     }
 
     /// @notice Helper function for retrieving information about the reserves
-    /// @returns 4-tuple containing the amount of underlying and vaultShares in
-    ///          their respective reserves, the value of the `vaultShareReserve`
-    ///          in underlying terms and the combined underlying value of both
-    ///          reserves
+    /// @return underlyingReserve The amount of underlying accounted for in
+    ///         `_underlyingReserve`
+    /// @return vaultShareReserve The amount of vaultShares accounted for in
+    ///         `_vaultShareReserve`
+    /// @return vaultShareReserveAsUnderlying The underlying value of the
+    ///         vaultShareReserve
+    /// @return impliedUnderlyingReserve The sum of the `underlyingReserve`
+    ///         and the underlying value of the `vaultShareReserve`. The total
+    ///         "unlocked" shares are a proportional claim on this amount of
+    ///         underlying
     function reserveDetails()
         public
         view
