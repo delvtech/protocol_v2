@@ -17,6 +17,7 @@
         "callvalue",
         "casset",
         "chainid",
+        "concat",
         "cusdc",
         "deauthorize",
         "degradation",
