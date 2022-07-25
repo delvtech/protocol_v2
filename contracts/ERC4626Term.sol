@@ -126,7 +126,9 @@ contract ERC4626Term is Term {
         shares = vault.deposit(underlying, address(this));
     }
 
-    /// @notice Deposits underlying into the mutated reserve + vault position
+    /// @notice Deposits underlying either directly into the `underlyingReserve`
+    ///         or does a rebalancing of the `underlyingReserve` into the
+    ///         `vaultShareReserve`.
     /// @return Returns a tuple of number of shares and the value of those
     ///         shares in underlying
     function _depositUnlocked()
@@ -141,7 +143,7 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
 
-        /// underlying is calculated by getting the differential balance of the
+        /// Underlying is calculated by getting the differential balance of the
         /// contract and the reserve of underlying.
         underlying = token.balanceOf(address(this)) - underlyingReserve;
 
@@ -164,9 +166,6 @@ contract ERC4626Term is Term {
 
         /// Precomputed sum of `underlyingReserve` and deposited `underlying`
         uint256 proposedUnderlyingReserve = underlyingReserve + underlying;
-
-        // If sum total of underlying exceeds the maxReserve we rebalance to the
-        // targetReserve.
 
         /// Accounting of the reserves when depositing works as follows:
         ///
@@ -202,6 +201,11 @@ contract ERC4626Term is Term {
         }
     }
 
+    /// @notice Withdraws underlying from the ERC4626 vault by redeeming shares
+    /// @param _shares Amount of "shares" user will redeem for underlying
+    /// @param _dest Address underlying will be sent to
+    /// @param _state The context designation of the shares
+    /// @return Returns the amount of underlying redeemed for amount of shares
     function _withdraw(
         uint256 _shares,
         address _dest,
@@ -213,17 +217,30 @@ contract ERC4626Term is Term {
                 : _withdrawUnlocked(_shares, _dest);
     }
 
-    function _withdrawLocked(uint256 _vaultShares, address _dest)
+    /// @notice Withdraws underlying directly from the ERC4626 vault using
+    ///         "shares" which are directly proportional to "vaultShares"
+    /// @param _shares Amount of "shares" user will redeem for underlying
+    /// @param _dest Address underlying will be sent to
+    /// @return Returns the amount of underlying redeemed for amount of shares
+    function _withdrawLocked(uint256 _shares, address _dest)
         internal
-        returns (uint256)
+        returns (uint256 underlying)
     {
-        return vault.redeem(_vaultShares, _dest, address(this));
+        /// Redeems `_vaultShares` for underlying
+        underlying = vault.redeem(_shares, _dest, address(this));
     }
 
+    /// @notice Withdraws an amount of underlying from either the
+    ///         `underlyingReserve` or by redeeming a portion of the
+    ///         `vaultShareReserve` for more underlying
+    /// @param _shares Amount of "shares" user will redeem for underlying
+    /// @param _dest Address underlying will be sent to
+    /// @return Returns the amount of underlying redeemed for amount of shares
     function _withdrawUnlocked(uint256 _shares, address _dest)
         internal
-        returns (uint256)
+        returns (uint256 underlying)
     {
+        /// See reserveDetails()
         (
             uint256 underlyingReserve,
             uint256 vaultShareReserve,
@@ -231,40 +248,83 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
 
-        // NOTE: Shares MUST be burnt/removed from accounting for term before
-        // calling withdraw unlocked.
-        uint256 underlyingDue = (_shares * impliedUnderlyingReserve) /
+        /// Underlying due to the user is calculated relative to the ratio of
+        /// the `underlyingReserve` + underlyingValue of the `vaultShareReserve`
+        /// and the total supply of shares issued.
+        ///
+        /// NOTE: There is an accounting caveat here as the `_shares` amount has
+        /// been previously burned from the shares totalSupply so we must
+        /// account for this so shares are redeemed in the correct ratio
+        uint256 underlying = (_shares * impliedUnderlyingReserve) /
             (_shares + totalSupply[UNLOCKED_YT_ID]);
 
-        if (underlyingDue <= underlyingReserve) {
-            _setReserves(underlyingReserve - underlyingDue, vaultShareReserve);
-            token.transfer(_dest, underlyingDue);
+        /// Accounting of the reserves when withdrawing works as follows:
+        ///
+        /// 1) When the underlying due to the user is less than or equal to
+        /// `underlyingReserve`, that amount is transferred directly from the
+        /// reserve to the user.
+        ///
+        /// 2) If the amount of underlying due to the user is greater than the
+        /// underlyingReserve, the logic breaks into two further cases:
+        ///   2.1) If the amount of underlying due is greater than the
+        ///        underlying value of the `vaultShareReserve`, the entire
+        ///        `vaultShareReserve` is redeemed directly from the ERC4626
+        ///        vault for an amount of underlying, effectively removing all
+        ///        underlying from accruing yield.
+        ///        The underlying due to the user is then taken from the sum of
+        ///        underlying redeemed from the `vaultShareReserve` and the
+        ///        `underlyingReserve`
+        ///   2.2) If the amount of underlying due is less than or equal to
+        ///        the underlying value of the `vaultShareReserve`, the
+        ///        underlying due is withdrawn directly from the ERC4626 vault
+        ///        removing `vaultShares` from the `vaultShareReserve`. The
+        ///        underlyingReserve in this instance is left untouched
+        if (underlying <= underlyingReserve) {
+            /// Deducts amount of underlying due from `underlyingReserve`
+            _setReserves(underlyingReserve - underlying, vaultShareReserve);
+
+            /// Transfers underlying due to `_dest`
+            token.transfer(_dest, underlying);
         } else {
-            if (underlyingDue > vaultShareReserveAsUnderlying) {
+            /// Check if underlying value of vaultShareReserve can cover the
+            /// amount of underlying due to the user
+            if (underlying > vaultShareReserveAsUnderlying) {
+                /// Redeem all of the `vaultShareReserve` for an amount of
+                /// underlying
                 uint256 underlyingRedeemed = vault.redeem(
                     vaultShareReserve,
                     address(this),
                     address(this)
                 );
 
-                token.transfer(_dest, underlyingDue);
+                /// Transfer underlying due to `_dest`
+                token.transfer(_dest, underlying);
+                /// As we have checked implicitly `underlying` is greater than
+                /// `underlyingRedeemed`, it is assumed that the
+                /// `vaultShareReserve` is empty and any remaining underlying
+                /// due is covered by the `underlyingReserve`.
                 _setReserves(
-                    underlyingReserve - (underlyingDue - underlyingRedeemed),
+                    underlyingReserve - (underlying - underlyingRedeemed),
                     0
                 );
             } else {
-                uint256 withdrawnVaultShares = vault.withdraw(
-                    underlyingDue,
+                /// The underlying value of the `vaultShareReserve` covers the
+                /// amount of underlying due so the underlying can be withdrawn
+                /// directly from the ERC4626 vault, burning `vaultShares` from
+                /// this contract
+                uint256 vaultShares = vault.withdraw(
+                    underlying,
                     _dest,
                     address(this)
                 );
+                /// The `underlyingReserve` is unchanged. Deducts `vaultShares`
+                /// burned from the withdrawal from the `vaultShareReserve`
                 _setReserves(
                     underlyingReserve,
-                    vaultShareReserve - withdrawnVaultShares
+                    vaultShareReserve - vaultShares
                 );
             }
         }
-        return underlyingDue;
     }
 
     function _convert(ShareState _state, uint256 _shares)
