@@ -369,9 +369,9 @@ contract Pool is LP {
         uint256 impliedInterest = changeInBonds - valuePaid;
         // Get the fee for the LP
         // Note - Fee percent are stored as 18 point fractions
-        uint256 totalFee = (impliedInterest * tradeFee) / 1e18;
+        uint256 totalFee = (impliedInterest * tradeFee) / FixedPoint.ONE_18;
         // Calculate shares to gov
-        uint256 govFee = (totalFee * governanceFeePercent) / 1e18;
+        uint256 govFee = (totalFee * governanceFeePercent) / FixedPoint.ONE_18;
         // Set into state the fees paid
         governanceFees[poolId].feesInBonds += uint128(govFee);
 
@@ -479,13 +479,13 @@ contract Pool is LP {
         // and bond face value
         uint256 impliedInterest = amount - shareValue;
         // Calculate total fee with the multiplier which is an 18 point fraction
-        uint256 fee = (impliedInterest * uint256(tradeFee)) / 1e18;
+        uint256 fee = (impliedInterest * uint256(tradeFee)) / FixedPoint.ONE_18;
         // The fee in shares is the percent of share value that is fee times shares
         uint256 shareFee = (shareValue * fee) / shareValue;
         // The governance percent is the this times by the 18 point governance percent
         // faction
         uint256 governanceFee = (shareFee * uint256(governanceFeePercent)) /
-            1e18;
+            FixedPoint.ONE_18;
         // Change the state to account for this fee
         // WARN - Do not allow calling this function outside the context of a trade
         governanceFees[poolId].feesInShares += uint128(governanceFee);
@@ -536,7 +536,7 @@ contract Pool is LP {
         // Load the mu and time stretch
         SubPoolParameters memory params = parameters[poolId];
         // Normalize the seconds till expiry into 18 point
-        uint256 timeToExpiry = (poolId - block.timestamp) * 1e18;
+        uint256 timeToExpiry = (poolId - block.timestamp) * FixedPoint.ONE_18;
         // Express this as a fraction of seconds in year
         timeToExpiry = timeToExpiry / (31536000);
         // Get an 18 point fraction of 1/(time stretch)

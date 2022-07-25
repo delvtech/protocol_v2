@@ -60,41 +60,54 @@ library DateString {
     /// @param _timestamp the timestamp to encode and store
     /// NOTE - Current cost ~90k if gas is problem revisit and use assembly to remove the extra
     ///        sstore s.
-    function encodeAndWriteTimestamp(
-        string memory _prefix,
-        uint256 _timestamp
-    ) external pure returns(string memory) {
+    function encodeAndWriteTimestamp(string memory _prefix, uint256 _timestamp)
+        external
+        pure
+        returns (string memory)
+    {
         return _encodeAndWriteTimestamp(_prefix, _timestamp);
     }
 
     /// @dev Sn internal version of the above function 'encodeAndWriteTimestamp'
     // solhint-disable-next-line
-    function _encodeAndWriteTimestamp(
-        string memory _prefix,
-        uint256 _timestamp
-    ) internal pure returns(string memory) {
-        return string(abi.encodePacked(_prefix,"-",timestampToDateString(_timestamp)));
+    function _encodeAndWriteTimestamp(string memory _prefix, uint256 _timestamp)
+        internal
+        pure
+        returns (string memory)
+    {
+        return
+            string(
+                abi.encodePacked(
+                    _prefix,
+                    "-",
+                    timestampToDateString(_timestamp)
+                )
+            );
     }
 
     /// @dev Converts a unix second encoded timestamp to a date format (year, month, day)
     ///      and return the output bytes.
     /// @param _timestamp the unix seconds timestamp
-    function timestampToDateString(
-        uint256 _timestamp
-    ) public pure returns (string memory) {
-       return _timestampToDateString(_timestamp);
+    function timestampToDateString(uint256 _timestamp)
+        public
+        pure
+        returns (string memory)
+    {
+        return _timestampToDateString(_timestamp);
     }
 
     /// @dev Sn internal version of the above function 'timestampToDateString'
     // solhint-disable-next-line
-    function _timestampToDateString(
-        uint256 _timestamp
-    ) internal pure returns(string memory) {
+    function _timestampToDateString(uint256 _timestamp)
+        internal
+        pure
+        returns (string memory)
+    {
         // First we get the day month and year
         (uint256 year, uint256 month, uint256 day) = _daysToDate(
             _timestamp / SECONDS_PER_DAY
         );
-  
+
         // Extract the first digit of the day,i.e tenth's place.
         bytes1 firstDigitDate = bytes1(uint8(bytes1("0")) + uint8(day / 10));
         // Extract the second digit of the day,i.e first's place.
@@ -102,15 +115,32 @@ library DateString {
         // Calculate the year no. in current century.
         uint256 last2digitsOfYear = year % 100;
         // Extract the first digit of the year,i.e tenth's place.
-        bytes1 firstDigitYear = bytes1(uint8(bytes1("0")) + uint8(last2digitsOfYear / 10));
+        bytes1 firstDigitYear = bytes1(
+            uint8(bytes1("0")) + uint8(last2digitsOfYear / 10)
+        );
         // Extract the second digit of the year,i.e first's place.
-        bytes1 secondDigitYear = bytes1(uint8(bytes1("0")) + uint8(last2digitsOfYear % 10));
+        bytes1 secondDigitYear = bytes1(
+            uint8(bytes1("0")) + uint8(last2digitsOfYear % 10)
+        );
         // Get the month name in the ASCII format.
         bytes3 monthName = getMonthName(month);
-        return string(bytes.concat(firstDigitDate, secondDigitDate, monthName, firstDigitYear, secondDigitYear));
+        return
+            string(
+                bytes.concat(
+                    firstDigitDate,
+                    secondDigitDate,
+                    monthName,
+                    firstDigitYear,
+                    secondDigitYear
+                )
+            );
     }
 
-    function getMonthName(uint256 month) internal pure returns(bytes3 _monthName) {
+    function getMonthName(uint256 month)
+        internal
+        pure
+        returns (bytes3 _monthName)
+    {
         // Next we encode the month string and add it
         if (month == 1) {
             return 0x4A414E; // ASCII value of JAN
