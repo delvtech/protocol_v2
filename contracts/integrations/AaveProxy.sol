@@ -9,14 +9,17 @@ import "../interfaces/external/aave/IRewardsController.sol";
 import "../interfaces/external/aave/IAToken.sol";
 
 contract AaveProxy is Term {
+    // Aave contract addresses
     IPool public immutable pool;
     IRewardsController public immutable rewardsController;
     IAToken public immutable aToken;
 
+    // these are stored as uint128's to be more gas efficient since
+    // they are always accessed together
     // the proxy underlying reserve amount
-    uint256 private _underlyingReserve;
+    uint128 private _underlyingReserve;
     // the pool share amount
-    uint256 private _atokenReserve;
+    uint128 private _atokenReserve;
 
     // the maximum amount of reserves for the proxy to store
     uint256 public immutable maxReserve;
@@ -57,6 +60,14 @@ contract AaveProxy is Term {
         token.approve(address(pool), type(uint256).max);
     }
 
+    function underlyingReserve() public view returns (uint256) {
+        return uint256(_underlyingReserve);
+    }
+
+    function aTokenReserve() public view returns (uint256) {
+        return uint256(_atokenReserve);
+    }
+
     /// @notice Deposits available funds into the Aave pool
     /// @param state the state of funds to deposit
     /// @return tuple (shares minted, amount underlying used)
@@ -76,13 +87,12 @@ contract AaveProxy is Term {
         // load the contract's balance in underlying
         uint256 balance = token.balanceOf(address(this));
         // adjust the deposit amount by the underlying reserve
-        uint256 depositAmount = balance - _underlyingReserve;
+        uint256 depositAmount = balance - underlyingReserve();
 
         // load the balance of aTokens before depositing
         uint256 beforeBalance = aToken.balanceOf(address(this));
 
         // make the deposit into aave
-        // adjust the amount deposited by the underlying reserve
         pool.supply(address(token), depositAmount, address(this), 0);
 
         // load the balance of aTokens after depositing
@@ -95,17 +105,22 @@ contract AaveProxy is Term {
         return (sharesMinted, depositAmount);
     }
 
+    // TODO: I think the math is going to be much different here because of the aTokens minted through pool's supply
     /// @notice The unlocked version of deposit
     /// @return tuple (shares minuted, amount underlying used)
     function _depositUnlocked() internal returns (uint256, uint256) {
+        // get details about reserve state
+        (
+            uint256 underlyingReserve,
+            uint256 aTokenReserve,
+            uint256 aTokenReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        ) = reserveDetails();
+
         // load the contract's balance in underlying
         uint256 balance = token.balanceOf(address(this));
         // adjust the deposit amount by the underlying reserve
-        uint256 depositAmount = balance - _underlyingReserve;
-
-        // get the underlying amount that's implied in the proxy
-        uint256 impliedUnderlyingReserve = _atokenReserveInUnderlying() +
-            _underlyingReserve;
+        uint256 depositAmount = balance - underlyingReserve;
 
         // calculate the shares deposited
         uint256 shares;
@@ -124,16 +139,26 @@ contract AaveProxy is Term {
         if (proposedUnderlyingReserve > maxReserve) {
             // if the proposed amount is greater than the max reserve we deposit
             // the excess into the actual aave pool
+
+            // load the balance of aTokens before depositing
+            uint256 beforeBalance = aToken.balanceOf(address(this));
             pool.supply(
                 address(token),
                 proposedUnderlyingReserve - targetReserve,
                 address(this),
                 0
             );
+            // load the balance of aTokens after depositing
+            uint256 afterBalance = aToken.balanceOf(address(this));
+            // set the new reserve amounts
+            _setReserves(
+                targetReserve,
+                aTokenReserve + (afterBalance - beforeBalance)
+            );
         } else {
             // if we haven't reached our max reserve, we don't deposit into the pool
-            // adjust reserve amount
-            _underlyingReserve = proposedUnderlyingReserve;
+            // set the new reserve amount
+            _setReserves(proposedUnderlyingReserve, aTokenReserve);
         }
 
         return (shares, depositAmount);
@@ -158,15 +183,19 @@ contract AaveProxy is Term {
     /// @param amount the number of shares to convert
     /// @return the amount of shares that have been converted
     function _convertLocked(uint256 amount) internal returns (uint256) {
-        // get the pool shares into their underlying value
-        uint256 atokenInUnderlying = _underlying(amount, ShareState.Locked);
-        // get the underlying amount that's implied in the proxy
-        uint256 impliedUnderlyingReserve = atokenInUnderlying +
-            _underlyingReserve;
-        uint256 shares = (atokenInUnderlying * totalSupply[UNLOCKED_YT_ID]) /
-            impliedUnderlyingReserve;
-        // adjust the atoken reserve value
-        _atokenReserve += amount;
+        // get details about reserve state
+        (
+            uint256 underlyingReserve,
+            uint256 aTokenReserve,
+            uint256 aTokenReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        ) = reserveDetails();
+        // adjust the value
+        uint256 shares = (aTokenReserveAsUnderlying *
+            totalSupply[UNLOCKED_YT_ID]) / impliedUnderlyingReserve;
+        // TODO: minting atokens?
+        // set the atoken reserve value
+        _setReserves(underlyingReserve, aTokenReserve + amount);
         return shares;
     }
 
@@ -174,11 +203,18 @@ contract AaveProxy is Term {
     /// @param amount the number of shares to convert
     /// @return the amount of shares that have been converted
     function _convertUnlocked(uint256 amount) internal returns (uint256) {
+        // get details about reserve state
+        (
+            uint256 underlyingReserve,
+            uint256 aTokenReserve,
+            uint256 aTokenReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        ) = reserveDetails();
         // convert input amount into its corresponding representation in aTokens
         // TODO this calculation
         uint256 amountInAtokens;
         // adjust reserve value
-        _atokenReserve -= amountInAtokens;
+        _setReserves(underlyingReserve, aTokenReserve - amountInAtokens);
         return amountInAtokens;
     }
 
@@ -207,7 +243,7 @@ contract AaveProxy is Term {
         returns (uint256)
     {
         // convert the amount of shares to underlying to input to pools withdraw
-        uint256 shares = _underlying(amount, ShareState.Locked);
+        uint256 shares = _convertToUnderlying(amount);
 
         // execute the withdrawal (pool also transfers to the user)
         uint256 amountReceived = pool.withdraw(address(token), shares, to);
@@ -223,31 +259,54 @@ contract AaveProxy is Term {
         internal
         returns (uint256)
     {
-        // get the underlying amount that's implied in the proxy
-        uint256 impliedUnderlyingReserve = _atokenReserveInUnderlying() +
-            _underlyingReserve;
+        // get details about reserve state
+        (
+            uint256 underlyingReserve,
+            uint256 aTokenReserve,
+            uint256 aTokenReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        ) = reserveDetails();
         // calculate the amount desired from the withdrawal
         uint256 underlyingDue = (amount * impliedUnderlyingReserve) /
             (amount + totalSupply[UNLOCKED_YT_ID]);
 
-        if (underlyingDue <= _underlyingReserve) {
-            // if the desired amount is within the proxy's reserves then we
-            // withdraw from the reserves instead of the actual pool
+        if (underlyingDue <= underlyingReserve) {
+            // if the desired amount is within the proxy's underlying reserves
+            // then withdraw from those instead of the actual pool
 
             // set new reserve amount
-            _underlyingReserve -= underlyingDue;
+            _setReserves(underlyingReserve - underlyingDue, aTokenReserve);
             // transfer from the proxy to the user
             token.transferFrom(address(this), to, underlyingDue);
         } else {
-            // if there isn't enough in the proxy reserve, we withdraw from the actual pool
-            uint256 amountReceived = pool.withdraw(
-                address(token),
-                underlyingDue,
-                to
-            );
-            // adjust the reserve amount
-            _atokenReserve -= amountReceived;
-            // TODO missing logic from this else block
+            if (underlyingDue <= aTokenReserveAsUnderlying) {
+                // if the desired amount is within the aToken reserve we withdraw from
+                // the pool to the proxy
+                uint256 amountReceived = pool.withdraw(
+                    address(token),
+                    underlyingDue,
+                    address(this)
+                );
+                // transfer the amount due to the user
+                token.transfer(to, underlyingDue);
+                // adjust the reserve amount
+                _setReserves(underlyingReserve, aTokenReserve - amountReceived);
+            } else {
+                // the desired amount is greater than either reserve type
+                // so we withdraw from a combination of them
+
+                // withdraw the entire amount from the aToken reserve
+                uint256 amountReceived = pool.withdraw(
+                    address(token),
+                    aTokenReserve,
+                    to
+                );
+                // adjust the reserve value to take the remaining withdraw amount underlying reserve
+                _setReserves(
+                    underlyingReserve - (underlyingDue - amountReceived),
+                    0
+                );
+            }
         }
         return underlyingDue;
     }
@@ -275,8 +334,42 @@ contract AaveProxy is Term {
         rewardsController.claimAllRewards(aTokenAddress, to);
     }
 
-    /// @notice placeholder function for getting the pool reserves in underlying
-    function _atokenReserveInUnderlying() internal returns (uint256) {
+    /// @notice placeholder function for conversion math TBD
+    // in 4626 vaults, previewRedeem is a handy way to do this that Aave does not have
+    function _convertToUnderlying(uint256 amount)
+        internal
+        pure
+        returns (uint256)
+    {
         return 0;
+    }
+
+    function reserveDetails()
+        public
+        view
+        returns (
+            uint256 underlyingReserve,
+            uint256 aTokenReserve,
+            uint256 aTokenReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        )
+    {
+        (underlyingReserve, aTokenReserve) = (
+            uint256(_underlyingReserve),
+            uint256(_atokenReserve)
+        );
+
+        aTokenReserveAsUnderlying = _convertToUnderlying(_atokenReserve);
+
+        impliedUnderlyingReserve = (underlyingReserve +
+            aTokenReserveAsUnderlying);
+    }
+
+    function _setReserves(
+        uint256 _newUnderlyingReserve,
+        uint256 _newVaultShareReserve
+    ) internal {
+        _underlyingReserve = uint128(_newUnderlyingReserve);
+        _atokenReserve = uint128(_newVaultShareReserve);
     }
 }
