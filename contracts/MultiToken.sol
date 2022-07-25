@@ -110,6 +110,7 @@ contract MultiToken is IMultiToken {
 
     /// @notice Returns the name of the sub token i.e PTs or YTs token supported
     ///         by this contract.
+    /// @param id The pool id to load the name of
     /// @return Returns the name of this token
     function name(uint256 id)
         external
@@ -123,6 +124,7 @@ contract MultiToken is IMultiToken {
 
     /// @notice Returns the symbol of the sub token i.e PTs or YTs token supported
     ///         by this contract.
+    /// @param id The pool id to load the name of
     /// @return Returns the symbol of this token
     function symbol(uint256 id)
         external
