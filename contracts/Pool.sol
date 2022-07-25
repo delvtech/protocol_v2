@@ -77,7 +77,7 @@ contract Pool is LP {
 
     /// Modifier to verify whether the msg.sender is governance contract or not.
     modifier onlyGovernance() {
-        require(msg.sender != governanceContract, "todo nice errors");
+        require(msg.sender == governanceContract, "todo nice errors");
         _;
     }
 
