@@ -488,7 +488,7 @@ contract Pool is LP {
         // The fee in shares is the percent of share value that is fee times shares
         uint256 shareFee = (shareValue * fee) / shareValue;
         // The governance percent is the this times by the 18 point governance percent
-        // faction
+        // fraction
         uint256 governanceFee = (shareFee * uint256(governanceFeePercent)) /
             FixedPointMath.ONE_18;
         // Change the state to account for this fee
