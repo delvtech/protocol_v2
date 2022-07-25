@@ -253,8 +253,8 @@ contract ERC4626Term is Term {
         /// and the total supply of shares issued.
         ///
         /// NOTE: There is an accounting caveat here as the `_shares` amount has
-        /// been previously burned from the shares totalSupply so we must
-        /// account for this so shares are redeemed in the correct ratio
+        /// been previously burned from the shares totalSupply. This must be
+        /// accounted for so shares are redeemed in the correct ratio
         uint256 underlying = (_shares * impliedUnderlyingReserve) /
             (_shares + totalSupply[UNLOCKED_YT_ID]);
 
@@ -327,6 +327,12 @@ contract ERC4626Term is Term {
         }
     }
 
+    /// @notice Converts shares between respective "ShareStates", exchanging
+    ///         by accounting internally how much underlying both are worth
+    /// @param _state The ShareState the shares will be converted from
+    /// @param _shares Amount of "shares" user will redeem for underlying
+    /// @return Amount of "shares" of the opposite ShareState which is
+    ///         exchanged for
     function _convert(ShareState _state, uint256 _shares)
         internal
         override
@@ -338,11 +344,17 @@ contract ERC4626Term is Term {
                 : _convertUnlocked(_shares);
     }
 
-    function _convertLocked(uint256 _vaultShares)
+    /// @notice Converts "locked" shares into "unlocked" shares
+    /// @param _lockedShares Amount of "locked" shares to be exchanged
+    /// @return Amount of "unlocked" shares exchanged for
+    function _convertLocked(uint256 _lockedShares)
         internal
-        returns (uint256 shares)
+        returns (uint256 unlockedShares)
     {
-        uint256 vaultSharesAsUnderlying = vault.previewRedeem(_vaultShares);
+        /// Get the underlying value of the amount of "locked" shares
+        uint256 lockedSharesAsUnderlying = vault.previewRedeem(_lockedShares);
+
+        /// See reserveDetails()
         (
             uint256 underlyingReserve,
             uint256 vaultShareReserve,
@@ -350,17 +362,26 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
 
-        shares =
-            (vaultSharesAsUnderlying * totalSupply[UNLOCKED_YT_ID]) /
+        /// Computes the value of "unlocked" shares for the underlying value of
+        /// the "locked" shares
+        unlockedShares =
+            (lockedSharesAsUnderlying * totalSupply[UNLOCKED_YT_ID]) /
             impliedUnderlyingReserve; // NOTE: zero divide here if reserves are not initialised
 
-        _setReserves(underlyingReserve, vaultShareReserve + _vaultShares);
+        /// The `vaultShares` representing the "locked" shares already exist on
+        /// the contract so the `vaultShareReserve` is incremented with the
+        /// amount of `_lockedShares`
+        _setReserves(underlyingReserve, vaultShareReserve + _lockedShares);
     }
 
-    function _convertUnlocked(uint256 _shares)
+    /// @notice Converts "unlocked" shares into "locked" shares
+    /// @param _unlockedShares Amount of "unlocked" shares which will be exchanged
+    /// @return Amount of "locked" shares exchanged for
+    function _convertUnlocked(uint256 _unlockedShares)
         internal
-        returns (uint256 vaultShares)
+        returns (uint256 lockedShares)
     {
+        /// See reserveDetails()
         (
             uint256 underlyingReserve,
             uint256 vaultShareReserve,
@@ -368,24 +389,40 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
 
-        // NOTE: Shares MUST be burnt/removed from accounting for term before
-        // calling convert unlocked.
-        uint256 sharesAsUnderlying = (_shares * impliedUnderlyingReserve) /
-            (_shares + totalSupply[UNLOCKED_YT_ID]);
+        /// NOTE: There is an accounting caveat here as the `_unlockedShares`
+        /// amount has been previously burned from the shares totalSupply. This
+        /// must be accounted for so shares are redeemed in the correct ratio
+        uint256 unlockedSharesAsUnderlying = (_unlockedShares *
+            impliedUnderlyingReserve) /
+            (_unlockedShares + totalSupply[UNLOCKED_YT_ID]);
 
-        vaultShares = vault.previewWithdraw(sharesAsUnderlying);
+        /// Compute the value of "locked" shares using the underlying value of
+        /// the "unlocked" shares
+        lockedShares = vault.previewWithdraw(unlockedSharesAsUnderlying);
 
-        require(vaultShares <= vaultShareReserve, "not enough vault shares");
+        /// Check if enough `vaultShares` in the `vaultShareReserve`
+        require(lockedShares <= vaultShareReserve, "not enough vault shares");
 
-        _setReserves(underlyingReserve, vaultShareReserve - vaultShares);
+        /// Deduct `lockedShares` from the `vaultShareReserve`
+        _setReserves(underlyingReserve, vaultShareReserve - lockedShares);
     }
 
+    /// @notice Calculates the underlying value of the shares in either
+    ///         ShareState
+    /// @param _shares Amount of "shares" to be valued
+    /// @param _state The "ShareState" of the `_shares`
+    /// @return The underlying value of `_shares`
     function _underlying(uint256 _shares, ShareState _state)
         internal
         view
         override
         returns (uint256)
     {
+        /// When pricing "locked" shares, `_shares` are directly analogous to
+        /// `vaultShares` and so we can price them as if they were
+        ///
+        /// In the "unlocked" context, `_shares` are priced relative to the ratio
+        /// of the `impliedUnderlying` and the totalSupply of "unlocked" shares
         if (_state == ShareState.Locked) {
             return vault.previewRedeem(_shares);
         } else {
@@ -396,6 +433,11 @@ contract ERC4626Term is Term {
         }
     }
 
+    /// @notice Helper function for retrieving information about the reserves
+    /// @returns 4-tuple containing the amount of underlying and vaultShares in
+    ///          their respective reserves, the value of the `vaultShareReserve`
+    ///          in underlying terms and the combined underlying value of both
+    ///          reserves
     function reserveDetails()
         public
         view
@@ -406,17 +448,23 @@ contract ERC4626Term is Term {
             uint256 impliedUnderlyingReserve
         )
     {
+        /// Retrieve both reserves.
         (underlyingReserve, vaultShareReserve) = (
             uint256(_underlyingReserve),
             uint256(_vaultShareReserve)
         );
 
+        /// Compute the underlying value of the `vaultShareReserve`
         vaultShareReserveAsUnderlying = vault.previewRedeem(vaultShareReserve);
 
+        /// Compute the implied underlying value of both reserves
         impliedUnderlyingReserve = (underlyingReserve +
             vaultShareReserveAsUnderlying);
     }
 
+    /// @notice Setter function which overwrites the reserve values
+    /// @param _newUnderlyingReserve the new underlyingReserve amount
+    /// @param _newVaultShareReserve the new vaultShareReserve amount
     function _setReserves(
         uint256 _newUnderlyingReserve,
         uint256 _newVaultShareReserve
