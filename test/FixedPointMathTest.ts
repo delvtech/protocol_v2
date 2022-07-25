@@ -83,19 +83,6 @@ describe("FixedPointMath Tests", function () {
         }
       );
     }); // End Untyped
-
-    describe("Typed", function () {
-      forEach(addTests).it(
-        "handles %s+%s",
-        async function (x: string, y: string) {
-          const expected = fp(add(x, y));
-          const result = await MockFixedPointMath.addTyped(fp(x), fp(y));
-          expect(Number(ethers.utils.formatEther(result))).to.be.equal(
-            Number(ethers.utils.formatEther(expected))
-          );
-        }
-      );
-    }); //End Typed
   }); // End add()
 
   context("sub()", function () {
@@ -134,19 +121,6 @@ describe("FixedPointMath Tests", function () {
         }
       );
     }); // End Untyped
-
-    describe("Typed", function () {
-      forEach(subTests).it(
-        "handles %s-%s",
-        async function (x: string, y: string) {
-          const expected = fp(sub(x, y));
-          const result = await MockFixedPointMath.subTyped(fp(x), fp(y));
-          expect(Number(ethers.utils.formatEther(result))).to.be.equal(
-            Number(ethers.utils.formatEther(expected))
-          );
-        }
-      );
-    }); //End Typed
   }); // End sub()
 
   context("pow()", function () {
@@ -203,32 +177,6 @@ describe("FixedPointMath Tests", function () {
         await expect(fn).to.be.revertedWith("ELF#006"); //X_OUT_OF_BOUNDS in _ln()
       });
     }); // End Untyped
-
-    describe("Typed", function () {
-      forEach(powTests).it(
-        "handles %s^(%s)",
-        async function (x: string, y: string) {
-          const expected = fp(pow(x, y));
-          const result = await MockFixedPointMath.powTyped(fp(x), fp(y));
-          expect(Number(ethers.utils.formatEther(result))).to.be.equal(
-            Number(ethers.utils.formatEther(expected))
-          );
-        }
-      );
-      it("Should revert when yln(x) >= floor(log((2**255-1) / 1e18) * 1e18)", async function () {
-        const x = "10000";
-        const y = "289480223093290488558927462521719769633";
-        const fn = MockFixedPointMath.powTyped(fp(x), fp(y));
-        await expect(fn).to.be.revertedWith("ELF#009"); //INVALID_EXPONENT in exp()
-      });
-      it("Should revert when pow(2**255/1e18,1) bc x overflows an int256", async function () {
-        const x =
-          "57896044618658097711785492504343953926634992332820282019728.792003956564819968";
-        const y = "1";
-        const fn = MockFixedPointMath.pow(fp(x), fp(y));
-        await expect(fn).to.be.revertedWith("ELF#006"); //X_OUT_OF_BOUNDS in _ln()
-      });
-    }); //End Typed
   }); // End pow()
 
   context("exp()", function () {

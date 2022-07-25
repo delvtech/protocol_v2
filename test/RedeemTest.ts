@@ -89,7 +89,16 @@ describe.only("Redeem tests", async () => {
     // create a term by locking some tokens
     await yieldAdapter
       .connect(signers[0])
-      .lock([], [], 1e4, signers[0].address, signers[0].address, start, ptId);
+      .lock(
+        [],
+        [],
+        1e4,
+        false,
+        signers[0].address,
+        signers[0].address,
+        start,
+        ptId
+      );
     const tx = yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e3);
     expect(tx).to.be.revertedWith("tokens from different terms");
   });
@@ -107,7 +116,16 @@ describe.only("Redeem tests", async () => {
     // create a term by locking some tokens
     await yieldAdapter
       .connect(signers[0])
-      .lock([], [], 1e4, signers[0].address, signers[0].address, start, expiry);
+      .lock(
+        [],
+        [],
+        1e4,
+        false,
+        signers[0].address,
+        signers[0].address,
+        start,
+        expiry
+      );
 
     const tx = yieldAdapter.connect(signers[1]).redeem(ytId, ptId, 1e3);
     await expect(tx).to.be.revertedWith(
@@ -133,7 +151,16 @@ describe.only("Redeem tests", async () => {
     // create a term by locking some tokens
     await yieldAdapter
       .connect(signers[0])
-      .lock([], [], 1e4, signers[0].address, signers[0].address, start, expiry);
+      .lock(
+        [],
+        [],
+        1e4,
+        false,
+        signers[0].address,
+        signers[0].address,
+        start,
+        expiry
+      );
 
     // redeem more than available
     const tx = yieldAdapter.connect(signers[0]).redeem(ytId, ptId, 1e6);
@@ -153,6 +180,7 @@ describe.only("Redeem tests", async () => {
       [],
       [],
       1e4,
+      false,
       signers[0].address,
       signers[0].address,
       start,
@@ -180,6 +208,7 @@ describe.only("Redeem tests", async () => {
       [],
       [],
       1e4,
+      false,
       signers[0].address,
       signers[0].address,
       start,

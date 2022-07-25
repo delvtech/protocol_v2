@@ -34,7 +34,7 @@ library YieldSpaceMath {
         uint256 outReserves;
         uint256 rhs;
         // Notes: 1 >= 1-st >= 0
-        uint256 oneMinusT = uint256(1e18).sub(s.mulDown(t));
+        uint256 oneMinusT = FixedPointMath.ONE_18.sub(s.mulDown(t));
         // c/mu
         uint256 cDivMu = c.divDown(mu);
         uint256 modifiedBondReserves = bondReserves.add(totalSupply);
