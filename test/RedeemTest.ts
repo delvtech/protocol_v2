@@ -21,7 +21,7 @@ import { getTokenId } from "./helpers/tokenIds";
 
 const { provider } = waffle;
 
-describe("Redeem tests", async () => {
+describe.only("Redeem tests", async () => {
   let signers: SignerWithAddress[];
   let factory: ForwarderFactory;
   let token: TestERC20;
