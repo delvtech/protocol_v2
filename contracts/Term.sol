@@ -177,16 +177,16 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     /// @dev We use this functionality to help manage fund flow in the AMM, and keep LP funds invested
     /// @param underlyingAmount The token which will be transferred from the caller
     /// @param ptAmount If this is larger than zero the function will also try to burn PT from the caller
-    /// @param ptId The id of the pt which is burned from the user
+    /// @param ptExpiry The time the pt for the user expires, this is also it's id
     /// @param destination The destination of the outputted unlocked shares
     /// @return the value of the deposit, and the shares created
     function depositUnlocked(
         uint256 underlyingAmount,
         uint256 ptAmount,
-        uint256 ptId,
+        uint256 ptExpiry,
         address destination
     ) external override returns (uint256, uint256) {
-        // If the user will send in tokens then transfer from them
+        // If the user wants to send in tokens transfer them to this contract
         if (underlyingAmount != 0) {
             token.transferFrom(msg.sender, address(this), underlyingAmount);
         }
@@ -196,11 +196,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // If we are also redeeming a PT
         if (ptAmount != 0) {
             // Ensure this is a PT Id
-            require(ptId >> 255 == 0, "Not pt");
-            require(ptId < block.timestamp, "Not expired");
+            // NOTE - All YT have the top bit as 1 and so are larger than any conceivable
+            //        block.timestamp.
+            // Todo - Make sure there's a test for the fact no YT id passes
+            require(ptExpiry < block.timestamp, "Not expired");
             // Then we burn the pt from the user and release its shares
             (uint256 lockedShares, uint256 ptValue) = _releaseAsset(
-                ptId,
+                ptExpiry,
                 msg.sender,
                 ptAmount
             );
