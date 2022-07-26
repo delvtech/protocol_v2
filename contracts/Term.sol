@@ -7,7 +7,6 @@ import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
 
-
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
     struct YieldState {
@@ -558,10 +557,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         } else {
             // calculate the user's interest in terms of shares
             uint256 interestShares = ((value - amount) * userShares) / value;
-            console.log(value);
-            console.log(amount);
-            console.log(userShares);
-
             // withdraw the interest from the yield source
             _withdraw(interestShares, destination, ShareState.Locked);
             // create yt with remaining shares
