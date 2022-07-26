@@ -78,7 +78,7 @@ contract ERC4626Term is Term {
         address _factory,
         uint256 _maxReserve,
         address _owner
-    ) Term(_linkerCodeHash, _factory, IERC20(_vault.asset()), owner) {
+    ) Term(_linkerCodeHash, _factory, IERC20(_vault.asset()), _owner) {
         vault = _vault;
         maxReserve = _maxReserve;
         targetReserve = _maxReserve / 2;
