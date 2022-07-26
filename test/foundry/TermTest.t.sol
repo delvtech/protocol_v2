@@ -20,7 +20,7 @@ contract MockTerm is Term {
         address _factory,
         IERC20 _token,
         address _owner
-    ) Term(_linkerCodeHash, _factory, _token, _owner) {}
+    ) Term(_linkerCodeHash, _factory, _token, _owner) {} // solhint-disable-line no-empty-blocks
 
     function _deposit(ShareState)
         internal

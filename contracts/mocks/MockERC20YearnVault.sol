@@ -58,7 +58,7 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
     }
 
     /**
-    @notice Deposit `_amount` of tokens into the yearn vault. 
+    @notice Deposit `_amount` of tokens into the yearn vault.
     `_recipient` receives shares.
     @param _amount The amount of underlying tokens to deposit.
     @param _recipient The recipient of the vault shares.
@@ -88,6 +88,8 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
         address _recipient,
         uint256 _maxLoss
     ) external override returns (uint256) {
+        // silence unused function parameter warning
+        require(_maxLoss >= 0);
         require(_maxShares > 0, "Can't withdraw zero");
         require(balanceOf[msg.sender] >= _maxShares, "Shares exceed balance");
         uint256 value = _shareValue(_maxShares);
@@ -110,7 +112,7 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
     @notice Get the governance address. It will be address(0)
     it is not used for this mock.
      */
-    function governance() public view override returns (address) {
+    function governance() public pure override returns (address) {
         return address(0);
     }
 
@@ -118,7 +120,9 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
     @notice The deposit limit for this vault.
     @dev Can only be unlimited for this mock.
      */
-    function setDepositLimit(uint256 _limit) public override {
+    function setDepositLimit(uint256 _limit) public view override {
+        // silence unused function parameter warning
+        require(_limit >= 0);
         require(msg.sender == governance(), "!governance");
     }
 
@@ -156,7 +160,7 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
 
     /**
     @notice Return the amount of underlying tokens an amount of `_shares`
-    is worth at any given time. 
+    is worth at any given time.
     @param _shares The amount of shares to check.
     @return The amount of underlying tokens the `_shares` can be redeemed for.
      */

@@ -39,6 +39,7 @@ contract MockYieldAdapter is IYieldAdapter, Term {
     /// Turns unlocked shares into locked shares and vice versa
     function _convert(ShareState state, uint256 shares)
         internal
+        pure
         override
         returns (uint256)
     {

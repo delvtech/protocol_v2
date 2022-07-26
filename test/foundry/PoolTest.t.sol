@@ -60,7 +60,6 @@ contract PoolTest is Test {
         uint256 poolId = block.timestamp + 1000;
         uint256 underlyingIn = 1;
         uint32 timeStretch = 1;
-        address recipient = address(user1);
         // Configure approval so that Pool can transfer usdc from User to itself
         hevm.startPrank(address(user1));
         usdc.approve(address(pool), type(uint256).max);
