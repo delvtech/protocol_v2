@@ -180,9 +180,11 @@ contract AaveProxy is Term {
     }
 
     /// @notice converts shares from locked to unlocked
-    /// @param amount the number of shares to convert
+    /// @param lockedShares the number of locked shares to convert
     /// @return the amount of shares that have been converted
-    function _convertLocked(uint256 amount) internal returns (uint256) {
+    function _convertLocked(uint256 lockedShares) internal returns (uint256) {
+        // convert the shares to their underlying value
+        uint256 amountToConvert = _convertToUnderlying(lockedShares);
         // get details about reserve state
         (
             uint256 underlyingReserve,
@@ -191,18 +193,20 @@ contract AaveProxy is Term {
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
         // adjust the value
-        uint256 shares = (aTokenReserveAsUnderlying *
-            totalSupply[UNLOCKED_YT_ID]) / impliedUnderlyingReserve;
-        // TODO: minting atokens?
-        // set the atoken reserve value
-        _setReserves(underlyingReserve, aTokenReserve + amount);
+        uint256 shares = (amountToConvert * totalSupply[UNLOCKED_YT_ID]) /
+            impliedUnderlyingReserve;
+        // increase the atoken reserve value
+        _setReserves(underlyingReserve, aTokenReserve + lockedShares);
         return shares;
     }
 
     /// @notice converts shares from unlocked to locked
-    /// @param amount the number of shares to convert
+    /// @param unlockedShares the number of unlocked shares to convert
     /// @return the amount of shares that have been converted
-    function _convertUnlocked(uint256 amount) internal returns (uint256) {
+    function _convertUnlocked(uint256 unlockedShares)
+        internal
+        returns (uint256)
+    {
         // get details about reserve state
         (
             uint256 underlyingReserve,
@@ -210,12 +214,14 @@ contract AaveProxy is Term {
             uint256 aTokenReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
-        // convert input amount into its corresponding representation in aTokens
-        // TODO this calculation
-        uint256 amountInAtokens;
+        // convert input shares to their underlying value
+        // we have to account for amount already being burned from totalSupply
+        uint256 amountToConvert = (unlockedShares * impliedUnderlyingReserve) /
+            (unlockedShares + totalSupply[UNLOCKED_YT_ID]);
+
         // adjust reserve value
-        _setReserves(underlyingReserve, aTokenReserve - amountInAtokens);
-        return amountInAtokens;
+        _setReserves(underlyingReserve, aTokenReserve - unlockedShares);
+        return amountToConvert;
     }
 
     /// @notice redeems shares from the pool and transfers to the user
