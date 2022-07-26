@@ -13,7 +13,7 @@ import { ecsign } from "ethereumjs-util";
 
 const { provider } = waffle;
 
-describe("MultiToken Tests", async () => {
+describe("MultiToken", async () => {
   let token: MockMultiToken;
   let factory: ForwarderFactory;
   let signers: SignerWithAddress[];

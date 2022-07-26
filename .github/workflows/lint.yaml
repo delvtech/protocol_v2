@@ -12,6 +12,10 @@ jobs:
       runs-on: ubuntu-latest
 
       steps:
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14
+
       - name: check out github repository
         uses: actions/checkout@v2
         with:
@@ -19,7 +23,7 @@ jobs:
 
       - name: init
         run: npm ci
-      
+
       - name: Style Check
         run: npm run style-check
 

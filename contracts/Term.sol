@@ -418,12 +418,14 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 termShares = yieldTerms[UNLOCKED_YT_ID].shares;
         uint256 userShares = (termShares * amount) /
             totalSupply[UNLOCKED_YT_ID];
+
+        // Query the value of these shares
+        uint256 shareValue = _underlying(userShares, ShareState.Unlocked);
+
         // Burn from the user
         _burn(UNLOCKED_YT_ID, source, amount);
         // Subtract their shares from total
         yieldTerms[UNLOCKED_YT_ID].shares = uint128(termShares - userShares);
-        // Query the value of these shares
-        uint256 shareValue = _underlying(userShares, ShareState.Unlocked);
         // Return the shares released and their value
         return (userShares, shareValue);
     }

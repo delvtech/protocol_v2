@@ -2,19 +2,22 @@
   "name": "element-protocol",
   "version": "2.0.0",
   "description": "Element protocol v2 smart contract",
+  "engines": {
+    "node": "^14"
+  },
   "scripts": {
     "solhint": "npx solhint -f table contracts/*.sol contracts/**/*.sol contracts/**/**/*.sol",
     "spell-check": "npx cspell ./**/**/**.sol --gitignore && npx cspell ./**/**/**.ts --gitignore",
     "style-check": "npx prettier --check .",
     "prettier": "npx prettier --write .",
     "lint": "npm run solhint & npm run style-check & npm run spell-check",
-    "build": "npm run clean & npx hardhat compile",
+    "build": "npx hardhat compile",
     "clean": "npx hardhat clean",
-    "test": "npx hardhat compile && npx hardhat test --config hardhat.config.test.ts ./test/*.ts",
+    "test": "npx hardhat compile && npx hardhat test --config hardhat.config.test.ts",
     "sim": "npx hardhat compile && npx hardhat test --config hardhat.config.test.ts ./test/simulation/*.ts",
     "typecheck": "npx hardhat compile && npx tsc --noEmit -p tsconfig.json",
-    "coverage": "COVERAGE=true NODE_OPTIONS=--max_old_space_size=8192 npx hardhat coverage --solcoverjs \".solcover.js\" --testfiles \"./test/*.ts\"",
-    "test:quick": "npx hardhat test --config hardhat.config.test.ts ./test/*.ts --no-compile",
+    "coverage": "COVERAGE=true NODE_OPTIONS=--max_old_space_size=8192 npx hardhat coverage --solcoverjs \".solcover.js\" --testfiles \"./test/**/*.ts\"",
+    "test:quick": "npx hardhat test --no-compile --config hardhat.config.test.ts",
     "unit:test": "npx hardhat test --no-compile --config hardhat.config.test.ts",
     "postinstall": "patch-package --patch-dir .patches",
     "prepare": "husky install"
@@ -74,7 +77,7 @@
     "typescript": "^4.7.3"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.6.0",
+    "@openzeppelin/contracts": "^4.7.0",
     "ethereumjs-util": "^7.1.5",
     "module-alias": "^2.2.2"
   }
