@@ -60,3 +60,25 @@ git submodule update --init --recursive
 ```
 forge test
 ```
+
+### Add modules for Foundry
+
+Foundry install directly from github.  In order to install a new module, you simply need to run:
+
+```
+forge install GH_NAMESPACE/GH_REPO
+# i.e.
+forge install Openzeppelin/openzeppelin-contracts
+```
+
+If this works, you'll see that the .gitmodules file has been updated:
+```
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/Openzeppelin/openzeppelin-contracts
+```
+
+In order to import from the module, you'll need to update foundry.toml:
+```
+remappings = ['forge-std=lib/forge-std/src', '@openzeppelin/=lib/openzeppelin-contracts']
+```

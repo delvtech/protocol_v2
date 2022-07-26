@@ -29,7 +29,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     mapping(uint256 => FinalizedState) public finalizedTerms;
 
     // The underlying token
-    IERC20 public immutable token;
+    IERC20 public immutable override token;
     // The decimals and decimal adjusted constant 1
     uint8 public immutable decimals;
     uint256 public immutable one;
@@ -225,7 +225,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         address destination,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external returns (uint256) {
+    ) external override returns (uint256) {
         // To release shares we delete any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
