@@ -2,9 +2,8 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import { Hevm } from "./utils/Hevm.sol";
 import { Pool } from "../../contracts/Pool.sol";
-import { TestERC20 } from "../../contracts/mocks/TestERC20.sol";
+import { MockERC20Permit } from "../../contracts/mocks/MockERC20Permit.sol";
 import { MockERC20YearnVault } from "../../contracts/mocks/MockERC20YearnVault.sol";
 import { MockYieldAdapter } from "../../contracts/mocks/MockYieldAdapter.sol";
 
@@ -14,15 +13,14 @@ contract User {
 }
 
 contract PoolTest is Test {
-    Pool internal pool;
-    MockYieldAdapter internal yieldAdapter;
-    User internal user1;
-    TestERC20 internal usdc;
-    Hevm internal constant hevm = Hevm(HEVM_ADDRESS);
+    Pool public pool;
+    MockYieldAdapter public yieldAdapter;
+    User public user1;
+    MockERC20Permit public usdc;
 
     function setUp() public {
         // Contract initialization
-        usdc = new TestERC20("USDC", "USDC", 6);
+        usdc = new MockERC20Permit("USDC", "USDC", 6);
         address governanceContract = address(1);
         MockERC20YearnVault yearnVault = new MockERC20YearnVault(address(usdc));
         bytes32 linkerCodeHash = bytes32(0);
@@ -47,7 +45,7 @@ contract PoolTest is Test {
         );
 
         // Configure approval so that YieldAdapter(term) can transfer usdc from Pool to itself
-        hevm.prank(address(pool), address(pool));
+        vm.prank(address(pool), address(pool));
         usdc.approve(address(yieldAdapter), type(uint256).max);
 
         // Configure user1
@@ -60,13 +58,12 @@ contract PoolTest is Test {
         uint256 poolId = block.timestamp + 1000;
         uint256 underlyingIn = 1;
         uint32 timeStretch = 1;
-        address recipient = address(user1);
         // Configure approval so that Pool can transfer usdc from User to itself
-        hevm.startPrank(address(user1));
+        vm.startPrank(address(user1));
         usdc.approve(address(pool), type(uint256).max);
         // registerPoolId
         pool.registerPoolId(poolId, underlyingIn, timeStretch, address(user1));
-        hevm.stopPrank();
+        vm.stopPrank();
         uint256 balanceAfter = usdc.balanceOf(address(user1));
         assertEq(balanceBefore, balanceAfter + underlyingIn);
     }

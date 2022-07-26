@@ -5,7 +5,7 @@ import {
   ForwarderFactory,
   MockERC20YearnVault,
   MockYieldAdapter,
-  TestERC20,
+  MockERC20Permit,
 } from "typechain-types";
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
 import {
@@ -21,7 +21,7 @@ const { provider } = waffle;
 describe("Convert YT Tests", async () => {
   let signers: SignerWithAddress[];
   let factory: ForwarderFactory;
-  let token: TestERC20;
+  let token: MockERC20Permit;
   let vault: MockERC20YearnVault;
   let yieldAdapter: MockYieldAdapter;
 
@@ -35,7 +35,7 @@ describe("Convert YT Tests", async () => {
     factory = await factoryFactory.deploy();
 
     const tokenFactory = await ethers.getContractFactory(
-      "TestERC20",
+      "MockERC20Permit",
       signers[0]
     );
     token = await tokenFactory.deploy("token", "TKN", 18);
@@ -134,7 +134,7 @@ describe("Convert YT Tests", async () => {
     });
 
     // This test doesn't make sense bc there is no passage of time to accrue interest.
-    // The reason it used to pass was bc we weren't divind _underlying by one in the YieldAdapter
+    // The reason it used to pass was bc we weren't dividing _underlying by one in the YieldAdapter
     it.skip("successful non-compound conversion", async () => {
       const convertAmount = 1e2;
       const start = await getCurrentTimestamp(provider);
@@ -172,7 +172,7 @@ describe("Convert YT Tests", async () => {
     });
 
     // The test "framework" doesn't properly accrue interest so this test will never work.
-    // The reason it used to pass was bc we weren't divind _underlying by one in the YieldAdapter
+    // The reason it used to pass was bc we weren't dividing _underlying by one in the YieldAdapter
     it.skip("successful non-compound conversion after time passes", async () => {
       const convertAmount = 2e2;
       const start = await getCurrentTimestamp(provider);

@@ -3,10 +3,9 @@ pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
-import "./utils/Hevm.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
-import "contracts/mocks/TestERC20.sol";
+import "contracts/mocks/MockERC20Permit.sol";
 import "contracts/interfaces/IERC20.sol";
 
 contract User {
@@ -20,7 +19,7 @@ contract MockTerm is Term {
         address _factory,
         IERC20 _token,
         address _owner
-    ) Term(_linkerCodeHash, _factory, _token, _owner) {}
+    ) Term(_linkerCodeHash, _factory, _token, _owner) {} // solhint-disable-line no-empty-blocks
 
     function _deposit(ShareState)
         internal
@@ -62,12 +61,12 @@ contract MockTerm is Term {
 contract TermTest is Test {
     ForwarderFactory public ff;
     Term public term;
-    TestERC20 public token;
+    MockERC20Permit public token;
     User public user;
 
     function setUp() public {
         ff = new ForwarderFactory();
-        token = new TestERC20("Test Token", "tt", 18);
+        token = new MockERC20Permit("Test Token", "tt", 18);
         user = new User();
         term = new MockTerm(
             ff.ERC20LINK_HASH(),
