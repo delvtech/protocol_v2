@@ -103,7 +103,7 @@ describe("Redeem tests", async () => {
     expect(tx).to.be.revertedWith("tokens from different terms");
   });
 
-  it("Fails when sender isn't authorized", async () => {
+  it.skip("Fails when sender isn't authorized", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
