@@ -2,11 +2,11 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import {Hevm} from "./utils/Hevm.sol";
-import {Pool} from "../../contracts/Pool.sol";
-import {TestERC20} from "../../contracts/mocks/TestERC20.sol";
-import {MockERC20YearnVault} from "../../contracts/mocks/MockERC20YearnVault.sol";
-import {MockYieldAdapter} from "../../contracts/mocks/MockYieldAdapter.sol";
+import { Hevm } from "./utils/Hevm.sol";
+import { Pool } from "../../contracts/Pool.sol";
+import { TestERC20 } from "../../contracts/mocks/TestERC20.sol";
+import { MockERC20YearnVault } from "../../contracts/mocks/MockERC20YearnVault.sol";
+import { MockYieldAdapter } from "../../contracts/mocks/MockYieldAdapter.sol";
 
 contract User {
     // max uint approve for spending
@@ -24,26 +24,39 @@ contract PoolTest is Test {
     User internal user1;
     TestERC20 internal usdc;
     Hevm internal constant hevm = Hevm(HEVM_ADDRESS);
+
     function setUp() public {
         // Contract initialization
-        usdc = new TestERC20("USDC","USDC",6);
+        usdc = new TestERC20("USDC", "USDC", 6);
         address governanceContract = address(1);
         MockERC20YearnVault yearnVault = new MockERC20YearnVault(address(usdc));
         bytes32 linkerCodeHash = bytes32(0);
         address forwarderFactory = address(1);
-        yieldAdapter = new MockYieldAdapter(address(yearnVault),governanceContract,linkerCodeHash,forwarderFactory,usdc);
+        yieldAdapter = new MockYieldAdapter(
+            address(yearnVault),
+            governanceContract,
+            linkerCodeHash,
+            forwarderFactory,
+            usdc
+        );
         uint256 tradeFee = 10;
         bytes32 erc20ForwarderCodeHash = bytes32(0);
         address erc20ForwarderFactory = address(1);
-        pool = new Pool(yieldAdapter,usdc,tradeFee,erc20ForwarderCodeHash,governanceContract,erc20ForwarderFactory);
+        pool = new Pool(
+            yieldAdapter,
+            usdc,
+            tradeFee,
+            erc20ForwarderCodeHash,
+            governanceContract,
+            erc20ForwarderFactory
+        );
 
         // Configure approval so that YieldAdapter(term) can transfer usdc from Pool to itself
-        hevm.prank(address(pool),address(pool));
-        usdc.approve(address(yieldAdapter),  type(uint256).max);
+        hevm.prank(address(pool), address(pool));
+        usdc.approve(address(yieldAdapter), type(uint256).max);
 
         // Configure user1
         user1 = new User();
-
     }
 
     function testRegisterPoolId() public {
@@ -60,8 +73,6 @@ contract PoolTest is Test {
         pool.registerPoolId(poolId, underlyingIn, timeStretch, address(user1));
         hevm.stopPrank();
         uint256 balanceAfter = usdc.balanceOf(address(user1));
-        assertEq(balanceBefore, balanceAfter + underlyingIn );
-
-        
+        assertEq(balanceBefore, balanceAfter + underlyingIn);
     }
 }
