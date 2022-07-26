@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import { Hevm } from "./utils/Hevm.sol";
 import { Pool } from "../../contracts/Pool.sol";
 import { MockERC20Permit } from "../../contracts/mocks/MockERC20Permit.sol";
 import { MockERC20YearnVault } from "../../contracts/mocks/MockERC20YearnVault.sol";
@@ -18,7 +17,6 @@ contract PoolTest is Test {
     MockYieldAdapter public yieldAdapter;
     User public user1;
     MockERC20Permit public usdc;
-    Hevm public hevm = Hevm(HEVM_ADDRESS);
 
     function setUp() public {
         // Contract initialization
@@ -47,7 +45,7 @@ contract PoolTest is Test {
         );
 
         // Configure approval so that YieldAdapter(term) can transfer usdc from Pool to itself
-        hevm.prank(address(pool), address(pool));
+        vm.prank(address(pool), address(pool));
         usdc.approve(address(yieldAdapter), type(uint256).max);
 
         // Configure user1
@@ -61,11 +59,11 @@ contract PoolTest is Test {
         uint256 underlyingIn = 1;
         uint32 timeStretch = 1;
         // Configure approval so that Pool can transfer usdc from User to itself
-        hevm.startPrank(address(user1));
+        vm.startPrank(address(user1));
         usdc.approve(address(pool), type(uint256).max);
         // registerPoolId
         pool.registerPoolId(poolId, underlyingIn, timeStretch, address(user1));
-        hevm.stopPrank();
+        vm.stopPrank();
         uint256 balanceAfter = usdc.balanceOf(address(user1));
         assertEq(balanceBefore, balanceAfter + underlyingIn);
     }
