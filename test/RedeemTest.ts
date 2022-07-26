@@ -21,7 +21,7 @@ import { getTokenId } from "./helpers/tokenIds";
 
 const { provider } = waffle;
 
-describe.only("Redeem tests", async () => {
+describe("Redeem tests", async () => {
   let signers: SignerWithAddress[];
   let factory: ForwarderFactory;
   let token: TestERC20;
@@ -103,12 +103,7 @@ describe.only("Redeem tests", async () => {
     expect(tx).to.be.revertedWith("tokens from different terms");
   });
 
-  // This test fails with the eror:
-  // Error: Transaction reverted: function was called with incorrect parameters
-  // Matching the error message for now until the issue is resolved
-  // Seems to be a hardhat issue with the version of solc
-  // https://github.com/NomicFoundation/hardhat/issues/2453
-  it("Fails when sender isn't authorized", async () => {
+  it.skip("Fails when sender isn't authorized", async () => {
     const start = await getCurrentTimestamp(provider);
     const expiry = start + ONE_YEAR_IN_SECONDS;
     const ytId = getTokenId(start, expiry);
@@ -128,9 +123,7 @@ describe.only("Redeem tests", async () => {
       );
 
     const tx = yieldAdapter.connect(signers[1]).redeem(ytId, ptId, 1e3);
-    await expect(tx).to.be.revertedWith(
-      "Transaction reverted: function was called with incorrect parameters"
-    );
+    await expect(tx).to.be.revertedWith("Sender not Authorized");
   });
 
   it("Fails if no term exists for inputs", async () => {

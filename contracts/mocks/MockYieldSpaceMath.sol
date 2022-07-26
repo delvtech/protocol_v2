@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "hardhat/console.sol";
 import "contracts/libraries/YieldSpaceMath.sol";
 
 contract MockYieldSpaceMath {
@@ -16,7 +15,6 @@ contract MockYieldSpaceMath {
         uint256 mu,
         bool isBondOut
     ) public view returns (uint256 result) {
-        uint256 startGas = gasleft();
         result = YieldSpaceMath.calculateOutGivenIn(
             shareReserves,
             bondReserves,
@@ -28,6 +26,5 @@ contract MockYieldSpaceMath {
             mu,
             isBondOut
         );
-        console.log("gasUsed", startGas - gasleft());
     }
 }
