@@ -58,64 +58,80 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         setOwner(_owner);
     }
 
-    /// @dev Takes an input as a mix of the underlying token, expired PT and YT, and unlocked shares
-    ///      then uses their value to create new PT and YT.
+    /// @notice Takes an input as a mix of the underlying token, expired PT and YT, and unlocked shares
+    ///      then uses their value to create new PT and YT. Cannot make unlocked deposit shares
     /// @param assetIds The array of PT, YT and Unlocked share identifiers. NOTE - The IDs MUST be unique
     ///                 and sorted.
     /// @param assetAmounts The amount of each input PT, YT and Unlocked share to use
     /// @param underlyingAmount The amount of underlying transferred from the user.
+    /// @param hasPreFunding If true a user can forward tokens ahead instead of doing transfer from
     /// @param ytDestination The address to mint the YTs to
     /// @param ptDestination The address to mint the PTs to
     /// @param ytBeginDate The start timestamp of the YTs, note if it is in the future the
     ///                    Yt will be created at current timestamp.
     /// @param expiration the expiration timestamp
-    /// @return a tuple of the number of PT's and YT's created
+    /// @return Returns the number of principal and yield tokens created
     function lock(
         uint256[] memory assetIds,
         uint256[] memory assetAmounts,
         uint256 underlyingAmount,
+        bool hasPreFunding,
         address ytDestination,
         address ptDestination,
         uint256 ytBeginDate,
         uint256 expiration
     ) external returns (uint256, uint256) {
         // If the user enters something larger than the current timestamp we set the yt
-        // expiry to the current timestamp\
+        // expiry to the current timestamp
         ytBeginDate = ytBeginDate >= block.timestamp
             ? block.timestamp
             : ytBeginDate;
         // Next check the validity of the requested expiry
-        require(
-            expiration > block.timestamp || expiration == 0,
-            "todo nice error"
-        );
+        require(expiration > block.timestamp, "todo nice error");
         // The yt can't start after
         // Running tally of the added value
         uint256 totalValue = 0;
         // Running total of the total shares
         uint256 totalShares = 0;
-        // The unlocked vs locked state of the destination for shares
-        ShareState destinationState = expiration == 0
-            ? ShareState.Unlocked
-            : ShareState.Locked;
 
         // Transfer underlying into the contract and then deposit into the yield source
         if (underlyingAmount != 0) {
             // Transfer in shares
             token.transferFrom(msg.sender, address(this), underlyingAmount);
+        }
+        // If the user is transferred from or they have transferred themselves
+        // NOTE - These pre-funding paths allow external call sequencers to avoid ERC20 transfers
+        if (underlyingAmount != 0 || hasPreFunding) {
             // We check if the deposit should be in the locked or unlocked state
             // Note - The code path difference is that locked must be invested while
             //        for some hard to withdraw yield strategies the unlocked term may not be
-            (totalShares, totalValue) = _deposit(destinationState);
+            (totalShares, totalValue) = _deposit(ShareState.Locked);
         }
 
-        // To release shares we delete any input PT and YT, these may be unlocked or locked
-        uint256 releasedSharesLocked = 0;
-        uint256 releasedSharesUnlocked = 0;
+        // We pre-declare the index of the for loop to handle a special case
+        uint256 i = 0;
         uint256 previousId = 0;
-        // Deletes any assets which are rolling over and returns how many much in terms of
+        // If the user has supplied 'unlocked' tokens because of the sorting they must
+        // be the first index
+        if (assetIds.length > 0 && assetIds[0] == UNLOCKED_YT_ID) {
+            // Burn the unlocked asset from the user
+            (uint256 unlockedShares, uint256 value) = _releaseAsset(
+                UNLOCKED_YT_ID,
+                msg.sender,
+                assetAmounts[0]
+            );
+            // Record the value
+            totalValue += value;
+            // Convert the shares
+            totalShares += _convert(ShareState.Unlocked, unlockedShares);
+            // Do not do the first step of the for loop
+            i = 1;
+            previousId = UNLOCKED_YT_ID;
+        }
+
+        // Deletes (burn) any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
-        for (uint256 i = 0; i < assetIds.length; i++) {
+        for (; i < assetIds.length; i++) {
             // helps the stack
             uint256 id = assetIds[i];
             uint256 amount = assetAmounts[i];
@@ -130,40 +146,11 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 amount
             );
 
-            // Record the shares which were released
-            if (id == UNLOCKED_YT_ID) {
-                releasedSharesUnlocked += shares;
-            } else {
-                releasedSharesLocked += shares;
-            }
+            // Record the shares which were released. Note these cannot be the special case
+            // unlocked share type they must be locked shares
+            totalShares += shares;
             // No matter the source add the value to the running total
             totalValue += value;
-        }
-
-        // Add the correct share type to the output
-        totalShares = expiration == 0
-            ? totalShares + releasedSharesUnlocked
-            : totalShares + releasedSharesLocked;
-        // Do optional share conversion, we convert any shares of the wrong type to the other
-        if (expiration == 0) {
-            // Only process a conversion if one is needed
-            if (releasedSharesLocked != 0) {
-                // Turns the locked shares released into unlocked shares.
-                // Might trigger deposits or withdraws, but may not.
-                totalShares += _convert(
-                    ShareState.Locked,
-                    releasedSharesLocked
-                );
-            }
-        } else {
-            // Only process a conversion if one is needed.
-            if (releasedSharesLocked != 0) {
-                // Turns the locked shares into unlocked shares
-                totalShares += _convert(
-                    ShareState.Unlocked,
-                    releasedSharesUnlocked
-                );
-            }
         }
 
         // Use the total value to create the yield tokens, also sets internal accounting
@@ -180,8 +167,53 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         if (totalValue - discount > 0) {
             _mint(expiration, ptDestination, totalValue - discount);
         }
-
+        // In this case the PT is totalValue - discount and the YT is total value
         return (totalValue - discount, totalValue);
+    }
+
+    /// @notice Creates an unlocked deposit into the term which can be withdraw at any time
+    ///         this deposit can be locked into principal and yield tokens. It may or may not
+    ///         earn interest depending on the implementation.
+    /// @dev We use this functionality to help manage fund flow in the AMM, and keep LP funds invested
+    /// @param underlyingAmount The token which will be transferred from the caller
+    /// @param ptAmount If this is larger than zero the function will also try to burn PT from the caller
+    /// @param ptId The id of the pt which is burned from the user
+    /// @param destination The destination of the outputted unlocked shares
+    /// @return the value of the deposit, and the shares created
+    function depositUnlocked(
+        uint256 underlyingAmount,
+        uint256 ptAmount,
+        uint256 ptId,
+        address destination
+    ) external override returns (uint256, uint256) {
+        // If the user will send in tokens then transfer from them
+        if (underlyingAmount != 0) {
+            token.transferFrom(msg.sender, address(this), underlyingAmount);
+        }
+        // Do a deposit
+        (uint256 shares, uint256 value) = _deposit(ShareState.Unlocked);
+
+        // If we are also redeeming a PT
+        if (ptAmount != 0) {
+            // Ensure this is a PT Id
+            require(ptId >> 255 == 0, "Not pt");
+            require(ptId < block.timestamp, "Not expired");
+            // Then we burn the pt from the user and release its shares
+            (uint256 lockedShares, uint256 ptValue) = _releaseAsset(
+                ptId,
+                msg.sender,
+                ptAmount
+            );
+            // We convert those shares to a 'unlocked' form
+            uint256 unlockedShares = _convert(ShareState.Locked, lockedShares);
+            // Add them to ongoing totals
+            shares += unlockedShares;
+            value += ptValue;
+        }
+        // Mint YT for the user
+        _createYT(destination, value, shares, 0, 0);
+        // Return how much was deposited and the shares created
+        return (value, shares);
     }
 
     /// @notice Redeems expired PT, YT and unlocked shares for their backing asset.
@@ -246,7 +278,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
     /// @notice Quotes the price per share for unlocked tokens
     /// @return the price per share of unlocked shares
-    function unlockedSharePrice() external override returns (uint256) {
+    function unlockedSharePrice() external view override returns (uint256) {
         return _underlying(one, ShareState.Unlocked);
     }
 

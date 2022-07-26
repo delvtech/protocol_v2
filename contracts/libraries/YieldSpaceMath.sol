@@ -2,12 +2,12 @@
 pragma solidity ^0.8.15;
 
 import "contracts/libraries/Errors.sol";
-import "contracts/libraries/TypedFixedPointMathLib.sol";
+import "contracts/libraries/FixedPointMath.sol";
 
 /// @notice YieldSpace math library.
 /// @author Element Finance
-library YieldSpaceMathLib {
-    using TypedFixedPointMathLib for UFixedPoint;
+library YieldSpaceMath {
+    using FixedPointMath for uint256;
 
     /// Calculates the amount of bond a user would get for given amount of shares.
     /// @param shareReserves yield bearing vault shares reserve amount
@@ -21,25 +21,25 @@ library YieldSpaceMathLib {
     /// @param isBondOut determines if the output is bond or shares
     /// @return result the amount of shares a user would get for given amount of bond
     function calculateOutGivenIn(
-        UFixedPoint shareReserves,
-        UFixedPoint bondReserves,
-        UFixedPoint totalSupply,
-        UFixedPoint amountIn,
-        UFixedPoint t,
-        UFixedPoint s,
-        UFixedPoint c,
-        UFixedPoint mu,
+        uint256 shareReserves,
+        uint256 bondReserves,
+        uint256 totalSupply,
+        uint256 amountIn,
+        uint256 t,
+        uint256 s,
+        uint256 c,
+        uint256 mu,
         bool isBondOut
-    ) internal pure returns (UFixedPoint result) {
-        UFixedPoint outReserves;
-        UFixedPoint rhs;
+    ) internal pure returns (uint256 result) {
+        uint256 outReserves;
+        uint256 rhs;
         // Notes: 1 >= 1-st >= 0
-        UFixedPoint oneMinusT = TypedFixedPointMathLib.ONE_18.sub(s.mulDown(t));
+        uint256 oneMinusT = FixedPointMath.ONE_18.sub(s.mulDown(t));
         // c/mu
-        UFixedPoint cDivMu = c.divDown(mu);
-        UFixedPoint modifiedBondReserves = bondReserves.add(totalSupply);
+        uint256 cDivMu = c.divDown(mu);
+        uint256 modifiedBondReserves = bondReserves.add(totalSupply);
         // c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t)
-        UFixedPoint k = cDivMu
+        uint256 k = cDivMu
             .mulDown(mu.mulDown(shareReserves).pow(oneMinusT))
             .add(modifiedBondReserves.pow(oneMinusT));
 
@@ -47,7 +47,7 @@ library YieldSpaceMathLib {
             // bondOut = bondReserves - ( c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t) - c/mu * (mu*(shareReserves + shareIn))^(1-t) )^(1 / (1 - t))
             outReserves = modifiedBondReserves;
             // (mu*(shareReserves + amountIn))^(1-t)
-            UFixedPoint newScaledShareReserves = mu
+            uint256 newScaledShareReserves = mu
                 .mulDown(shareReserves.add(amountIn))
                 .pow(oneMinusT);
             // c/mu * (mu*(shareReserves + amountIn))^(1-t)
@@ -55,19 +55,19 @@ library YieldSpaceMathLib {
             // Notes: k - newScaledShareReserves >= 0 to avoid a complex number
             // ( c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t) - c/mu * (mu*(shareReserves + amountIn))^(1-t) )^(1 / (1 - t))
             rhs = k.sub(newScaledShareReserves).pow(
-                TypedFixedPointMathLib.ONE_18.divDown(oneMinusT)
+                FixedPointMath.ONE_18.divDown(oneMinusT)
             );
         } else {
             // shareOut = shareReserves - [ ( c/mu * (mu * shareReserves)^(1-t) + bondReserves^(1-t) - (bondReserves + bondIn)^(1-t) ) / c/u  ]^(1 / (1 - t)) / mu
             outReserves = shareReserves;
             // (bondReserves + bondIn)^(1-t)
-            UFixedPoint newScaledBondReserves = modifiedBondReserves
+            uint256 newScaledBondReserves = modifiedBondReserves
                 .add(amountIn)
                 .pow(oneMinusT);
             // Notes: k - newScaledBondReserves >= 0 to avoid a complex number
             // [( (mu * shareReserves)^(1-t) + bondReserves^(1-t) - (bondReserves + bondIn)^(1-t) ) / c/u ]^(1 / (1 - t))
             rhs = k.sub(newScaledBondReserves).divDown(cDivMu).pow(
-                TypedFixedPointMathLib.ONE_18.divDown(oneMinusT)
+                FixedPointMath.ONE_18.divDown(oneMinusT)
             );
             // [( (mu * shareReserves)^(1-t) + bondReserves^(1-t) - (bondReserves + bondIn)^(1-t) ) / c/u ]^(1 / (1 - t)) / mu
             rhs = rhs.divDown(mu);

@@ -5,8 +5,9 @@ import "contracts/libraries/Errors.sol";
 
 /// @notice A fixed-point math library.
 /// @author Element Finance
-library FixedPointMathLib {
-    int256 private constant _ONE_18 = 1e18;
+library FixedPointMath {
+    int256 internal constant _ONE_18 = 1e18;
+    uint256 public constant ONE_18 = 1e18;
 
     /// @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/FixedPoint.sol)
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -46,6 +47,10 @@ library FixedPointMathLib {
         }
     }
 
+    function mulDown(uint256 a, uint256 b) internal pure returns (uint256) {
+        return (mulDivDown(a, b, 1e18));
+    }
+
     /// @dev Credit to Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/FixedPointMathLib.sol)
     function mulDivUp(
         uint256 x,
@@ -66,6 +71,10 @@ library FixedPointMathLib {
             // end result by 0 if z is zero, ensuring we return 0 if z is zero.
             z := mul(iszero(iszero(z)), add(div(sub(z, 1), d), 1))
         }
+    }
+
+    function divDown(uint256 a, uint256 b) internal pure returns (uint256) {
+        return (mulDivDown(a, 1e18, b)); // Equivalent to (a * 1e18) / b rounded down.
     }
 
     /// @dev Exponentiation (x^y) with unsigned 18 decimal fixed point base and exponent.
