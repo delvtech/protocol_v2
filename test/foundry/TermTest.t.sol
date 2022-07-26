@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import "forge-std/console2.sol";
 import "./utils/Hevm.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
@@ -78,8 +78,10 @@ contract TermTest is Test {
     }
 
     function testDeploy() public {
-        // TODO: figure out why console.log isn't working
-        console.log("term address %s", address(term));
-        assertEq(IERC20(term.token()).name(), token.name());
+        console2.log("term address %s", address(term));
+        assertEq(
+            address(0xf5a2fE45F4f1308502b1C136b9EF8af136141382),
+            address(term)
+        );
     }
 }
