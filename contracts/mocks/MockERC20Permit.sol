@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 import "../libraries/ERC20Permit.sol";
 
 // An ERC20 with specified decimals, we may add unlimited mint and other test functions
-contract TestERC20 is ERC20Permit {
+contract MockERC20Permit is ERC20Permit {
     constructor(
         string memory name_,
         string memory symbol_,

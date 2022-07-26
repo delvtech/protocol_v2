@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import "forge-std/Test.sol";
 import { Hevm } from "./utils/Hevm.sol";
 import { Pool } from "../../contracts/Pool.sol";
-import { TestERC20 } from "../../contracts/mocks/TestERC20.sol";
+import { MockERC20Permit } from "../../contracts/mocks/MockERC20Permit.sol";
 import { MockERC20YearnVault } from "../../contracts/mocks/MockERC20YearnVault.sol";
 import { MockYieldAdapter } from "../../contracts/mocks/MockYieldAdapter.sol";
 
@@ -17,12 +17,12 @@ contract PoolTest is Test {
     Pool internal pool;
     MockYieldAdapter internal yieldAdapter;
     User internal user1;
-    TestERC20 internal usdc;
+    MockERC20Permit internal usdc;
     Hevm internal constant hevm = Hevm(HEVM_ADDRESS);
 
     function setUp() public {
         // Contract initialization
-        usdc = new TestERC20("USDC", "USDC", 6);
+        usdc = new MockERC20Permit("USDC", "USDC", 6);
         address governanceContract = address(1);
         MockERC20YearnVault yearnVault = new MockERC20YearnVault(address(usdc));
         bytes32 linkerCodeHash = bytes32(0);
