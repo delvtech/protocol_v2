@@ -9,11 +9,6 @@ import { MockERC20YearnVault } from "../../contracts/mocks/MockERC20YearnVault.s
 import { MockYieldAdapter } from "../../contracts/mocks/MockYieldAdapter.sol";
 
 contract User {
-    // max uint approve for spending
-    function approve(address _token, address _guy) public {
-        TestERC20(_token).approve(_guy, type(uint256).max);
-    }
-
     // to be able to receive funds
     receive() external payable {} // solhint-disable-line no-empty-blocks
 }
