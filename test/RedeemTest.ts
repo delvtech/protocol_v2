@@ -1,13 +1,11 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers, waffle } from "hardhat";
-import { exp } from "mathjs";
 import {
   ForwarderFactory,
   MockERC20YearnVault,
   MockYieldAdapter,
-  Term,
-  TestERC20,
+  MockERC20Permit,
 } from "typechain-types";
 import { createSnapshot, restoreSnapshot } from "./helpers/snapshots";
 import {
@@ -24,7 +22,7 @@ const { provider } = waffle;
 describe("Redeem tests", async () => {
   let signers: SignerWithAddress[];
   let factory: ForwarderFactory;
-  let token: TestERC20;
+  let token: MockERC20Permit;
   let vault: MockERC20YearnVault;
   let yieldAdapter: MockYieldAdapter;
 
@@ -39,7 +37,7 @@ describe("Redeem tests", async () => {
     factory = await factoryFactory.deploy();
 
     const tokenFactory = await ethers.getContractFactory(
-      "TestERC20",
+      "MockERC20Permit",
       signers[0]
     );
     token = await tokenFactory.deploy("token", "TKN", 18);
@@ -207,11 +205,11 @@ describe("Redeem tests", async () => {
       start,
       expiry
     );
-    const sharePriceBefore = await yieldAdapter.lockedSharePrice();
+    // const sharePriceBefore = await yieldAdapter.lockedSharePrice();
     //console.log(sharePriceBefore.toNumber());
     // advance time
     await advanceTime(provider, SIX_MONTHS_IN_SECONDS);
-    const sharePriceAfter = await yieldAdapter.lockedSharePrice();
+    // const sharePriceAfter = await yieldAdapter.lockedSharePrice();
     //console.log(sharePriceAfter.toNumber());
     // track the vault balance before redeem
     const vaultBalance = await token.balanceOf(vault.address);
