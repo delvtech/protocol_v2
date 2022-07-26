@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-
+import "forge-std/console.sol";
 import "./utils/Hevm.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
