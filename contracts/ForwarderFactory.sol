@@ -20,7 +20,7 @@ contract ForwarderFactory is IForwarderFactory {
     bytes32 public constant ERC20LINK_HASH =
         keccak256(type(ERC20Forwarder).creationCode);
 
-    constructor() {}
+    constructor() {} // solhint-disable-line no-empty-blocks
 
     /// @notice Uses create2 to deploy a forwarder at a predictable address as part of
     ///         our ERC20 multitoken implementation.

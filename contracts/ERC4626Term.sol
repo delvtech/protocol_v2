@@ -10,7 +10,7 @@ import "./MultiToken.sol";
 /// @title Term contract instance for the EIP-4626 Tokenized Vault Standard
 ///
 /// @notice ERC4626Term is an implementation of the IYieldAdapter which is used
-/// to interface the Element Protocol with yield bearing positions which utilise the
+/// to interface the Element Protocol with yield bearing positions which utilize the
 /// EIP-4626 Tokenized Vault Standard.
 ///
 /// @dev ERC4626Term implements an interface for the EIP-4626 Tokenized Vault
@@ -48,7 +48,7 @@ import "./MultiToken.sol";
 /// deposited and accruing yield is so that smaller users can cheaply enter
 /// and exit LP positions by depositing and withdrawing underlying to and from
 /// the reserve instead of directly depositing to the ERC4626 vault.
-/// TODO Explain AMM efficiences also
+/// TODO Explain AMM efficiencies also
 ///
 contract ERC4626Term is Term {
     /// address of ERC4626 vault
@@ -70,7 +70,7 @@ contract ERC4626Term is Term {
     /// @param _factory The factory which is used to deploy the linking contracts
     /// @param _maxReserve Upper bound of underlying which can be held in the
     ///                    reserve
-    /// @param _owner this addresss will be made owner
+    /// @param _owner this address will be made owner
     /// @dev Also sets the targetReserve to be a half of the maxReserve.
     constructor(
         IERC4626 _vault,
@@ -129,7 +129,7 @@ contract ERC4626Term is Term {
         (
             uint256 underlyingReserve,
             uint256 vaultShareReserve,
-            uint256 vaultShareReserveAsUnderlying,
+            ,
             uint256 impliedUnderlyingReserve
         ) = reserveDetails();
 
@@ -359,7 +359,7 @@ contract ERC4626Term is Term {
         /// the "locked" shares
         unlockedShares =
             (lockedSharesAsUnderlying * totalSupply[UNLOCKED_YT_ID]) /
-            impliedUnderlyingReserve; // NOTE: zero divide here if reserves are not initialised
+            impliedUnderlyingReserve; // NOTE: zero divide here if reserves are not initialized
 
         /// The `vaultShares` representing the "locked" shares already exist on
         /// the contract so the `vaultShareReserve` is incremented with the
