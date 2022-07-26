@@ -14,11 +14,11 @@ contract User {
 }
 
 contract PoolTest is Test {
-    Pool internal pool;
-    MockYieldAdapter internal yieldAdapter;
-    User internal user1;
-    MockERC20Permit internal usdc;
-    Hevm internal constant hevm = Hevm(HEVM_ADDRESS);
+    Pool public pool;
+    MockYieldAdapter public yieldAdapter;
+    User public user1;
+    MockERC20Permit public usdc;
+    Hevm public hevm = Hevm(HEVM_ADDRESS);
 
     function setUp() public {
         // Contract initialization
