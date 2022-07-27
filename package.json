@@ -10,7 +10,7 @@
     "spell-check": "npx cspell ./**/**/**.sol --gitignore && npx cspell ./**/**/**.ts --gitignore",
     "style-check": "npx prettier --check .",
     "prettier": "npx prettier --write .",
-    "lint": "npm run solhint & npm run style-check & npm run spell-check",
+    "lint": "npm run solhint && npm run style-check && npm run spell-check",
     "build": "npx hardhat compile",
     "clean": "npx hardhat clean",
     "test": "npx hardhat compile && npx hardhat test --config hardhat.config.test.ts",
