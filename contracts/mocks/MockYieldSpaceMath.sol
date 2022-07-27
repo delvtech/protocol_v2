@@ -14,7 +14,7 @@ contract MockYieldSpaceMath {
         uint256 c,
         uint256 mu,
         bool isBondOut
-    ) public view returns (uint256 result) {
+    ) public pure returns (uint256 result) {
         result = YieldSpaceMath.calculateOutGivenIn(
             shareReserves,
             bondReserves,
