@@ -33,7 +33,7 @@ jobs:
           run:
             npm run sim
     foundry:
-      name: Foundry project
+      name: foundry/unit
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v3
