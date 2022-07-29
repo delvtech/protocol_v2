@@ -8,7 +8,7 @@ import "../interfaces/external/aave/IPool.sol";
 import "../interfaces/external/aave/IRewardsController.sol";
 import "../interfaces/external/aave/IAToken.sol";
 
-contract AaveProxy is Term {
+contract AaveTerm is Term {
     // Aave contract addresses
     IPool public immutable pool;
     IRewardsController public immutable rewardsController;
@@ -16,16 +16,17 @@ contract AaveProxy is Term {
 
     // these are stored as uint128's to be more gas efficient since
     // they are always accessed together
-    // the proxy underlying reserve amount
+    // the term's underlying reserve amount
     uint128 private _underlyingReserve;
     // the pool share amount
     uint128 private _aTokenReserve;
 
-    // the maximum amount of reserves for the proxy to store
+    // the maximum amount of reserves for the term contract to store
     uint256 public immutable maxReserve;
-    // the target minimum reserves for the proxy to store
+    // the target minimum reserves for the term contract to store
     uint256 public immutable targetReserve;
 
+    // TODO: don't like the name of this, ideas: suppliedValue, depositedValue
     // the amount of shares deposited into the pool
     uint256 private _depositedATokens;
 
@@ -37,7 +38,7 @@ contract AaveProxy is Term {
     /// @param _rewardsController the aave rewards controller
     /// @param _aToken the aave aToken
     /// @param _owner the contract owner who is authorized to collect rewards
-    /// @param _maxReserve the proxy's max reserve amount
+    /// @param _maxReserve the term's max reserve amount
     constructor(
         address _pool,
         bytes32 _linkerCodeHash,
@@ -59,7 +60,7 @@ contract AaveProxy is Term {
         maxReserve = _maxReserve;
         targetReserve = maxReserve / 2;
 
-        // Set approval for the proxy
+        // Set approval for the aave term
         token.approve(address(pool), type(uint256).max);
     }
 
@@ -92,18 +93,10 @@ contract AaveProxy is Term {
         // adjust the deposit amount by the underlying reserve
         uint256 depositAmount = balance - underlyingReserve();
 
-        // load the balance of aTokens before depositing
-        uint256 beforeBalance = aToken.balanceOf(address(this));
+        // supply the pool and get the shares minted
+        uint256 sharesMinted = _supplyAavePool(depositAmount);
 
-        // make the deposit into aave
-        pool.supply(address(token), depositAmount, address(this), 0);
-
-        // load the balance of atokens after depositing
-        uint256 afterBalance = aToken.balanceOf(address(this));
-
-        // calculate the difference in aToken balances to know how many where created on deposit
-        uint256 sharesMinted = afterBalance - beforeBalance;
-
+        // increase the state tracking the value supplied into the pool
         _depositedATokens += sharesMinted;
 
         // return the shares created and the amount of underlying deposited into the pool
@@ -144,20 +137,13 @@ contract AaveProxy is Term {
             // if the proposed amount is greater than the max reserve we deposit
             // the excess into the actual aave pool
 
-            // load the balance of atokens before depositing
-            uint256 beforeBalance = aToken.balanceOf(address(this));
-            pool.supply(
-                address(token),
-                proposedUnderlyingReserve - targetReserve,
-                address(this),
-                0
+            // deposit the amount that exceeds the target reserve into the pool
+            uint256 sharesMinted = _supplyAavePool(
+                proposedUnderlyingReserve - targetReserve
             );
-            // load the balance of atokens after depositing
-            uint256 afterBalance = aToken.balanceOf(address(this));
-            // calculate the difference in aToken balances to know how many where created on deposit
-            uint256 sharesMinted = afterBalance - beforeBalance;
             // set the new reserve amounts
             _setReserves(targetReserve, aTokenReserve + sharesMinted);
+            // increase the state tracking the value supplied into the pool
             _depositedATokens += sharesMinted;
         } else {
             // if we haven't reached our max reserve, we don't deposit into the pool
@@ -170,17 +156,17 @@ contract AaveProxy is Term {
 
     /// @notice Turns unlocked shares into locked shares and vice versa
     /// @param state the status of the shares to convert
-    /// @param amount the number of shares to convert
+    /// @param shares the number of shares to convert
     /// @return the amount of shares that have been converted
-    function _convert(ShareState state, uint256 amount)
+    function _convert(ShareState state, uint256 shares)
         internal
         override
         returns (uint256)
     {
         return
             state == ShareState.Locked
-                ? _convertLocked(amount)
-                : _convertUnlocked(amount);
+                ? _convertLocked(shares)
+                : _convertUnlocked(shares);
     }
 
     /// @notice converts shares from locked to unlocked
@@ -302,12 +288,12 @@ contract AaveProxy is Term {
         ///////////////// END TODO
 
         if (amountToWithdraw <= underlyingReserve) {
-            // if the withdrawal amount is within the proxy's underlying reserves
+            // if the withdrawal amount is within the underlying reserves
             // then withdraw from those instead of the actual pool
 
             // set new reserve amount
             _setReserves(underlyingReserve - amountToWithdraw, aTokenReserve);
-            // transfer from the proxy to the user
+            // transfer from the term to the user
             token.transferFrom(address(this), to, amountToWithdraw);
             // since we aren't withdrawing from the pool, our deposited share state remains unchanged
         } else {
@@ -355,18 +341,20 @@ contract AaveProxy is Term {
     }
 
     /// @notice Get the underlying amount of tokens per shares given
-    /// @param amount The amount of shares you want to know the value of
+    /// @param shares The amount of shares you want to know the value of
     /// @param state the status of the shares
     /// @return the amount of underlying the input is worth
-    function _underlying(uint256 amount, ShareState state)
+    function _underlying(uint256 shares, ShareState state)
         internal
         view
         override
         returns (uint256)
     {
         if (state == ShareState.Locked) {
-            return _pricePerShare(amount);
-        } else {}
+            return _pricePerShare(shares);
+        } else {
+            // TODO
+        }
     }
 
     /// @notice claim Aave rewards for a user
@@ -406,6 +394,20 @@ contract AaveProxy is Term {
     ) internal {
         _underlyingReserve = uint128(_newUnderlyingReserve);
         _aTokenReserve = uint128(_newATokenReserve);
+    }
+
+    /// @notice abstracts the pool supply logic and calculation of difference of shares produced
+    /// @param depositAmount the amount of the asset to supply into the pool
+    /// @return the amount of aTokens minted from the deposit
+    function _supplyAavePool(uint256 depositAmount) internal returns (uint256) {
+        // load the balance of aTokens before depositing
+        uint256 beforeBalance = aToken.balanceOf(address(this));
+        // make the deposit into aave
+        pool.supply(address(token), depositAmount, address(this), 0);
+        // load the balance of atokens after depositing
+        uint256 afterBalance = aToken.balanceOf(address(this));
+        // return the difference
+        return (afterBalance - beforeBalance);
     }
 
     // converts the input amount of shares to their proportional value of underlying
