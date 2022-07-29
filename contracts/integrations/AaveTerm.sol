@@ -367,6 +367,17 @@ contract AaveTerm is Term {
         rewardsController.claimAllRewards(aTokenAddress, to);
     }
 
+    /// @notice Helper function for retrieving information about the reserves
+    /// @return underlyingReserve The amount of underlying accounted for in
+    ///         `_underlyingReserve`
+    /// @return aTokenReserve The amount of aTokens accounted for in
+    ///         `_aTokenReserve`
+    /// @return aTokenReserveAsUnderlying The underlying value of the
+    ///         aTokenReserve
+    /// @return impliedUnderlyingReserve The sum of the `underlyingReserve`
+    ///         and the underlying value of the `aTokenReserve`. The total
+    ///         "unlocked" shares are a proportional claim on this amount of
+    ///         underlying
     function reserveDetails()
         public
         view
@@ -388,6 +399,9 @@ contract AaveTerm is Term {
             aTokenReserveAsUnderlying);
     }
 
+    /// @notice Setter function which overwrites the reserve values
+    /// @param _newUnderlyingReserve the new underlyingReserve amount
+    /// @param _newATokenReserve the new vaultShareReserve amount
     function _setReserves(
         uint256 _newUnderlyingReserve,
         uint256 _newATokenReserve
@@ -410,7 +424,9 @@ contract AaveTerm is Term {
         return (afterBalance - beforeBalance);
     }
 
-    // converts the input amount of shares to their proportional value of underlying
+    // TODO: this takes input amount and converts to underlying, keep this way or have this return price per single unit?
+    /// @notice Convert the input shares into their value in underlying
+    /// @return The price of input shares in units of underlying
     function _pricePerShare(uint256 shares) internal view returns (uint256) {
         // get the balance of the contract
         uint256 contractBalance = aToken.balanceOf(address(this));
@@ -419,7 +435,8 @@ contract AaveTerm is Term {
         return underlying;
     }
 
-    // converts the input value to a proportional number of shares
+    /// @notice Converts the input underlying amount to its value in shares
+    /// @return the number of shares
     function _sharesPerDollar(uint256 amount) internal view returns (uint256) {
         // get the balance of the contract
         uint256 contractBalance = aToken.balanceOf(address(this));
