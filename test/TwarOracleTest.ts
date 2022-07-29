@@ -1,4 +1,4 @@
-import { advanceBlock } from "./helpers/time";
+import { advanceBlock, advanceTime, advanceTimeOnly } from "./helpers/time";
 import "module-alias/register";
 
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
@@ -24,7 +24,7 @@ const BUFFER_ID = 1;
 // this one is un initialized
 const NEW_BUFFER_ID = 2;
 
-describe("TWAR Oracle", function () {
+describe.only("TWAR Oracle", function () {
   let signers: SignerWithAddress[];
   let oracleDeployer: MockTWAROracle__factory;
   let oracleContract: MockTWAROracle;
@@ -114,13 +114,13 @@ describe("TWAR Oracle", function () {
     const { timeStamp: initialTimeStamp } =
       await oracleContract.readMetadataParsed(BUFFER_ID);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
-    await sleep(1000);
+    await advanceTime(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
-    await sleep(1000);
+    await advanceTime(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
-    await sleep(1000);
+    await advanceTime(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1"));
-    await sleep(1000);
+    await advanceTime(provider, 1);
 
     const result0 = await oracleContract.readSumAndTimeStampForPool(
       BUFFER_ID,
@@ -170,7 +170,7 @@ describe("TWAR Oracle", function () {
     // this update happens too quickly so it fails silently
     await oracleContract.updateBuffer(NEW_BUFFER_ID, parseEther("1"));
     // wait long enough to update
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(NEW_BUFFER_ID, parseEther("1"));
     // this one also fails silently
     await oracleContract.updateBuffer(NEW_BUFFER_ID, parseEther("1"));
@@ -212,17 +212,16 @@ describe("TWAR Oracle", function () {
   it("buffer should wrap when adding items", async () => {
     // max length is 5, so the buffer should wrap back to the beginning
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await sleep(1000);
+    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await sleep(1000);
+    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await sleep(1000);
+    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await sleep(1000);
+    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await sleep(1000);
+    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await sleep(1000);
 
     const metadata = await oracleContract.readMetadataParsed(BUFFER_ID);
     // headIndex now back at zero, maxLength still 5, bufferLength now 5
@@ -268,15 +267,15 @@ describe("TWAR Oracle", function () {
   it("should calculate an average value", async () => {
     // the value never changes, always one, but the cumulative sum is increasing
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
-    await sleep(3000);
+    await advanceTimeOnly(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
-    await sleep(3000);
+    await advanceTimeOnly(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
-    await sleep(3000);
+    await advanceTimeOnly(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
-    await sleep(3000);
+    await advanceTimeOnly(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
-    await sleep(3000);
+    await advanceTimeOnly(provider, 3);
 
     // lets reach back 3 steps
     const { timeStamp: startTime } =
@@ -300,15 +299,15 @@ describe("TWAR Oracle", function () {
   it("should work when no buffer elements included", async () => {
     // the value never changes, always one, but the cumulative sum is increasing
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("2")); // position 4, sum 5
-    await sleep(3000);
+    await advanceTime(provider, 3);
     // record a new block so when we try to provide a time that's less than 3s we won't
     // even hit the last update to the buffer
     await advanceBlock(provider);
@@ -327,13 +326,13 @@ describe("TWAR Oracle", function () {
   it("should work when exactly one buffer element included", async () => {
     // the value never changes, always one, but the cumulative sum is increasing
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
 
     // let's barely step back, should just cover one update
@@ -350,13 +349,13 @@ describe("TWAR Oracle", function () {
   it("should work when all buffer elements included", async () => {
     // the value never changes, always one, but the cumulative sum is increasing
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
 
     // this is much larger than the 12s of recorded time between all updates
@@ -373,15 +372,15 @@ describe("TWAR Oracle", function () {
   it("should work when wrapping the buffer", async () => {
     // the value never changes, always one, but the cumulative sum is increasing
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 1, sum 2
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 4, sum 5
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 6
 
     // this is much larger than the 15s of recorded time between all updates, will include all the
@@ -412,7 +411,7 @@ describe("TWAR Oracle", function () {
   it("should work when there are only two elements in the buffer", async () => {
     // the value never changes, always one, but the cumulative sum is increasing
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 0, sum 1
 
     // grab the one element
@@ -434,7 +433,7 @@ describe("TWAR Oracle", function () {
 
     expect(formatEther(averageValue)).to.equal("1.0");
 
-    await sleep(3000);
+    await advanceTime(provider, 3);
     // record a new block so when we try to provide a time that's less than 3s we won't
     // even hit the last update to the buffer
     await advanceBlock(provider);
@@ -455,15 +454,15 @@ describe("TWAR Oracle", function () {
     const formatUSDC = (value: BigNumber) => formatUnits(value, 6);
     // the value never changes, always one, but the cumulative sum is increasing
     await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 0, sum 1
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 1, sum 2
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 2, sum 3
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 3, sum 4
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 4, sum 5
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseUSDC("1")); // position 0, sum 6
 
     // this is much larger than the 15s of recorded time between all updates, will include all the
@@ -477,7 +476,7 @@ describe("TWAR Oracle", function () {
 
     expect(formatUSDC(averageValue)).to.equal("1.0");
 
-    await sleep(3000);
+    await advanceTime(provider, 3);
     await advanceBlock(provider);
     // timeInSeconds won't even reach back to the last update, but we should still use that average value
     timeInSeconds = 1;
@@ -498,8 +497,4 @@ interface ErrorWithReason {
 function isErrorWithReason(error: unknown): error is ErrorWithReason {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return !!(error as any).reason;
-}
-
-export function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

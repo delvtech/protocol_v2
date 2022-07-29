@@ -5,6 +5,10 @@ export const advanceTime = async (provider: MockProvider, time: number) => {
   await provider.send("evm_mine", []);
 };
 
+export const advanceTimeOnly = async (provider: MockProvider, time: number) => {
+  await provider.send("evm_increaseTime", [time]);
+};
+
 export const advanceBlock = async (provider: MockProvider) => {
   await provider.send("evm_mine", []);
 };
