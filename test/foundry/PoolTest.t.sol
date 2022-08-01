@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import { Pool } from "../../contracts/mocks/MockPool.sol";
+import "../../contracts/mocks/MockPool.sol";
 import { MockERC20Permit } from "../../contracts/mocks/MockERC20Permit.sol";
 import { MockERC20YearnVault } from "../../contracts/mocks/MockERC20YearnVault.sol";
 import { MockYieldAdapter } from "../../contracts/mocks/MockYieldAdapter.sol";
