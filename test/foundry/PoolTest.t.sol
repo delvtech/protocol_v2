@@ -17,11 +17,13 @@ contract PoolTest is Test {
     MockYieldAdapter public yieldAdapter;
     User public user1;
     MockERC20Permit public usdc;
+    address governanceContract;
+    uint256 UNLOCKED_YT_ID;
 
     function setUp() public {
         // Contract initialization
         usdc = new MockERC20Permit("USDC", "USDC", 6);
-        address governanceContract = address("0xea674fdde714fd979de3edf0f56aa9716b898ec8");
+        governanceContract = address("0xea674fdde714fd979de3edf0f56aa9716b898ec8");
         MockERC20YearnVault yearnVault = new MockERC20YearnVault(address(usdc));
         bytes32 linkerCodeHash = bytes32(0);
         address forwarderFactory = address(1);
@@ -43,6 +45,8 @@ contract PoolTest is Test {
             governanceContract,
             erc20ForwarderFactory
         );
+
+        UNLOCKED_YT_ID = yieldAdapter.UNLOCKED_YT_ID();
 
         // Configure approval so that YieldAdapter(term) can transfer usdc from Pool to itself
         vm.prank(address(pool), address(pool));
