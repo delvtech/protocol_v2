@@ -23,7 +23,9 @@ contract PoolTest is Test {
     function setUp() public {
         // Contract initialization
         usdc = new MockERC20Permit("USDC", "USDC", 6);
-        governanceContract = address(0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8);
+        governanceContract = address(
+            0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8
+        );
         MockERC20YearnVault yearnVault = new MockERC20YearnVault(address(usdc));
         bytes32 linkerCodeHash = bytes32(0);
         address forwarderFactory = address(1);
@@ -82,7 +84,10 @@ contract PoolTest is Test {
         // Call the function to claim fees
         pool.collectFees(100, address(user1));
         // Check the balances
-        uint256 shareBalance = yieldAdapter.balanceOf(UNLOCKED_YT_ID, address(user1));
+        uint256 shareBalance = yieldAdapter.balanceOf(
+            UNLOCKED_YT_ID,
+            address(user1)
+        );
         uint256 bondBalance = yieldAdapter.balanceOf(100, address(user1));
         // assert them equal
         assertEq(150, shareBalance);
