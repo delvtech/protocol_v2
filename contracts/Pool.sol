@@ -228,7 +228,7 @@ contract Pool is LP {
 
         // TODO - Update oracle
 
-        // Emit event for the offchain services.
+        // Emit event for the off-chain services.
         emit BondsTraded(poolId, receiver, tradeType, amount, outputAmount);
     }
 
