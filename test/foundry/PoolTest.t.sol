@@ -23,7 +23,7 @@ contract PoolTest is Test {
     function setUp() public {
         // Contract initialization
         usdc = new MockERC20Permit("USDC", "USDC", 6);
-        governanceContract = address("0xea674fdde714fd979de3edf0f56aa9716b898ec8");
+        governanceContract = address(0xea674fdde714fd979de3edf0f56aa9716b898ec8);
         MockERC20YearnVault yearnVault = new MockERC20YearnVault(address(usdc));
         bytes32 linkerCodeHash = bytes32(0);
         address forwarderFactory = address(1);
@@ -73,8 +73,8 @@ contract PoolTest is Test {
     }
 
     function testGovernanceTradeFeeClaimSuccess() public {
-        yieldAdapter.setBalance(address(pool), UNLOCKED_YT_ID, 150);
-        yieldAdapter.setBalance(address(pool), 100, 100);
+        yieldAdapter.setBalance(UNLOCKED_YT_ID, address(pool), 150);
+        yieldAdapter.setBalance(100, address(pool) 100);
         // set the fees for expiration at 100 to (150, 100)
         pool.setFees(100, 150, 100);
         // pretend to be governance
