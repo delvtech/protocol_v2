@@ -62,7 +62,7 @@ contract PoolTest is Test {
         vm.startPrank(address(user1));
         usdc.approve(address(pool), type(uint256).max);
         // registerPoolId
-        pool.registerPoolId(poolId, underlyingIn, timeStretch, address(user1));
+        pool.registerPoolId(poolId, underlyingIn, timeStretch, address(user1), 0,0);
         vm.stopPrank();
         uint256 balanceAfter = usdc.balanceOf(address(user1));
         assertEq(balanceBefore, balanceAfter + underlyingIn);
