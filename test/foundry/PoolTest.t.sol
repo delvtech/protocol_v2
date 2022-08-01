@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import { Pool } from "../../contracts/Pool.sol";
+import { Pool } from "../../contracts/mocks/MockPool.sol";
 import { MockERC20Permit } from "../../contracts/mocks/MockERC20Permit.sol";
 import { MockERC20YearnVault } from "../../contracts/mocks/MockERC20YearnVault.sol";
 import { MockYieldAdapter } from "../../contracts/mocks/MockYieldAdapter.sol";
@@ -13,7 +13,7 @@ contract User {
 }
 
 contract PoolTest is Test {
-    Pool public pool;
+    MockPool public pool;
     MockYieldAdapter public yieldAdapter;
     User public user1;
     MockERC20Permit public usdc;
@@ -21,7 +21,7 @@ contract PoolTest is Test {
     function setUp() public {
         // Contract initialization
         usdc = new MockERC20Permit("USDC", "USDC", 6);
-        address governanceContract = address(1);
+        address governanceContract = address("0xea674fdde714fd979de3edf0f56aa9716b898ec8");
         MockERC20YearnVault yearnVault = new MockERC20YearnVault(address(usdc));
         bytes32 linkerCodeHash = bytes32(0);
         address forwarderFactory = address(1);
@@ -35,7 +35,7 @@ contract PoolTest is Test {
         uint256 tradeFee = 10;
         bytes32 erc20ForwarderCodeHash = bytes32(0);
         address erc20ForwarderFactory = address(1);
-        pool = new Pool(
+        pool = new MockPool(
             yieldAdapter,
             usdc,
             tradeFee,
@@ -66,5 +66,22 @@ contract PoolTest is Test {
         vm.stopPrank();
         uint256 balanceAfter = usdc.balanceOf(address(user1));
         assertEq(balanceBefore, balanceAfter + underlyingIn);
+    }
+
+    function testGovernanceTradeFeeClaimSuccess() public {
+        term.setBalance(address(pool), UNLOCKED_YT_ID, 150);
+        term.setBalance(address(pool), 100, 100);
+        // set the fees for expiration at 100 to (150, 100)
+        pool.setFees(100, 150, 100)
+        // pretend to be governance
+        vm.startPrank(governanceContract);
+        // Call the function to claim fees
+        pool.claimFees(100, address(user1));
+        // Check the balances
+        uint256 shareBalance = term.balanceOf(UNLOCKED_YT_ID, address(user1));
+        uint256 bondBalance = term.balanceOf(100, address(user1));
+        // assert them equal
+        assertEq(150, shareBalance);
+        assertEq(100, bondBalance);
     }
 }
