@@ -72,7 +72,7 @@ contract PoolTest is Test {
         term.setBalance(address(pool), UNLOCKED_YT_ID, 150);
         term.setBalance(address(pool), 100, 100);
         // set the fees for expiration at 100 to (150, 100)
-        pool.setFees(100, 150, 100)
+        pool.setFees(100, 150, 100);
         // pretend to be governance
         vm.startPrank(governanceContract);
         // Call the function to claim fees
