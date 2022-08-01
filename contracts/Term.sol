@@ -43,7 +43,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
     /// @param _token The ERC20 which is deposited into this contract
-    /// @param _owner this addresss will be made owner
+    /// @param _owner this address will be made owner
     constructor(
         bytes32 _linkerCodeHash,
         address _factory,
