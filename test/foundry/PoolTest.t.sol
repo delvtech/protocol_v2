@@ -74,7 +74,7 @@ contract PoolTest is Test {
 
     function testGovernanceTradeFeeClaimSuccess() public {
         yieldAdapter.setBalance(UNLOCKED_YT_ID, address(pool), 150);
-        yieldAdapter.setBalance(100, address(pool) 100);
+        yieldAdapter.setBalance(100, address(pool), 100);
         // set the fees for expiration at 100 to (150, 100)
         pool.setFees(100, 150, 100);
         // pretend to be governance
