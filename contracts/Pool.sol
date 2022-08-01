@@ -410,19 +410,12 @@ contract Pool is LP, TWAROracle {
             (totalFee - govFee);
 
         // Update oracle
-        // Note - The additional total supply factor from the yield space paper, it redistributes
-        //        the liquidity from the inaccessible part of the curve.
-        uint256 normalizedShare = normalize(newShareReserve) +
-            normalized(totalSupply[poolId]);
-        uint256 normalizedBond = normalize(newBondReserve);
-        // The pool ratio is (c * shares)/(mu * bonds)
-        uint256 muTimesBonds = (parameters[poolId].mu).mul(normalizedBond);
-        uint256 oracleRatio = normalizedPricePerShare.mulDivUp(
-            normalizedShare,
-            muTimesBonds
+        _updateOracle(
+            poolId,
+            newShareReserve,
+            newBondReserve,
+            normalizedPricePerShare
         );
-
-        _updateBuffer(poolId, uint224(oracleRatio));
 
         // The trade output is changeInBonds - total fee
         // Returns the new reserves and the trade output
@@ -465,21 +458,13 @@ contract Pool is LP, TWAROracle {
             uint256 outputShares
         ) = _quoteSaleAndFees(poolId, amount, cachedReserve, pricePerShare);
 
-        // Update oracle
-        // Note - The additional total supply factor from the yield space paper, it redistributes
-        //        the liquidity from the inaccessible part of the curve.
-        uint256 normalizedShare = normalize(newShareReserve) +
-            normalized(totalSupply[poolId]);
-        uint256 normalizedBond = normalize(newBondReserve);
-        // The pool ratio is (c * shares)/(mu * bonds)
-        uint256 muTimesBonds = (parameters[poolId].mu).mul(normalizedBond);
-        uint256 normalizedPricePerShare = normalize(pricePerShare);
-        uint256 oracleRatio = normalizedPricePerShare.mulDivUp(
-            normalizedShare,
-            muTimesBonds
+        // Updates the oracle
+        _updateOracle(
+            poolId,
+            newShareReserve,
+            newBondReserve,
+            _normalize(pricePerShare)
         );
-
-        _updateBuffer(poolId, uint224(oracleRatio));
 
         // The user amount is outputShares - shareFee and we withdraw to them
         // Create the arrays for a withdraw from term
@@ -568,6 +553,32 @@ contract Pool is LP, TWAROracle {
         reserves[poolId].bonds = newBondBalance;
         reserves[poolId].shares = newSharesBalance;
         emit Sync(poolId, newBondBalance, newSharesBalance);
+    }
+
+    /// @dev Updates the oracle and calculates the correct ratio
+    /// @param poolId the ID of which pool's oracle to update
+    /// @param newShareReserve the new share reserve
+    /// @param newBondReserve the new bond reserve
+    /// @param normalizedPricePerShare the 18 point representation of the price per share [ie c]
+    function _updateOracle(
+        uint256 poolId,
+        uint256 newShareReserve,
+        uint256 newBondReserve,
+        uint256 normalizedPricePerShare
+    ) internal {
+        // Note - The additional total supply factor from the yield space paper, it redistributes
+        //        the liquidity from the inaccessible part of the curve.
+        uint256 normalizedShare = _normalize(newShareReserve) +
+            _normalize(totalSupply[poolId]);
+        uint256 mu = uint256(parameters[poolId].mu);
+        uint256 muTimesBonds = mu.mulDown(_normalize(newBondReserve));
+        // The pool ratio is (c * shares)/(mu * bonds)
+        uint256 oracleRatio = normalizedPricePerShare.mulDivUp(
+            normalizedShare,
+            muTimesBonds
+        );
+
+        _updateBuffer(poolId, uint224(oracleRatio));
     }
 
     /// @dev In this function all inputs should be _normalized and the output will
