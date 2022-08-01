@@ -100,6 +100,7 @@ contract Pool is LP, Authorizable {
         // Should not be zero.
         require(_governanceContract != address(0), "todo nice errors");
         // Set the owner of this contract
+        _authorize(_governanceContract);
         setOwner(_governanceContract);
 
         //----------------Perform some sstore---------------------//
