@@ -8,23 +8,18 @@ import "./interfaces/ICompoundV3.sol";
 
 /// Docs: https://c3-docs.compound.finance/
 contract CompoundV3Term is Term {
-    /// address of yieldSource
     ICompoundV3 public immutable yieldSource;
 
-    /// accounts for the balance of "unlocked" underlying for this term
+    // TODO Combine these into single SLOAD?
+    uint256 public underlyingDeposited;
     uint128 private _underlyingReserve;
+    uint128 private _yieldShareReserve;
 
-    /// accounts for the balance of "unlocked" vaultShares for this term
-    uint128 private _vaultShareReserve;
-
-    /// upper limit of balance of _underlyingReserve allowed in this contract
     uint256 public immutable maxReserve;
-
-    /// desired amount of underlying
     uint256 public immutable targetReserve;
 
     constructor(
-        ICompoundV3 _yieldSource,
+        address _yieldSource,
         bytes32 _linkerCodeHash,
         address _factory,
         uint256 _maxReserve,
@@ -33,14 +28,22 @@ contract CompoundV3Term is Term {
         Term(
             _linkerCodeHash,
             _factory,
-            IERC20(_yieldSource.baseToken()),
+            IERC20(ICompoundV3(_yieldSource).baseToken()),
             _owner
         )
     {
-        yieldSource = _yieldSource;
+        yieldSource = ICompoundV3(_yieldSource);
         maxReserve = _maxReserve;
         targetReserve = _maxReserve / 2;
         token.approve(address(_yieldSource), type(uint256).max);
+    }
+
+    function underlyingReserve() public view returns (uint256) {
+        return uint256(_underlyingReserve);
+    }
+
+    function yieldShareReserve() external view returns (uint256) {
+        return uint256(_yieldShareReserve);
     }
 
     function _deposit(ShareState _state)
@@ -52,18 +55,57 @@ contract CompoundV3Term is Term {
             _state == ShareState.Locked ? _depositLocked() : _depositUnlocked();
     }
 
+    /// Compound shares are non-constant meaning they directly represent claim
+    /// on underlying. We have to manage this in a constant manner by tracking
+    /// the underlyingDeposited
     function _depositLocked()
         internal
         returns (uint256 shares, uint256 underlying)
     {
-        return (0, 0);
+        underlying = token.balanceOf(address(this)) - underlyingReserve();
+        underlyingDeposited += underlying;
+        yieldSource.supply(address(token), underlying);
+        shares = underlyingAsYieldShares(underlying);
     }
 
     function _depositUnlocked()
         internal
         returns (uint256 shares, uint256 underlying)
     {
-        return (0, 0);
+        (
+            uint256 underlyingReserve_,
+            uint256 yieldShareReserve_,
+            ,
+            uint256 impliedUnderlyingReserve
+        ) = _reserveDetails();
+
+        underlying = token.balanceOf(address(this)) - underlyingReserve_;
+
+        if (impliedUnderlyingReserve == 0) {
+            shares = underlying;
+        } else {
+            shares =
+                (underlying * totalSupply[UNLOCKED_YT_ID]) /
+                impliedUnderlyingReserve;
+        }
+
+        uint256 proposedUnderlyingReserve = underlyingReserve_ + underlying;
+
+        if (proposedUnderlyingReserve > maxReserve) {
+            uint256 underlyingSupplied = proposedUnderlyingReserve -
+                targetReserve;
+            yieldSource.supply(address(token), underlyingSupplied);
+
+            underlyingDeposited += underlyingSupplied;
+
+            _setReserves(
+                targetReserve,
+                yieldShareReserve_ + underlyingAsYieldShares(underlyingSupplied)
+            );
+        } else {
+            underlyingDeposited += underlying;
+            _setReserves(proposedUnderlyingReserve, yieldShareReserve_);
+        }
     }
 
     function _withdraw(
@@ -81,14 +123,53 @@ contract CompoundV3Term is Term {
         internal
         returns (uint256 underlying)
     {
-        return 0;
+        underlying = yieldSharesAsUnderlying(_shares);
+        yieldSource.withdrawTo(_dest, address(token), underlying);
     }
 
     function _withdrawUnlocked(uint256 _shares, address _dest)
         internal
         returns (uint256 underlying)
     {
-        return 0;
+        (
+            uint256 underlyingReserve_,
+            uint256 yieldShareReserve_,
+            uint256 yieldShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        ) = _reserveDetails();
+
+        underlying =
+            (_shares * impliedUnderlyingReserve) /
+            (_shares + totalSupply[UNLOCKED_YT_ID]);
+
+        if (underlying <= underlyingReserve_) {
+            _setReserves(underlyingReserve_ - underlying, yieldShareReserve_);
+            token.transfer(_dest, underlying);
+        } else {
+            if (underlying > yieldShareReserveAsUnderlying) {
+                // withdraw the vaultShareReserve
+                yieldSource.withdraw(
+                    address(token),
+                    yieldShareReserveAsUnderlying
+                );
+
+                token.transfer(_dest, underlying);
+
+                _setReserves(
+                    underlyingReserve_ -
+                        (underlying - yieldShareReserveAsUnderlying),
+                    0
+                );
+            } else {
+                uint256 yieldShares = yieldSharesAsUnderlying(underlying);
+                yieldSource.withdrawTo(_dest, address(token), underlying);
+
+                _setReserves(
+                    underlyingReserve_,
+                    yieldShareReserve_ - yieldShares
+                );
+            }
+        }
     }
 
     function _convert(ShareState _state, uint256 _shares)
@@ -106,14 +187,44 @@ contract CompoundV3Term is Term {
         internal
         returns (uint256 unlockedShares)
     {
-        return 0;
+        uint256 lockedSharesAsUnderlying = yieldSharesAsUnderlying(
+            _lockedShares
+        );
+
+        (
+            uint256 underlyingReserve_,
+            uint256 yieldShareReserve_,
+            ,
+            uint256 impliedUnderlyingReserve
+        ) = _reserveDetails();
+
+        unlockedShares =
+            (lockedSharesAsUnderlying * totalSupply[UNLOCKED_YT_ID]) /
+            impliedUnderlyingReserve;
+
+        _setReserves(underlyingReserve_, yieldShareReserve_ + _lockedShares);
     }
 
     function _convertUnlocked(uint256 _unlockedShares)
         internal
         returns (uint256 lockedShares)
     {
-        return 0;
+        (
+            uint256 underlyingReserve_,
+            uint256 yieldShareReserve_,
+            ,
+            uint256 impliedUnderlyingReserve
+        ) = _reserveDetails();
+
+        uint256 unlockedSharesAsUnderlying = (_unlockedShares *
+            impliedUnderlyingReserve) /
+            (_unlockedShares + totalSupply[UNLOCKED_YT_ID]);
+
+        lockedShares = underlyingAsYieldShares(unlockedSharesAsUnderlying);
+
+        require(lockedShares <= yieldShareReserve_, "not enough vault shares");
+
+        _setReserves(underlyingReserve_, yieldShareReserve_ - lockedShares);
     }
 
     function _underlying(uint256 _shares, ShareState _state)
@@ -122,6 +233,68 @@ contract CompoundV3Term is Term {
         override
         returns (uint256)
     {
-        return 0;
+        if (_state == ShareState.Locked) {
+            return yieldSharesAsUnderlying(_shares);
+        } else {
+            (, , , uint256 impliedUnderlyingReserve) = _reserveDetails();
+            return
+                (_shares * impliedUnderlyingReserve) /
+                totalSupply[UNLOCKED_YT_ID];
+        }
+    }
+
+    function _reserveDetails()
+        internal
+        view
+        returns (
+            uint256 underlyingReserve_,
+            uint256 yieldShareReserve_,
+            uint256 yieldShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve
+        )
+    {
+        (underlyingReserve_, yieldShareReserve_) = (
+            uint256(_underlyingReserve),
+            uint256(_yieldShareReserve)
+        );
+
+        yieldShareReserveAsUnderlying = yieldSharesAsUnderlying(
+            yieldShareReserve_
+        );
+
+        impliedUnderlyingReserve = (underlyingReserve_ +
+            yieldShareReserveAsUnderlying);
+    }
+
+    /// use input underlying as scaling factor
+    /// yieldShares are a constant representation of the non-constant representation
+    /// of the interest accounting logic in compound
+    /// TODO Check scenarios and management for div by zero case
+    function underlyingAsYieldShares(uint256 underlying)
+        public
+        view
+        returns (uint256)
+    {
+        return
+            (underlyingDeposited * underlying) /
+            yieldSource.balanceOf(address(this));
+    }
+
+    function yieldSharesAsUnderlying(uint256 yieldShares)
+        public
+        view
+        returns (uint256)
+    {
+        return
+            (yieldSource.balanceOf(address(this)) * yieldShares) /
+            underlyingDeposited;
+    }
+
+    function _setReserves(
+        uint256 _newUnderlyingReserve,
+        uint256 _newYieldShareReserve
+    ) internal {
+        _underlyingReserve = uint128(_newUnderlyingReserve);
+        _yieldShareReserve = uint128(_newYieldShareReserve);
     }
 }

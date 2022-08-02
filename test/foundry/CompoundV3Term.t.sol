@@ -16,7 +16,7 @@ import "@compoundV3/contracts/CometConfiguration.sol";
 import "@compoundV3/contracts/CometStorage.sol";
 
 contract CompoundV3TermTest is Test {
-    ForwarderFactory public forwaderFactory;
+    ForwarderFactory public forwarderFactory;
     CompoundV3Term public term;
 
     MockCompoundV3 public compound;
@@ -29,16 +29,22 @@ contract CompoundV3TermTest is Test {
 
     address public Alice = vm.addr(0xA11CE);
     address public Bob = vm.addr(0xB0B);
-    address public Joe = vm.addr(0x70E);
+    address public Carol = vm.addr(0xCA701);
 
     uint256 public amountCollateral;
     uint256 public amountDebt;
     uint256 public amountSupply;
 
+    uint256 public constant MAX_RESERVE = 50000e18;
+    uint256 public constant YEAR = (365 * 24 * 60 * 60);
+
+    uint256 public TERM_START;
+    uint256 public TERM_END;
+
     function labels() public {
         vm.label(Alice, "Alice");
         vm.label(Bob, "Bob");
-        vm.label(Joe, "Joe");
+        vm.label(Carol, "Carol");
         vm.label(address(compound), "Compound");
         vm.label(address(USDC), "USDC");
         vm.label(address(WETH), "WETH");
@@ -47,7 +53,7 @@ contract CompoundV3TermTest is Test {
     }
 
     function setUp() public {
-        forwaderFactory = new ForwarderFactory();
+        forwarderFactory = new ForwarderFactory();
 
         USDC = new MockERC20Permit("USDC Coin", "USDC", 6);
         priceFeed_USDC = new SimplePriceFeed(1e8, 8);
@@ -63,24 +69,24 @@ contract CompoundV3TermTest is Test {
             borrowCollateralFactor: 0.8e18,
             liquidateCollateralFactor: 0.85e18,
             liquidationFactor: 0.93e18,
-            supplyCap: 1_000_000e18
+            supplyCap: 1000000e18
         });
 
         compound =
             new MockCompoundV3(address(USDC), address(priceFeed_USDC), assetConfigs);
         compound.initializeStorage();
 
-        amountSupply = 10_000_000e6;
-        amountDebt = 8_000_000e6;
-        amountCollateral = 10_000e18;
+        amountSupply = 10000000e6;
+        amountDebt = 8000000e6;
+        amountCollateral = 10000e18;
 
         vm.deal(Alice, 100 ether);
         vm.deal(Bob, 100 ether);
-        vm.deal(Joe, 100 ether);
+        vm.deal(Carol, 100 ether);
 
         USDC.mint(Alice, amountSupply);
         WETH.mint(Bob, amountCollateral);
-        WETH.mint(Joe, amountCollateral);
+        USDC.mint(Carol, 100000e6);
 
         labels();
 
@@ -97,18 +103,20 @@ contract CompoundV3TermTest is Test {
         compound.withdraw(address(USDC), amountDebt);
         vm.stopPrank();
 
-        vm.startPrank(Joe);
-        USDC.approve(address(compound), type(uint256).max);
-        WETH.approve(address(compound), type(uint256).max);
+        term = new CompoundV3Term(
+            address(compound),
+            forwarderFactory.ERC20LINK_HASH(),
+            address(forwarderFactory),
+            MAX_RESERVE,
+            address(this)
+        );
+
+        vm.startPrank(Carol);
+        USDC.approve(address(term), type(uint256).max);
         vm.stopPrank();
 
-
-        // term = new CompoundV3Term(
-        //     ff.ERC20LINK_HASH(),
-        //     address(ff),
-        //     token,
-        //     address(user)
-        // );
+        TERM_START = block.timestamp;
+        TERM_END = TERM_START + YEAR;
     }
 
     // validate that compound supply and withdrawals work
@@ -123,7 +131,7 @@ contract CompoundV3TermTest is Test {
         uint256 borrowRate = compound.getBorrowRate(utilization);
         uint256 supplyRate = compound.getSupplyRate(utilization);
 
-        vm.warp(block.timestamp + (365 * 24 * 60 * 60));
+        vm.warp(block.timestamp + YEAR);
 
         uint256 postTotalSupply = compound.totalSupply();
         uint256 postTotalBorrow = compound.totalBorrow();
@@ -135,5 +143,46 @@ contract CompoundV3TermTest is Test {
         uint256 borrowInterest = postTotalBorrow - preTotalBorrow;
 
         assertEq(borrowInterest >= supplyInterest, true);
-   }
+    }
+
+    function test__termDeployment() public {
+        assertEq(address(term.yieldSource()) == address(compound), true);
+        assertEq(term.underlyingReserve(), 0);
+        assertEq(term.underlyingDeposited(), 0);
+        assertEq(term.yieldShareReserve(), 0);
+        assertEq(term.targetReserve(), 25000e18);
+        assertEq(term.maxReserve(), 50000e18);
+        assertEq(USDC.balanceOf(address(term)), 0);
+        assertEq(compound.balanceOf(address(term)), 0);
+        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 0);
+    }
+
+    function test__depositLocked() public {
+        uint256 usdcCompoundBalance = USDC.balanceOf(address(compound));
+
+        console2.log(compound.balanceOf(address(term)));
+
+        vm.startPrank(Carol);
+        uint256[] memory assetIds;
+        uint256[] memory assetAmounts;
+        (uint256 shares, uint256 underlying) = term.lock(
+            assetIds,
+            assetAmounts,
+            10000e6,
+            false,
+            Carol,
+            Carol,
+            TERM_START,
+            TERM_END
+        );
+        vm.stopPrank();
+
+        usdcCompoundBalance =
+            USDC.balanceOf(address(compound)) - usdcCompoundBalance;
+
+        assertEq(shares, 10000e6);
+        assertEq(underlying, 10000e6);
+        assertEq(usdcCompoundBalance, 10000e6);
+        assertEq(compound.balanceOf(address(term)), 10000e6);
+    }
 }
