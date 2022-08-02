@@ -25,7 +25,7 @@
     "test": "./test"
   },
   "lint-staged": {
-    "contracts/**/*.sol": [
+    "**/**/*.sol": [
       "npx prettier --write"
     ],
     "./**/*.{js,ts,json,md}": [

@@ -4,10 +4,11 @@ pragma solidity ^0.8.15;
 import "./LP.sol";
 import "./libraries/FixedPointMath.sol";
 import "./libraries/YieldSpaceMath.sol";
+import "./libraries/Authorizable.sol";
 import "./interfaces/IMultiToken.sol";
 import "./interfaces/ITerm.sol";
 
-contract Pool is LP {
+contract Pool is LP, Authorizable {
     // Lets us use the fixed point math library as calls
     using FixedPointMath for uint256;
 
@@ -71,12 +72,6 @@ contract Pool is LP {
         uint256 sharesIn
     );
 
-    /// Modifier to verify whether the msg.sender is governance contract or not.
-    modifier onlyGovernance() {
-        require(msg.sender == governanceContract, "todo nice errors");
-        _;
-    }
-
     /// @notice Initialize the contract with below params.
     /// @param _term Address of the YieldAdapter whose PTs and YTs are supported with this Pool.
     /// @param _token The ERC20 token
@@ -91,9 +86,15 @@ contract Pool is LP {
         bytes32 _erc20ForwarderCodeHash,
         address _governanceContract,
         address _erc20ForwarderFactory
-    ) LP(_token, _term, _erc20ForwarderCodeHash, _erc20ForwarderFactory) {
+    )
+        LP(_token, _term, _erc20ForwarderCodeHash, _erc20ForwarderFactory)
+        Authorizable()
+    {
         // Should not be zero.
         require(_governanceContract != address(0), "todo nice errors");
+        // Set the owner of this contract
+        _authorize(_governanceContract);
+        setOwner(_governanceContract);
 
         //----------------Perform some sstore---------------------//
         tradeFee = uint128(_tradeFee);
@@ -300,7 +301,7 @@ contract Pool is LP {
     //----------------------------------------- Governance functionality ------------------------------------------//
 
     /// @notice Update the `tradeFee` using the governance contract.
-    function updateTradeFee(uint128 newTradeFee) external onlyGovernance {
+    function updateTradeFee(uint128 newTradeFee) external onlyOwner {
         // change the state
         tradeFee = newTradeFee;
     }
@@ -308,10 +309,39 @@ contract Pool is LP {
     /// @notice Update the `governanceFeePercent` using the governance contract.
     function updateGovernanceFeePercent(uint128 newFeePercent)
         external
-        onlyGovernance
+        onlyOwner
     {
         // change the state
         governanceFeePercent = newFeePercent;
+    }
+
+    /// @notice Governance can authorize an address to collect fees from the pools
+    /// @param poolId The pool to collect the fees from
+    /// @param destination The address to send the fees too
+    function collectFees(uint256 poolId, address destination)
+        external
+        onlyAuthorized
+    {
+        // Load the fees for this pool
+        CollectedFees memory fees = governanceFees[poolId];
+        // Send the fees out to the destination
+        // Note - the pool id for LP is the same as the PT id in term
+        term.transferFrom(
+            poolId,
+            address(this),
+            destination,
+            uint256(fees.feesInBonds)
+        );
+        // Send shares out, we choose to not unwrap them so governance can
+        // earn interest and unwrap many at once
+        term.transferFrom(
+            _UNLOCKED_TERM_ID,
+            address(this),
+            destination,
+            uint256(fees.feesInShares)
+        );
+        // Reset the fees to be zero
+        governanceFees[poolId] = CollectedFees(0, 0);
     }
 
     //----------------------------------------- Internal functionality ------------------------------------------//
