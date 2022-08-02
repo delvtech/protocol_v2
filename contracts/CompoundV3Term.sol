@@ -13,11 +13,13 @@ contract CompoundV3Term is Term {
 
     /// accounts for the balance of "unlocked" underlying for this term
     uint128 private _underlyingReserve;
+
     /// accounts for the balance of "unlocked" vaultShares for this term
     uint128 private _vaultShareReserve;
 
     /// upper limit of balance of _underlyingReserve allowed in this contract
     uint256 public immutable maxReserve;
+
     /// desired amount of underlying
     uint256 public immutable targetReserve;
 

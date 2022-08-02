@@ -10,7 +10,9 @@ pragma solidity ^0.8.15;
  * supported.
  */
 function _require(bool condition, uint256 errorCode) pure {
-    if (!condition) _revert(errorCode);
+    if (!condition) {
+        _revert(errorCode);
+    }
 }
 
 /**

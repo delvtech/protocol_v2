@@ -12,6 +12,7 @@ contract MockCompoundV3 is Comet {
         address _baseTokenPriceFeed,
         AssetConfig[] memory _assetConfigs
     )
+        /// https://github.com/compound-finance/comet/blob/main/deployments/kovan/configuration.json
         Comet(
             Configuration({
                 governor: auth,
