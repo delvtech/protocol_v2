@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import { Pool } from "../../contracts/Pool.sol";
+import "../../contracts/mocks/MockPool.sol";
 import { MockERC20Permit } from "../../contracts/mocks/MockERC20Permit.sol";
 import { MockERC20YearnVault } from "../../contracts/mocks/MockERC20YearnVault.sol";
 import { MockYieldAdapter } from "../../contracts/mocks/MockYieldAdapter.sol";
@@ -13,15 +13,19 @@ contract User {
 }
 
 contract PoolTest is Test {
-    Pool public pool;
+    MockPool public pool;
     MockYieldAdapter public yieldAdapter;
     User public user1;
     MockERC20Permit public usdc;
+    address governanceContract;
+    uint256 UNLOCKED_YT_ID;
 
     function setUp() public {
         // Contract initialization
         usdc = new MockERC20Permit("USDC", "USDC", 6);
-        address governanceContract = address(1);
+        governanceContract = address(
+            0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8
+        );
         MockERC20YearnVault yearnVault = new MockERC20YearnVault(address(usdc));
         bytes32 linkerCodeHash = bytes32(0);
         address forwarderFactory = address(1);
@@ -35,7 +39,7 @@ contract PoolTest is Test {
         uint256 tradeFee = 10;
         bytes32 erc20ForwarderCodeHash = bytes32(0);
         address erc20ForwarderFactory = address(1);
-        pool = new Pool(
+        pool = new MockPool(
             yieldAdapter,
             usdc,
             tradeFee,
@@ -43,6 +47,8 @@ contract PoolTest is Test {
             governanceContract,
             erc20ForwarderFactory
         );
+
+        UNLOCKED_YT_ID = yieldAdapter.UNLOCKED_YT_ID();
 
         // Configure approval so that YieldAdapter(term) can transfer usdc from Pool to itself
         vm.prank(address(pool), address(pool));
@@ -73,5 +79,25 @@ contract PoolTest is Test {
         vm.stopPrank();
         uint256 balanceAfter = usdc.balanceOf(address(user1));
         assertEq(balanceBefore, balanceAfter + underlyingIn);
+    }
+
+    function testGovernanceTradeFeeClaimSuccess() public {
+        yieldAdapter.setBalance(UNLOCKED_YT_ID, address(pool), 150);
+        yieldAdapter.setBalance(100, address(pool), 100);
+        // set the fees for expiration at 100 to (150, 100)
+        pool.setFees(100, 150, 100);
+        // pretend to be governance
+        vm.startPrank(governanceContract);
+        // Call the function to claim fees
+        pool.collectFees(100, address(user1));
+        // Check the balances
+        uint256 shareBalance = yieldAdapter.balanceOf(
+            UNLOCKED_YT_ID,
+            address(user1)
+        );
+        uint256 bondBalance = yieldAdapter.balanceOf(100, address(user1));
+        // assert them equal
+        assertEq(150, shareBalance);
+        assertEq(100, bondBalance);
     }
 }
