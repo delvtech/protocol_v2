@@ -5,7 +5,7 @@ pragma solidity ^0.8.15;
 import "@compoundV3/contracts/Comet.sol";
 
 contract MockCompoundV3 is Comet {
-    address auth = address(0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84); // foundry test deployer
+    address _auth = address(0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84); // foundry test deployer
 
     constructor(
         address _baseToken,
@@ -15,8 +15,8 @@ contract MockCompoundV3 is Comet {
         /// https://github.com/compound-finance/comet/blob/main/deployments/kovan/configuration.json
         Comet(
             Configuration({
-                governor: auth,
-                pauseGuardian: auth,
+                governor: _auth,
+                pauseGuardian: _auth,
                 baseToken: _baseToken,
                 baseTokenPriceFeed: _baseTokenPriceFeed,
                 extensionDelegate: address(0x0),

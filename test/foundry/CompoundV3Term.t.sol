@@ -60,8 +60,8 @@ contract CompoundV3TermTest is Test {
         WETH = new MockERC20Permit("Wrapped Ether", "WETH", 18);
         priceFeed_WETH = new SimplePriceFeed(2000e8, 8);
 
-        CometConfiguration.AssetConfig[] memory assetConfigs =
-            new CometConfiguration.AssetConfig[](1);
+        CometConfiguration.AssetConfig[]
+            memory assetConfigs = new CometConfiguration.AssetConfig[](1);
         assetConfigs[0] = CometConfiguration.AssetConfig({
             asset: address(WETH),
             priceFeed: address(priceFeed_WETH),
@@ -72,8 +72,11 @@ contract CompoundV3TermTest is Test {
             supplyCap: 1000000e18
         });
 
-        compound =
-            new MockCompoundV3(address(USDC), address(priceFeed_USDC), assetConfigs);
+        compound = new MockCompoundV3(
+            address(USDC),
+            address(priceFeed_USDC),
+            assetConfigs
+        );
         compound.initializeStorage();
 
         amountSupply = 10000000e6;
@@ -178,7 +181,8 @@ contract CompoundV3TermTest is Test {
         vm.stopPrank();
 
         usdcCompoundBalance =
-            USDC.balanceOf(address(compound)) - usdcCompoundBalance;
+            USDC.balanceOf(address(compound)) -
+            usdcCompoundBalance;
 
         assertEq(shares, 10000e6);
         assertEq(underlying, 10000e6);
