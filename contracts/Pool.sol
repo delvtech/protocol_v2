@@ -591,19 +591,25 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 newBondReserve,
         uint256 normalizedPricePerShare
     ) internal {
-        // Note - The additional total supply factor from the yield space paper, it redistributes
-        //        the liquidity from the inaccessible part of the curve.
-        uint256 normalizedShare = _normalize(newShareReserve) +
-            _normalize(totalSupply[poolId]);
-        uint256 mu = uint256(parameters[poolId].mu);
-        uint256 muTimesBonds = mu.mulDown(_normalize(newBondReserve));
-        // The pool ratio is (c * shares)/(mu * bonds)
-        uint256 oracleRatio = normalizedPricePerShare.mulDivUp(
-            normalizedShare,
-            muTimesBonds
-        );
+        // NOTE - While the oracle prevent updates to un-initialized buffers this logic makes several sloads
+        //        so by checking the initialization before calling into the oracle we optimize for gas.
+        if (_buffers[poolId].length != 0) {
+            // normalize Shares
+            uint256 normalizedShare = _normalize(newShareReserve);
+            // Load mu, will be stored normalized so no need to update
+            uint256 mu = uint256(parameters[poolId].mu);
+            uint256 muTimesShares = mu.mulDown(normalizedShare);
+            // Note - The additional total supply factor from the yield space paper, it redistributes
+            //        the liquidity from the inaccessible part of the curve.
+            uint256 adjustedNormalizedBonds = _normalize(newBondReserve) +
+                _normalize(totalSupply[poolId]);
+            // The pool ratio is (c * bonds)/(mu * shares)
+            uint256 oracleRatio = adjustedNormalizedBonds.divDown(
+                muTimesShares
+            );
 
-        _updateBuffer(poolId, uint224(oracleRatio));
+            _updateBuffer(poolId, uint224(oracleRatio));
+        }
     }
 
     /// @dev In this function all inputs should be _normalized and the output will
