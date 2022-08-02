@@ -4,19 +4,13 @@ pragma solidity ^0.8.15;
 import "./LP.sol";
 import "./libraries/FixedPointMath.sol";
 import "./libraries/YieldSpaceMath.sol";
+import "./libraries/Authorizable.sol";
 import "./interfaces/IMultiToken.sol";
 import "./interfaces/ITerm.sol";
 
-contract Pool is LP {
+contract Pool is LP, Authorizable {
     // Lets us use the fixed point math library as calls
     using FixedPointMath for uint256;
-
-    /// Trade type the contract support.
-    enum TradeType {
-        BUY_PT,
-        SELL_PT,
-        BUY_SHARES
-    }
 
     // Constant Year in seconds, note there's no native support because of leap seconds
     uint256 internal constant _ONE_YEAR = 31536000;
@@ -65,7 +59,7 @@ contract Pool is LP {
     event BondsTraded(
         uint256 indexed poolId,
         address indexed receiver,
-        TradeType indexed tradeType,
+        bool indexed isBuy,
         uint256 amountIn,
         uint256 amountOut
     );
@@ -77,12 +71,6 @@ contract Pool is LP {
         uint256 amountOfYtMinted,
         uint256 sharesIn
     );
-
-    /// Modifier to verify whether the msg.sender is governance contract or not.
-    modifier onlyGovernance() {
-        require(msg.sender == governanceContract, "todo nice errors");
-        _;
-    }
 
     /// @notice Initialize the contract with below params.
     /// @param _term Address of the YieldAdapter whose PTs and YTs are supported with this Pool.
@@ -98,9 +86,15 @@ contract Pool is LP {
         bytes32 _erc20ForwarderCodeHash,
         address _governanceContract,
         address _erc20ForwarderFactory
-    ) LP(_token, _term, _erc20ForwarderCodeHash, _erc20ForwarderFactory) {
+    )
+        LP(_token, _term, _erc20ForwarderCodeHash, _erc20ForwarderFactory)
+        Authorizable()
+    {
         // Should not be zero.
         require(_governanceContract != address(0), "todo nice errors");
+        // Set the owner of this contract
+        _authorize(_governanceContract);
+        setOwner(_governanceContract);
 
         //----------------Perform some sstore---------------------//
         tradeFee = uint128(_tradeFee);
@@ -109,6 +103,7 @@ contract Pool is LP {
 
     /// @notice Returns the name of the sub token i.e LP token supported
     ///         by this contract.
+    /// @param poolId The id of the sub token to get the name of, will be the expiry
     /// @return Returns the name of this token
     function name(uint256 poolId)
         external
@@ -121,6 +116,7 @@ contract Pool is LP {
 
     /// @notice Returns the symbol of the sub token i.e LP token supported
     ///         by this contract.
+    /// @param poolId The id of the sub token to get the name of, will be the expiry
     /// @return Returns the symbol of this token
     function symbol(uint256 poolId)
         external
@@ -134,7 +130,7 @@ contract Pool is LP {
     /// @notice Used to initialize the reserves of the pool for given poolIds.
     /// @param  poolId New poolId which will get supported by this pool, equal to bond expiry
     /// @param  underlyingIn Amount of tokens used to initialize the reserves.
-    /// @param  timeStretch No. of seconds in our timescale.
+    /// @param  timeStretch The fraction of a year to stretch by in 3 decimal ie [10.245 = 10245]
     /// @param  recipient Address which will receive the minted LP tokens.
     /// @return mintedLpTokens No. of minted LP tokens amount for provided `poolIds`.
     function registerPoolId(
@@ -180,14 +176,14 @@ contract Pool is LP {
     /// @param  amount Represents the amount of asset user wants to send to the pool [token for BUY_PT, bond/PT for SELL_PT]
     /// @param  amountOut  Minimum expected returns user is willing to accept if the output is less it will revert.
     /// @param  receiver   Address which receives the output of the trade
-    /// @param  tradeType  BUY_PT if the user wants to buy or SELL_PT if the user wants to sell PT
+    /// @param  isBuy True if the caller intends to buy bonds, false otherwise
     /// @return outputAmount The amount out the receiver gets
     function tradeBonds(
         uint256 poolId,
         uint256 amount,
         uint256 amountOut,
         address receiver,
-        TradeType tradeType
+        bool isBuy
     ) external returns (uint256 outputAmount) {
         // No trade after expiration
         require(poolId > block.timestamp, "Todo nice time error");
@@ -204,15 +200,15 @@ contract Pool is LP {
         uint256 newShareReserve;
         uint256 newBondReserve;
         // Switch on buy vs sell case
-        if (tradeType == TradeType.BUY_PT) {
-            (newBondReserve, newShareReserve, amountOut) = _buyBonds(
+        if (isBuy) {
+            (newShareReserve, newBondReserve, amountOut) = _buyBonds(
                 poolId,
                 amount,
                 cachedReserve,
                 receiver
             );
         } else {
-            (newBondReserve, newShareReserve, amountOut) = _sellBonds(
+            (newShareReserve, newBondReserve, amountOut) = _sellBonds(
                 poolId,
                 amount,
                 cachedReserve,
@@ -228,8 +224,8 @@ contract Pool is LP {
 
         // TODO - Update oracle
 
-        // Emit event for the off-chain services.
-        emit BondsTraded(poolId, receiver, tradeType, amount, outputAmount);
+        // Emit event for the offchain services.
+        emit BondsTraded(poolId, receiver, isBuy, amount, outputAmount);
     }
 
     /// @notice Allows directly purchasing the yield token by having the AMM virtually sell PT
@@ -305,7 +301,7 @@ contract Pool is LP {
     //----------------------------------------- Governance functionality ------------------------------------------//
 
     /// @notice Update the `tradeFee` using the governance contract.
-    function updateTradeFee(uint128 newTradeFee) external onlyGovernance {
+    function updateTradeFee(uint128 newTradeFee) external onlyOwner {
         // change the state
         tradeFee = newTradeFee;
     }
@@ -313,10 +309,39 @@ contract Pool is LP {
     /// @notice Update the `governanceFeePercent` using the governance contract.
     function updateGovernanceFeePercent(uint128 newFeePercent)
         external
-        onlyGovernance
+        onlyOwner
     {
         // change the state
         governanceFeePercent = newFeePercent;
+    }
+
+    /// @notice Governance can authorize an address to collect fees from the pools
+    /// @param poolId The pool to collect the fees from
+    /// @param destination The address to send the fees too
+    function collectFees(uint256 poolId, address destination)
+        external
+        onlyAuthorized
+    {
+        // Load the fees for this pool
+        CollectedFees memory fees = governanceFees[poolId];
+        // Send the fees out to the destination
+        // Note - the pool id for LP is the same as the PT id in term
+        term.transferFrom(
+            poolId,
+            address(this),
+            destination,
+            uint256(fees.feesInBonds)
+        );
+        // Send shares out, we choose to not unwrap them so governance can
+        // earn interest and unwrap many at once
+        term.transferFrom(
+            _UNLOCKED_TERM_ID,
+            address(this),
+            destination,
+            uint256(fees.feesInShares)
+        );
+        // Reset the fees to be zero
+        governanceFees[poolId] = CollectedFees(0, 0);
     }
 
     //----------------------------------------- Internal functionality ------------------------------------------//
@@ -387,22 +412,23 @@ contract Pool is LP {
             changeInBonds - totalFee
         );
 
-        // The output is changeInBonds - total fee
         // The new share reserve is the added shares plus current and
         // the new bonds reserve is the current - change + (totalFee - govFee)
+        // The output is changeInBonds - total fee
         return (
-            cachedReserve.bonds - changeInBonds + (totalFee - govFee),
             cachedReserve.shares + addedShares,
+            cachedReserve.bonds - changeInBonds + (totalFee - govFee),
             changeInBonds - totalFee
         );
     }
 
-    /// @dev Facilitate the sell of bond tokens.
-    /// It will transfer the underlying token instead of the shares ??
-    /// @param  poolId Pool Id supported for the trade.
+    /// @dev Facilitate the sell of bond tokens. Transfer from the user and then withdraw
+    ///      the produced shares to their address
+    /// @param  poolId The id for the pool which the trade is made in
     /// @param  amount Amount of bonds tokens user wants to sell in given trade.
     /// @param  cachedReserve Cached reserve at the time of trade.
     /// @param  receiver Address which would receive the underlying token.
+    /// @return The share reserve after trade, the bond reserve after trade and shares output
     function _sellBonds(
         uint256 poolId,
         uint256 amount,
@@ -448,6 +474,7 @@ contract Pool is LP {
     /// @notice Helper function to calculate sale and fees for a sell, plus update the fee state.
     /// @dev Unlike the buy flow we use this logic in both 'buyYt' and '_sellBonds' and so abstract
     ///      it into a function.
+    ///      WARN - Do not allow calling this function outside the context of a trade
     /// @param  poolId Pool Id supported for the trade.
     /// @param  amount Amount of bonds tokens user wants to sell in given trade.
     /// @param  cachedReserve Cached reserve at the time of trade.
@@ -508,7 +535,7 @@ contract Pool is LP {
     }
 
     /// @dev Update the reserves after the trade or whenever the LP is minted.
-    /// @param  poolId Sub pool Id, Corresponds to it reserves get updated.
+    /// @param  poolId The pool id of the pool's reserves to be updated
     /// @param  newBondBalance current holdings of the bond tokens,i.e. PTs of the contract.
     /// @param  newSharesBalance current holding of the shares tokens by the contract.
     function _update(
@@ -524,14 +551,14 @@ contract Pool is LP {
 
     /// @dev In this function all inputs should be _normalized and the output will
     ///      be 18 point
-    /// @param poolId the pool id == expiration time
+    /// @param expiry the expiration time == pool ID for lp pool
     /// @param input Token or shares in terms of the decimals of the token
     /// @param shareReserve Shares currently help in terms of decimals of the token
     /// @param bondReserve Bonds (PT) held by the pool in terms of the token
     /// @param pricePerShare The output token for each input of a share
     /// @param isBondOut true if the input is shares, false if the input is bonds
     function _tradeCalculation(
-        uint256 poolId,
+        uint256 expiry,
         uint256 input,
         uint256 shareReserve,
         uint256 bondReserve,
@@ -539,9 +566,9 @@ contract Pool is LP {
         bool isBondOut
     ) internal view returns (uint256) {
         // Load the mu and time stretch
-        SubPoolParameters memory params = parameters[poolId];
+        SubPoolParameters memory params = parameters[expiry];
         // Normalize the seconds till expiry into 18 point
-        uint256 timeToExpiry = (poolId - block.timestamp) *
+        uint256 timeToExpiry = (expiry - block.timestamp) *
             FixedPointMath.ONE_18;
         // Express this as a fraction of seconds in year
         timeToExpiry = timeToExpiry / (_ONE_YEAR);
@@ -550,7 +577,7 @@ contract Pool is LP {
         //        we have to divide that out in the constant (10^18 * 10^3 = 10^21)
         uint256 timestretch = 1e21 / uint256(params.timestretch);
         // Calculate the total supply, and _normalize
-        uint256 totalSupply = _normalize(totalSupply[poolId]);
+        uint256 totalSupply = _normalize(totalSupply[expiry]);
 
         // Call our internal price library
         uint256 result = YieldSpaceMath.calculateOutGivenIn(
