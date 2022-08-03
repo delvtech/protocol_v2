@@ -5,10 +5,11 @@ import "./LP.sol";
 import "./libraries/FixedPointMath.sol";
 import "./libraries/YieldSpaceMath.sol";
 import "./libraries/Authorizable.sol";
+import "./libraries/TWAROracle.sol";
 import "./interfaces/IMultiToken.sol";
 import "./interfaces/ITerm.sol";
 
-contract Pool is LP, Authorizable {
+contract Pool is LP, Authorizable, TWAROracle {
     // Lets us use the fixed point math library as calls
     using FixedPointMath for uint256;
 
@@ -88,6 +89,7 @@ contract Pool is LP, Authorizable {
         address _erc20ForwarderFactory
     )
         LP(_token, _term, _erc20ForwarderCodeHash, _erc20ForwarderFactory)
+        TWAROracle()
         Authorizable()
     {
         // Should not be zero.
@@ -132,12 +134,16 @@ contract Pool is LP, Authorizable {
     /// @param  underlyingIn Amount of tokens used to initialize the reserves.
     /// @param  timeStretch The fraction of a year to stretch by in 3 decimal ie [10.245 = 10245]
     /// @param  recipient Address which will receive the minted LP tokens.
+    /// @param  maxTime The longest timestamp the oracle will hold, 0 and it will not be initialized
+    /// @param  maxLength The most timestamps the oracle will hold
     /// @return mintedLpTokens No. of minted LP tokens amount for provided `poolIds`.
     function registerPoolId(
         uint256 poolId,
         uint256 underlyingIn,
         uint32 timeStretch,
-        address recipient
+        address recipient,
+        uint16 maxTime,
+        uint16 maxLength
     ) external returns (uint256 mintedLpTokens) {
         // Expired PTs are not supported.
         require(poolId > block.timestamp, "todo nice time errors");
@@ -161,6 +167,10 @@ contract Pool is LP, Authorizable {
         uint256 mu = (_normalize(sharesMinted)).divDown(_normalize(value));
         // Initialize the reserves.
         _update(poolId, uint128(0), uint128(sharesMinted));
+        // Initialize the oracle if this pool needs one
+        if (maxTime > 0 || maxLength > 0) {
+            _initializeBuffer(poolId, maxTime, maxLength);
+        }
         // Add the timestretch into the mapping corresponds to the poolId.
         parameters[poolId] = SubPoolParameters(timeStretch, uint224(mu));
         // Mint LP tokens to the recipient.
@@ -221,8 +231,6 @@ contract Pool is LP, Authorizable {
 
         // Updated reserves.
         _update(poolId, uint128(newBondReserve), uint128(newShareReserve));
-
-        // TODO - Update oracle
 
         // Emit event for the offchain services.
         emit BondsTraded(poolId, receiver, isBuy, amount, outputAmount);
@@ -383,13 +391,17 @@ contract Pool is LP, Authorizable {
             address(this)
         );
 
+        // Calculate the normalized price per share
+        uint256 normalizedPricePerShare = (_normalize(valuePaid)).divDown(
+            _normalize(addedShares)
+        );
         // Calculate the amount of bond tokens.
         uint256 changeInBonds = _tradeCalculation(
             poolId,
             _normalize(addedShares),
             _normalize(uint256(cachedReserve.shares)),
             _normalize(uint256(cachedReserve.bonds)),
-            (_normalize(valuePaid)).divDown(_normalize(addedShares)),
+            normalizedPricePerShare,
             true
         );
 
@@ -412,14 +424,25 @@ contract Pool is LP, Authorizable {
             changeInBonds - totalFee
         );
 
+        // Calculate the new reserves
         // The new share reserve is the added shares plus current and
+        uint256 newShareReserve = cachedReserve.shares + addedShares;
         // the new bonds reserve is the current - change + (totalFee - govFee)
-        // The output is changeInBonds - total fee
-        return (
-            cachedReserve.shares + addedShares,
-            cachedReserve.bonds - changeInBonds + (totalFee - govFee),
-            changeInBonds - totalFee
+        uint256 newBondReserve = cachedReserve.bonds -
+            changeInBonds +
+            (totalFee - govFee);
+
+        // Update oracle
+        _updateOracle(
+            poolId,
+            newShareReserve,
+            newBondReserve,
+            normalizedPricePerShare
         );
+
+        // The trade output is changeInBonds - total fee
+        // Returns the new reserves and the trade output
+        return (newShareReserve, newBondReserve, changeInBonds - totalFee);
     }
 
     /// @dev Facilitate the sell of bond tokens. Transfer from the user and then withdraw
@@ -458,6 +481,14 @@ contract Pool is LP, Authorizable {
             uint256 newBondReserve,
             uint256 outputShares
         ) = _quoteSaleAndFees(poolId, amount, cachedReserve, pricePerShare);
+
+        // Updates the oracle
+        _updateOracle(
+            poolId,
+            newShareReserve,
+            newBondReserve,
+            _normalize(pricePerShare)
+        );
 
         // The user amount is outputShares - shareFee and we withdraw to them
         // Create the arrays for a withdraw from term
@@ -547,6 +578,38 @@ contract Pool is LP, Authorizable {
         reserves[poolId].bonds = newBondBalance;
         reserves[poolId].shares = newSharesBalance;
         emit Sync(poolId, newBondBalance, newSharesBalance);
+    }
+
+    /// @dev Updates the oracle and calculates the correct ratio
+    /// @param poolId the ID of which pool's oracle to update
+    /// @param newShareReserve the new share reserve
+    /// @param newBondReserve the new bond reserve
+    /// @param normalizedPricePerShare the 18 point representation of the price per share [ie c]
+    function _updateOracle(
+        uint256 poolId,
+        uint256 newShareReserve,
+        uint256 newBondReserve,
+        uint256 normalizedPricePerShare
+    ) internal {
+        // NOTE - While the oracle prevent updates to un-initialized buffers this logic makes several sloads
+        //        so by checking the initialization before calling into the oracle we optimize for gas.
+        if (_buffers[poolId].length != 0) {
+            // normalize Shares
+            uint256 normalizedShare = _normalize(newShareReserve);
+            // Load mu, will be stored normalized so no need to update
+            uint256 mu = uint256(parameters[poolId].mu);
+            uint256 muTimesShares = mu.mulDown(normalizedShare);
+            // Note - The additional total supply factor from the yield space paper, it redistributes
+            //        the liquidity from the inaccessible part of the curve.
+            uint256 adjustedNormalizedBonds = _normalize(newBondReserve) +
+                _normalize(totalSupply[poolId]);
+            // The pool ratio is (bonds)/(mu * shares)
+            uint256 oracleRatio = adjustedNormalizedBonds.divDown(
+                muTimesShares
+            );
+
+            _updateBuffer(poolId, uint224(oracleRatio));
+        }
     }
 
     /// @dev In this function all inputs should be _normalized and the output will
