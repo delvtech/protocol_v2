@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.15;
 
-import "@compoundV3/contracts/Comet.sol";
+import "../../lib/comet/contracts/Comet.sol";
 
 contract MockCompoundV3 is Comet {
     address _auth = address(0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84); // foundry test deployer

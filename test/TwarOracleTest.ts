@@ -24,7 +24,7 @@ const BUFFER_ID = 1;
 // this one is un initialized
 const NEW_BUFFER_ID = 2;
 
-describe.only("TWAR Oracle", function () {
+describe("TWAR Oracle", function () {
   let signers: SignerWithAddress[];
   let oracleDeployer: MockTWAROracle__factory;
   let oracleContract: MockTWAROracle;
