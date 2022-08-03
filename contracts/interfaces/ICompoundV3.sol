@@ -13,4 +13,6 @@ abstract contract ICompoundV3 {
     ) external virtual;
 
     function baseToken() external view virtual returns (address);
+
+    function balanceOf(address owner) public view virtual returns (uint256);
 }
