@@ -181,42 +181,42 @@ contract CompoundV3TermTest is Test {
     }
 
     // validate that compound supply and withdrawals work
-    function test__compoundYieldAccrual() public {
-        uint256 preTotalSupply = compound.totalSupply();
-        uint256 preTotalBorrow = compound.totalBorrow();
+    // function test__compoundYieldAccrual() public {
+    //     uint256 preTotalSupply = compound.totalSupply();
+    //     uint256 preTotalBorrow = compound.totalBorrow();
 
-        assertEq(preTotalSupply, amountSupply);
-        assertEq(preTotalBorrow, amountDebt);
+    //     assertEq(preTotalSupply, amountSupply);
+    //     assertEq(preTotalBorrow, amountDebt);
 
-        uint256 utilization = compound.getUtilization();
-        uint256 borrowRate = compound.getBorrowRate(utilization);
-        uint256 supplyRate = compound.getSupplyRate(utilization);
+    //     uint256 utilization = compound.getUtilization();
+    //     uint256 borrowRate = compound.getBorrowRate(utilization);
+    //     uint256 supplyRate = compound.getSupplyRate(utilization);
 
-        vm.warp(block.timestamp + YEAR);
+    //     vm.warp(block.timestamp + YEAR);
 
-        uint256 postTotalSupply = compound.totalSupply();
-        uint256 postTotalBorrow = compound.totalBorrow();
+    //     uint256 postTotalSupply = compound.totalSupply();
+    //     uint256 postTotalBorrow = compound.totalBorrow();
 
-        assertEq(postTotalSupply >= preTotalSupply, true);
-        assertEq(postTotalBorrow >= preTotalBorrow, true);
+    //     assertEq(postTotalSupply >= preTotalSupply, true);
+    //     assertEq(postTotalBorrow >= preTotalBorrow, true);
 
-        uint256 supplyInterest = postTotalSupply - preTotalSupply;
-        uint256 borrowInterest = postTotalBorrow - preTotalBorrow;
+    //     uint256 supplyInterest = postTotalSupply - preTotalSupply;
+    //     uint256 borrowInterest = postTotalBorrow - preTotalBorrow;
 
-        assertEq(borrowInterest >= supplyInterest, true);
-    }
+    //     assertEq(borrowInterest >= supplyInterest, true);
+    // }
 
-    function test__termDeployment() public {
-        assertEq(address(term.yieldSource()) == address(compound), true);
-        assertEq(term.underlyingReserve(), 0);
-        assertEq(term.yieldSharesIssued(), 0);
-        assertEq(term.yieldShareReserve(), 0);
-        assertEq(term.targetReserve(), 25000e18);
-        assertEq(term.maxReserve(), 50000e18);
-        assertEq(USDC.balanceOf(address(term)), 0);
-        assertEq(compound.balanceOf(address(term)), 0);
-        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 0);
-    }
+    // function test__termDeployment() public {
+    //     assertEq(address(term.yieldSource()) == address(compound), true);
+    //     assertEq(term.underlyingReserve(), 0);
+    //     assertEq(term.yieldSharesIssued(), 0);
+    //     assertEq(term.yieldShareReserve(), 0);
+    //     assertEq(term.targetReserve(), 25000e18);
+    //     assertEq(term.maxReserve(), 50000e18);
+    //     assertEq(USDC.balanceOf(address(term)), 0);
+    //     assertEq(compound.balanceOf(address(term)), 0);
+    //     assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 0);
+    // }
 
     /// Should lock amount of underlying directly in the protocol
     /// and issue shares according to the current (inferred) yield share price
