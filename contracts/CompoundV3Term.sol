@@ -6,12 +6,15 @@ import "./Term.sol";
 import "./MultiToken.sol";
 import "./interfaces/ICompoundV3.sol";
 
+import "forge-std/console2.sol";
+
 /// Docs: https://c3-docs.compound.finance/
 contract CompoundV3Term is Term {
     ICompoundV3 public immutable yieldSource;
 
     // TODO Combine these into single SLOAD?
-    uint256 public underlyingDeposited;
+    uint256 public yieldSharesIssued;
+
     uint128 private _underlyingReserve;
     uint128 private _yieldShareReserve;
 
@@ -63,9 +66,17 @@ contract CompoundV3Term is Term {
         returns (uint256 shares, uint256 underlying)
     {
         underlying = token.balanceOf(address(this)) - underlyingReserve();
-        underlyingDeposited += underlying;
+
+        uint256 accruedUnderlying = yieldSource.balanceOf(address(this));
         yieldSource.supply(address(token), underlying);
-        shares = underlyingAsYieldShares(underlying);
+
+        if (accruedUnderlying == 0) {
+            yieldSharesIssued += underlying;
+            return (underlying, underlying);
+        }
+
+        shares = (yieldSharesIssued * underlying) / accruedUnderlying;
+        yieldSharesIssued += shares;
     }
 
     function _depositUnlocked()
@@ -76,7 +87,8 @@ contract CompoundV3Term is Term {
             uint256 underlyingReserve_,
             uint256 yieldShareReserve_,
             ,
-            uint256 impliedUnderlyingReserve
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
         ) = _reserveDetails();
 
         underlying = token.balanceOf(address(this)) - underlyingReserve_;
@@ -94,16 +106,18 @@ contract CompoundV3Term is Term {
         if (proposedUnderlyingReserve > maxReserve) {
             uint256 underlyingSupplied = proposedUnderlyingReserve -
                 targetReserve;
-            yieldSource.supply(address(token), underlyingSupplied);
 
-            underlyingDeposited += underlyingSupplied;
+            uint256 underlyingSuppliedAsYieldShares = (yieldSharesIssued *
+                underlyingSupplied) / accruedUnderlying;
+
+            yieldSource.supply(address(token), underlyingSupplied);
+            yieldSharesIssued += underlyingSuppliedAsYieldShares;
 
             _setReserves(
                 targetReserve,
-                yieldShareReserve_ + underlyingAsYieldShares(underlyingSupplied)
+                yieldShareReserve_ + underlyingSuppliedAsYieldShares
             );
         } else {
-            underlyingDeposited += underlying;
             _setReserves(proposedUnderlyingReserve, yieldShareReserve_);
         }
     }
@@ -123,8 +137,11 @@ contract CompoundV3Term is Term {
         internal
         returns (uint256 underlying)
     {
-        underlying = yieldSharesAsUnderlying(_shares);
-        yieldSource.withdrawTo(_dest, address(token), underlying);
+        uint256 lockedSharesAsUnderlying = yieldSharesAsUnderlying(_shares);
+        yieldSource.withdrawTo(_dest, address(token), lockedSharesAsUnderlying);
+        yieldSharesIssued -= _shares;
+
+        // TODO Is it over engineered to do an underflow check and withdraw yieldShareIssued if so?
     }
 
     function _withdrawUnlocked(uint256 _shares, address _dest)
@@ -135,7 +152,8 @@ contract CompoundV3Term is Term {
             uint256 underlyingReserve_,
             uint256 yieldShareReserve_,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
         ) = _reserveDetails();
 
         underlying =
@@ -147,26 +165,29 @@ contract CompoundV3Term is Term {
             token.transfer(_dest, underlying);
         } else {
             if (underlying > yieldShareReserveAsUnderlying) {
-                // withdraw the vaultShareReserve
                 yieldSource.withdraw(
                     address(token),
                     yieldShareReserveAsUnderlying
                 );
 
                 token.transfer(_dest, underlying);
-
+                yieldSharesIssued -= yieldShareReserve_;
                 _setReserves(
                     underlyingReserve_ -
                         (underlying - yieldShareReserveAsUnderlying),
                     0
                 );
             } else {
-                uint256 yieldShares = yieldSharesAsUnderlying(underlying);
+                uint256 underlyingAsYieldShares = (yieldSharesIssued *
+                    underlying) / accruedUnderlying;
+
                 yieldSource.withdrawTo(_dest, address(token), underlying);
 
+                // TODO Is it over engineered to do an underflow check and withdraw yieldShareIssued if so?
+                yieldSharesIssued -= underlyingAsYieldShares;
                 _setReserves(
                     underlyingReserve_,
-                    yieldShareReserve_ - yieldShares
+                    yieldShareReserve_ - underlyingAsYieldShares
                 );
             }
         }
@@ -187,16 +208,16 @@ contract CompoundV3Term is Term {
         internal
         returns (uint256 unlockedShares)
     {
-        uint256 lockedSharesAsUnderlying = yieldSharesAsUnderlying(
-            _lockedShares
-        );
-
         (
             uint256 underlyingReserve_,
             uint256 yieldShareReserve_,
             ,
-            uint256 impliedUnderlyingReserve
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
         ) = _reserveDetails();
+
+        uint256 lockedSharesAsUnderlying = (accruedUnderlying * _lockedShares) /
+            yieldSharesIssued;
 
         unlockedShares =
             (lockedSharesAsUnderlying * totalSupply[UNLOCKED_YT_ID]) /
@@ -213,14 +234,17 @@ contract CompoundV3Term is Term {
             uint256 underlyingReserve_,
             uint256 yieldShareReserve_,
             ,
-            uint256 impliedUnderlyingReserve
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
         ) = _reserveDetails();
 
         uint256 unlockedSharesAsUnderlying = (_unlockedShares *
             impliedUnderlyingReserve) /
             (_unlockedShares + totalSupply[UNLOCKED_YT_ID]);
 
-        lockedShares = underlyingAsYieldShares(unlockedSharesAsUnderlying);
+        lockedShares =
+            (yieldSharesIssued * unlockedSharesAsUnderlying) /
+            accruedUnderlying;
 
         require(lockedShares <= yieldShareReserve_, "not enough vault shares");
 
@@ -236,7 +260,7 @@ contract CompoundV3Term is Term {
         if (_state == ShareState.Locked) {
             return yieldSharesAsUnderlying(_shares);
         } else {
-            (, , , uint256 impliedUnderlyingReserve) = _reserveDetails();
+            (, , , uint256 impliedUnderlyingReserve, ) = _reserveDetails();
             return
                 (_shares * impliedUnderlyingReserve) /
                 totalSupply[UNLOCKED_YT_ID];
@@ -250,7 +274,8 @@ contract CompoundV3Term is Term {
             uint256 underlyingReserve_,
             uint256 yieldShareReserve_,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
         )
     {
         (underlyingReserve_, yieldShareReserve_) = (
@@ -258,36 +283,34 @@ contract CompoundV3Term is Term {
             uint256(_yieldShareReserve)
         );
 
-        yieldShareReserveAsUnderlying = yieldSharesAsUnderlying(
-            yieldShareReserve_
-        );
+        accruedUnderlying = yieldSource.balanceOf(address(this));
+
+        yieldShareReserveAsUnderlying =
+            (accruedUnderlying * yieldShareReserve_) /
+            yieldSharesIssued;
 
         impliedUnderlyingReserve = (underlyingReserve_ +
             yieldShareReserveAsUnderlying);
     }
 
-    /// use input underlying as scaling factor
-    /// yieldShares are a constant representation of the non-constant representation
-    /// of the interest accounting logic in compound
-    /// TODO Check scenarios and management for div by zero case
     function underlyingAsYieldShares(uint256 underlying)
         public
         view
-        returns (uint256)
+        returns (uint256 yieldShares)
     {
-        return
-            (underlyingDeposited * underlying) /
+        yieldShares =
+            (yieldSharesIssued * yieldShares) /
             yieldSource.balanceOf(address(this));
     }
 
     function yieldSharesAsUnderlying(uint256 yieldShares)
         public
         view
-        returns (uint256)
+        returns (uint256 underlying)
     {
-        return
-            (yieldSource.balanceOf(address(this)) * yieldShares) /
-            underlyingDeposited;
+        underlying =
+            (yieldSource.balanceOf(address(this)) * underlying) /
+            yieldSharesIssued;
     }
 
     function _setReserves(
