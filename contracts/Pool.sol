@@ -603,7 +603,7 @@ contract Pool is LP, Authorizable, TWAROracle {
             //        the liquidity from the inaccessible part of the curve.
             uint256 adjustedNormalizedBonds = _normalize(newBondReserve) +
                 _normalize(totalSupply[poolId]);
-            // The pool ratio is (c * bonds)/(mu * shares)
+            // The pool ratio is (bonds)/(mu * shares)
             uint256 oracleRatio = adjustedNormalizedBonds.divDown(
                 muTimesShares
             );
