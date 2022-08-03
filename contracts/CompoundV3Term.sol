@@ -6,8 +6,6 @@ import "./Term.sol";
 import "./MultiToken.sol";
 import "./interfaces/ICompoundV3.sol";
 
-import "forge-std/console2.sol";
-
 /// Docs: https://c3-docs.compound.finance/
 contract CompoundV3Term is Term {
     ICompoundV3 public immutable yieldSource;
