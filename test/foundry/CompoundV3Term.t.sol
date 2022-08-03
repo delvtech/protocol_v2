@@ -150,7 +150,7 @@ contract CompoundV3TermTest is Test {
         compound.withdraw(address(USDC), amountDebt);
         vm.stopPrank();
 
-        // Advance a year in time to accure some yield
+        // Advance a year in time to accrue some yield
         vm.warp(block.timestamp + YEAR);
 
         vm.startPrank(Carol);
