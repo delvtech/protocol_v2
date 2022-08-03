@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.15;
 
-import "../../lib/comet/contracts/CometInterface.sol";
+abstract contract ICompoundV3 {
+    function supply(address asset, uint256 amount) external virtual;
 
-/// renaming for better clarity
-/// TODO Fill with only CometInterface fns required for our system
-abstract contract ICompoundV3 is CometInterface {
+    function withdraw(address asset, uint256 amount) external virtual;
 
+    function withdrawTo(
+        address to,
+        address asset,
+        uint256 amount
+    ) external virtual;
+
+    function baseToken() external view virtual returns (address);
 }
