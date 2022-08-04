@@ -18,7 +18,7 @@ import "@compoundV3/contracts/CometStorage.sol";
 library CompoundV3TermHelper {
     // Deploys both Compound and CompoundV3Term contracts and sets up an
     // emulated live scenario
-    function createCompound(Vm vm)
+    function create(Vm vm)
         public
         returns (
             Comet compound,
@@ -111,8 +111,7 @@ library CompoundV3TermHelper {
 }
 
 contract CompoundV3TermTest is Test {
-    CompoundV3Term public lockedTerm;
-
+    CompoundV3Term public term;
     Comet public compound;
 
     MockERC20Permit public USDC;
@@ -140,8 +139,8 @@ contract CompoundV3TermTest is Test {
 
         vm.warp(block.timestamp + YEAR);
 
-        USDC.mint(user, 1_000_000e6);
-        USDC.mint(address(this), 1_000_000e6);
+        USDC.mint(user, 1000000e6);
+        USDC.mint(address(this), 1000000e6);
         vm.deal(user, 100 ether);
 
         vm.startPrank(user);
@@ -153,98 +152,5 @@ contract CompoundV3TermTest is Test {
 
         // Move halfway through the term so underlying and yieldShares are not 1:1
         vm.warp(block.timestamp + YEAR / 2);
-    }
-
-    // validate that compound supply and withdrawals work
-    // function test__compoundYieldAccrual() public {
-    //     uint256 preTotalSupply = compound.totalSupply();
-    //     uint256 preTotalBorrow = compound.totalBorrow();
-
-    //     assertEq(preTotalSupply, amountSupply);
-    //     assertEq(preTotalBorrow, amountDebt);
-
-    //     uint256 utilization = compound.getUtilization();
-    //     uint256 borrowRate = compound.getBorrowRate(utilization);
-    //     uint256 supplyRate = compound.getSupplyRate(utilization);
-
-    //     vm.warp(block.timestamp + YEAR);
-
-    //     uint256 postTotalSupply = compound.totalSupply();
-    //     uint256 postTotalBorrow = compound.totalBorrow();
-
-    //     assertEq(postTotalSupply >= preTotalSupply, true);
-    //     assertEq(postTotalBorrow >= preTotalBorrow, true);
-
-    //     uint256 supplyInterest = postTotalSupply - preTotalSupply;
-    //     uint256 borrowInterest = postTotalBorrow - preTotalBorrow;
-
-    //     assertEq(borrowInterest >= supplyInterest, true);
-    // }
-
-    // function test__termDeployment() public {
-    //     assertEq(address(term.yieldSource()) == address(compound), true);
-    //     assertEq(term.underlyingReserve(), 0);
-    //     assertEq(term.yieldSharesIssued(), 0);
-    //     assertEq(term.yieldShareReserve(), 0);
-    //     assertEq(term.targetReserve(), 25000e18);
-    //     assertEq(term.maxReserve(), 50000e18);
-    //     assertEq(USDC.balanceOf(address(term)), 0);
-    //     assertEq(compound.balanceOf(address(term)), 0);
-    //     assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 0);
-    // }
-
-    /// Should lock amount of underlying directly in the protocol
-    /// and issue shares according to the current (inferred) yield share price
-    function test__depositLocked() public {
-        uint256 usdcCompoundBalance = USDC.balanceOf(address(compound));
-
-        // console2.log(term.yieldSharesAsUnderlying(10000e6));
-        // console2.log(term.underlyingAsYieldShares(10000e6));
-        // console2.log(term.yieldSharesIssued());
-
-        vm.startPrank(user);
-        uint256[] memory assetIds;
-        uint256[] memory assetAmounts;
-        term.lock(
-            assetIds,
-            assetAmounts,
-            10000e6,
-            false,
-            user,
-            user,
-            TERM_START,
-            TERM_END
-        );
-        vm.stopPrank();
-
-        // console2.log(term.yieldSharesAsUnderlying(10000e6));
-        // console2.log(term.underlyingAsYieldShares(10000e6));
-        // console2.log(term.yieldSharesIssued());
-
-        vm.startPrank(user);
-        term.lock(
-            assetIds,
-            assetAmounts,
-            10000e6,
-            false,
-            user,
-            user,
-            TERM_START,
-            TERM_END
-        );
-        vm.stopPrank();
-
-        // console2.log(term.yieldSharesAsUnderlying(10000e6));
-        // console2.log(term.underlyingAsYieldShares(10000e6));
-        // console2.log(term.yieldSharesIssued());
-
-        // usdcCompoundBalance =
-        //     USDC.balanceOf(address(compound)) -
-        //     usdcCompoundBalance;
-
-        // assertEq(shares, 10000e6);
-        // assertEq(underlying, 10000e6);
-        // assertEq(usdcCompoundBalance, 10000e6);
-        // assertEq(compound.balanceOf(address(term)), 10000e6);
     }
 }
