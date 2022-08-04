@@ -22,7 +22,8 @@ contract CompoundV3Term is Term {
     uint256 public immutable maxReserve;
     uint256 public immutable targetReserve;
 
-    /// @notice Associates the vault to the protocol and sets reserve limits
+    /// @notice Associates the Compound contract to the protocol and sets
+    ///         reserve limits
     /// @param _yieldSource Address of the Compoundv3 implementation
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
@@ -165,10 +166,10 @@ contract CompoundV3Term is Term {
             /// Internalised representation of shares on this contracts deposits
             /// to Compound
             uint256 underlyingToBeSuppliedAsYieldShares = (yieldSharesIssued *
-                underlyingSupplied) / accruedUnderlying;
+                underlyingToBeSupplied) / accruedUnderlying;
 
             /// Deposits `underlying` into Compound
-            yieldSource.supply(address(token), underlyingSupplied);
+            yieldSource.supply(address(token), underlyingToBeSupplied);
 
             /// Account for issued shares
             yieldSharesIssued += underlyingToBeSuppliedAsYieldShares;
@@ -179,7 +180,7 @@ contract CompoundV3Term is Term {
             /// relative to the amount supplied
             _setReserves(
                 targetReserve,
-                yieldShareReserve_ + underlyingSuppliedAsYieldShares
+                yieldShareReserve_ + underlyingToBeSuppliedAsYieldShares
             );
         } else {
             /// We set the `underlyingReserve` to the precomputed sum of
@@ -445,10 +446,10 @@ contract CompoundV3Term is Term {
     /// @notice Helper function for retrieving information about the reserves
     /// @return underlyingReserve_ The amount of underlying accounted for in
     ///         `_underlyingReserve`
-    /// @return vaultShareReserve_ The amount of vaultShares accounted for in
-    ///         `_vaultShareReserve`
-    /// @return vaultShareReserveAsUnderlying The underlying value of the
-    ///         vaultShareReserve
+    /// @return yieldShareReserve_ The amount of yieldShares accounted for in
+    ///         `_yieldShareReserve`
+    /// @return yieldShareReserveAsUnderlying The underlying value of the
+    ///         yieldShareReserve
     /// @return impliedUnderlyingReserve The sum of the `underlyingReserve`
     ///         and the underlying value of the `vaultShareReserve`. The total
     ///         "unlocked" shares are a proportional claim on this amount of
