@@ -14,6 +14,9 @@ contract User {
 }
 
 contract MockTerm is Term {
+    uint256 public underlyingReserve;
+    uint256 public vaultShareReserve;
+
     constructor(
         bytes32 _linkerCodeHash,
         address _factory,
@@ -21,13 +24,66 @@ contract MockTerm is Term {
         address _owner
     ) Term(_linkerCodeHash, _factory, _token, _owner) {} // solhint-disable-line no-empty-blocks
 
-    function _deposit(ShareState)
+    function mint(
+        uint256 tokenID,
+        address to,
+        uint256 amount
+    ) public {
+        _mint(tokenID, to, amount);
+        uint256 expiry = uint256(uint128(tokenID));
+        sharesPerExpiry[expiry] += amount;
+    }
+
+    function setSharesPerExpiry(uint256 expiry, uint256 amount) public {
+        sharesPerExpiry[expiry] = amount;
+    }
+
+    function _deposit(ShareState state)
         internal
-        pure
         override
-        returns (uint256, uint256)
+        returns (uint256 shares, uint256 value)
     {
-        return (0, 0);
+        return
+            state == ShareState.Locked ? _depositLocked() : _depositUnlocked();
+    }
+
+    function _depositLocked()
+        internal
+        returns (uint256 shares, uint256 userSuppliedUnderlying)
+    {} // solhint-disable-line no-empty-blocks
+
+    // none goes to a vault, we just keep track
+    function _depositUnlocked()
+        internal
+        returns (uint256 shares, uint256 userSuppliedUnderlying)
+    {
+        uint256 termTokenBalance = token.balanceOf(address(this));
+        userSuppliedUnderlying = termTokenBalance - underlyingReserve;
+
+        if (underlyingReserve == 0) {
+            shares = userSuppliedUnderlying;
+        } else {
+            shares =
+                (userSuppliedUnderlying * totalSupply[UNLOCKED_YT_ID]) /
+                underlyingReserve;
+        }
+
+        underlyingReserve += token.balanceOf(address(this));
+    }
+
+    function _underlying(uint256 shares, ShareState state)
+        internal
+        view
+        override
+        returns (uint256)
+    {
+        if (state == ShareState.Locked) {
+            // just return 1-1 shares for underlying for lock right now
+            // mock interest later
+            return shares;
+        } else {
+            return (shares * underlyingReserve) / totalSupply[UNLOCKED_YT_ID];
+        }
     }
 
     /// @return the amount produced
@@ -36,15 +92,6 @@ contract MockTerm is Term {
         address,
         ShareState
     ) internal pure override returns (uint256) {
-        return 0;
-    }
-
-    function _underlying(uint256, ShareState)
-        internal
-        pure
-        override
-        returns (uint256)
-    {
         return 0;
     }
 
@@ -60,7 +107,7 @@ contract MockTerm is Term {
 
 contract TermTest is Test {
     ForwarderFactory public ff;
-    Term public term;
+    MockTerm public term;
     MockERC20Permit public token;
     User public user;
 
@@ -82,5 +129,131 @@ contract TermTest is Test {
             address(0xf5a2fE45F4f1308502b1C136b9EF8af136141382),
             address(term)
         );
+    }
+
+    function testDepositUnlocked_OnlyUnderlying() public {
+        uint256 underlyingAmount = 1 ether;
+        uint256 ptAmount = 0;
+        uint256 ptExpiry = 1000;
+        address destination = address(user);
+
+        // give user some ETH and send requests as the user.
+        startHoax(address(user));
+
+        token.setBalance(address(user), 10 ether);
+        token.approve(address(term), UINT256_MAX);
+
+        (uint256 shares, uint256 value) = term.depositUnlocked(
+            underlyingAmount,
+            ptAmount,
+            ptExpiry,
+            destination
+        );
+
+        assertEq(value, underlyingAmount);
+        assertEq(shares, value);
+        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 1 ether);
+    }
+
+    function testDepositUnlocked_NotExpired() public {
+        uint256 underlyingAmount = 1 ether;
+        uint256 ptAmount = 1 ether;
+        uint256 ptExpiry = 1000;
+        address destination = address(user);
+
+        // give user some ETH and send requests as the user.
+        startHoax(address(user));
+
+        token.setBalance(address(user), 10 ether);
+        token.approve(address(term), UINT256_MAX);
+
+        vm.expectRevert("Not expired");
+        term.depositUnlocked(underlyingAmount, ptAmount, ptExpiry, destination);
+    }
+
+    // try to redeem expired pt, even though the caller has none.  causes a div by zero error.
+    function testFailDepositUnlocked_NoPt() public {
+        uint256 underlyingAmount = 1 ether;
+        uint256 ptAmount = 1 ether;
+        uint256 ptExpiry = 1000;
+        address destination = address(user);
+
+        // give user some ETH and send requests as the user.
+        startHoax(address(user));
+        // jump to timestamp 2001, block number 2;
+        vm.warp(2000);
+        vm.roll(2);
+
+        token.setBalance(address(user), 10 ether);
+        token.approve(address(term), UINT256_MAX);
+
+        // FAIL. Reason: Division or modulo by 0
+        term.depositUnlocked(underlyingAmount, ptAmount, ptExpiry, destination);
+    }
+
+    // try to redeem expired pt, even though the caller doesn't have enough.
+    function testFailDepositUnlocked_NotEnoughPt() public {
+        uint256 underlyingAmount = 1 ether;
+        uint256 ptAmount = 1 ether;
+        uint256 ptExpiry = 1000;
+        address destination = address(user);
+
+        // give user 1 wei less than we try to redeem
+        term.mint(ptExpiry, address(user), 1 ether - 1);
+
+        // give user some ETH and send requests as the user.
+        startHoax(address(user));
+        // jump to timestamp 2001, block number 2;
+        vm.warp(2000);
+        vm.roll(2);
+
+        token.setBalance(address(user), 10 ether);
+        token.approve(address(term), UINT256_MAX);
+
+        // FAIL. Reason: Arithmetic over/underflow
+        term.depositUnlocked(underlyingAmount, ptAmount, ptExpiry, destination);
+    }
+
+    // user has both underlying and pt
+    function testDepositUnlocked_UnderlyingAndPt() public {
+        uint256 underlyingAmount = 1 ether;
+        uint256 ptAmount = 1 ether;
+        uint256 ptExpiry = 1000;
+        address destination = address(user);
+
+        // mint enough pt to redeem
+        term.mint(ptExpiry, address(user), ptAmount);
+        term.setSharesPerExpiry(ptExpiry, ptAmount);
+
+        // give user some ETH and send requests as the user.
+        startHoax(address(user));
+        // jump to timestamp 2001, block number 2;
+        vm.warp(2000);
+        vm.roll(2);
+
+        token.setBalance(address(user), 10 ether);
+        token.approve(address(term), UINT256_MAX);
+
+        (uint256 shares, uint256 value) = term.depositUnlocked(
+            underlyingAmount,
+            ptAmount,
+            ptExpiry,
+            destination
+        );
+
+        console2.log("underlyingAmount %s", underlyingAmount);
+        console2.log("value %s", value);
+        console2.log("shares %s", shares);
+        console2.log(
+            "user balance unlocked yts %s",
+            term.balanceOf(term.UNLOCKED_YT_ID(), address(user))
+        );
+
+        assertEq(shares, underlyingAmount + ptAmount);
+        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 1 ether);
+        // user should not have any pts left
+        assertEq(term.balanceOf(ptExpiry, address(user)), 0);
+        // should have all yts now
+        assertEq(term.balanceOf(term.UNLOCKED_YT_ID(), address(user)), 1 ether);
     }
 }
