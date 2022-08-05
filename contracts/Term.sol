@@ -7,6 +7,8 @@ import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
 
+import "forge-std/console2.sol";
+
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
     struct YieldState {
@@ -86,8 +88,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         ytBeginDate = ytBeginDate >= block.timestamp
             ? block.timestamp
             : ytBeginDate;
+
         // Next check the validity of the requested expiry
         require(expiration > block.timestamp, "todo nice error");
+
         // The yt can't start after
         // Running tally of the added value
         uint256 totalValue = 0;

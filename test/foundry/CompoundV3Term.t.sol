@@ -54,6 +54,13 @@ library CompoundV3TermHelper {
                 baseTokenPriceFeed: address(priceFeed_USDC),
                 extensionDelegate: address(0x0),
                 supplyKink: 0.8e18, // 0.8
+                // supplyPerYearInterestRateSlopeLow: 0.1e18,
+                // supplyPerYearInterestRateSlopeHigh: 0.75e18,
+                // supplyPerYearInterestRateBase: 0,
+                // borrowKink: 0.8e18,
+                // borrowPerYearInterestRateSlopeLow: 0.01e18,
+                // borrowPerYearInterestRateSlopeHigh: 0.5e18,
+                // borrowPerYearInterestRateBase: 0.4e18,
                 supplyPerYearInterestRateSlopeLow: 0.0325e18,
                 supplyPerYearInterestRateSlopeHigh: 0.4e18,
                 supplyPerYearInterestRateBase: 0,
@@ -107,6 +114,27 @@ library CompoundV3TermHelper {
         compound.supply(address(WETH), 10000e18);
         compound.withdraw(address(USDC), 8000000e6);
         vm.stopPrank();
+
+        // Move forward in time for yield to accrue in Compound
+        vm.warp(block.timestamp + (365 * 24 * 60 * 60));
+    }
+
+    function calcSupplyApy(Comet _compound) public view returns (uint256 apy) {
+        uint256 utilization = _compound.getUtilization();
+        uint256 supplyRate = _compound.getSupplyRate(utilization);
+        uint256 trackingIndexScale = _compound.trackingIndexScale();
+        apy =
+            ((supplyRate * trackingIndexScale) / 1e18) *
+            (365 * 24 * 60 * 60) *
+            1e5;
+    }
+
+    function calcEndOfYearPrincipal(uint256 principal, uint256 APY)
+        public
+        pure
+        returns (uint256)
+    {
+        return principal + ((principal * APY) / (1e18 * 100));
     }
 }
 
@@ -124,6 +152,9 @@ contract CompoundV3TermTest is Test {
     uint256 public TERM_START;
     uint256 public TERM_END;
 
+    uint256[] public assetIds;
+    uint256[] public assetAmounts;
+
     function labels() public {
         vm.label(user, "User");
         vm.label(address(compound), "Compound");
@@ -137,20 +168,92 @@ contract CompoundV3TermTest is Test {
 
         labels();
 
-        vm.warp(block.timestamp + YEAR);
+        // Define the start and end dates for the term
+        TERM_START = block.timestamp;
+        TERM_END = TERM_START + YEAR;
 
-        USDC.mint(user, 1000000e6);
-        USDC.mint(address(this), 1000000e6);
+        // mint the user capital
         vm.deal(user, 100 ether);
-
+        USDC.mint(user, 1000000e6);
         vm.startPrank(user);
         USDC.approve(address(term), type(uint256).max);
         vm.stopPrank();
 
-        TERM_START = block.timestamp;
-        TERM_END = TERM_START + YEAR;
+        // We want to emulate a live scenario so creating a scenario with a
+        // large deposits in both a locked and unlocked position
+        USDC.approve(address(term), type(uint256).max);
+        USDC.mint(address(this), 2000000e6);
+
+        term.lock(
+            assetIds,
+            assetAmounts,
+            1000000e6,
+            false,
+            address(this),
+            address(this),
+            TERM_START,
+            TERM_END
+        );
+        term.depositUnlocked(1000000e6, 0, 0, address(this));
 
         // Move halfway through the term so underlying and yieldShares are not 1:1
         vm.warp(block.timestamp + YEAR / 2);
     }
+
+    function test__initialState() public {
+        (
+            uint256 underlyingReserve,
+            uint256 yieldShareReserve,
+            uint256 yieldShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
+        ) = term.reserveDetails();
+
+        uint256 yieldSharesIssued = term.yieldSharesIssued();
+
+        uint256 estimatedSupplyAPY = CompoundV3TermHelper.calcSupplyApy(
+            compound
+        );
+
+        uint256 estimatedYieldShareReserveValue = CompoundV3TermHelper
+            .calcEndOfYearPrincipal(yieldShareReserve, 1.25e18);
+
+        uint256 estimatedYieldSharesIssuedValue = CompoundV3TermHelper
+            .calcEndOfYearPrincipal(yieldSharesIssued, 1.25e18);
+
+        assertEq(underlyingReserve, 50000e6);
+        assertEq(yieldShareReserve, 950000e6);
+        assertEq(yieldSharesIssued, 1950000e6);
+        assertApproxEqAbs(estimatedSupplyAPY, 2.5e18, 1e16);
+        assertApproxEqAbs(
+            estimatedYieldShareReserveValue,
+            yieldShareReserveAsUnderlying,
+            100e6
+        );
+        assertEq(
+            impliedUnderlyingReserve,
+            underlyingReserve + yieldShareReserveAsUnderlying
+        );
+        assertApproxEqAbs(
+            estimatedYieldSharesIssuedValue,
+            accruedUnderlying,
+            100e6
+        );
+    }
+
+    function test__depositLocked() public {}
+
+    function test__depositUnlocked() public {}
+
+    function test__withdrawLocked() public {}
+
+    function test__withdrawUnlocked() public {}
+
+    function test__convertLocked() public {}
+
+    function test__convertUnlocked() public {}
+
+    function test__underlyingLocked() public {}
+
+    function test__underlyingUnlocked() public {}
 }
