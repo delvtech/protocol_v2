@@ -129,7 +129,7 @@ library CompoundV3TermHelper {
             1e5;
     }
 
-    function calcEndOfYearPrincipal(uint256 principal, uint256 APY)
+    function sumPrincipalAndInterest(uint256 principal, uint256 APY)
         public
         pure
         returns (uint256)
@@ -211,15 +211,26 @@ contract CompoundV3TermTest is Test {
 
         uint256 yieldSharesIssued = term.yieldSharesIssued();
 
+        // Roughly scaled 18 decimal representation of APY given current
+        // per second supply rate
         uint256 estimatedSupplyAPY = CompoundV3TermHelper.calcSupplyApy(
             compound
         );
 
+        // Divide by 2 to get 6 month rate
+        uint256 estimated6MonthSupplyAPY = estimatedSupplyAPY / 2;
+
         uint256 estimatedYieldShareReserveValue = CompoundV3TermHelper
-            .calcEndOfYearPrincipal(yieldShareReserve, 1.25e18);
+            .sumPrincipalAndInterest(
+                yieldShareReserve,
+                estimated6MonthSupplyAPY
+            );
 
         uint256 estimatedYieldSharesIssuedValue = CompoundV3TermHelper
-            .calcEndOfYearPrincipal(yieldSharesIssued, 1.25e18);
+            .sumPrincipalAndInterest(
+                yieldSharesIssued,
+                estimated6MonthSupplyAPY
+            );
 
         assertEq(underlyingReserve, 50000e6);
         assertEq(yieldShareReserve, 950000e6);
@@ -228,7 +239,7 @@ contract CompoundV3TermTest is Test {
         assertApproxEqAbs(
             estimatedYieldShareReserveValue,
             yieldShareReserveAsUnderlying,
-            100e6
+            5e4
         );
         assertEq(
             impliedUnderlyingReserve,
@@ -237,13 +248,152 @@ contract CompoundV3TermTest is Test {
         assertApproxEqAbs(
             estimatedYieldSharesIssuedValue,
             accruedUnderlying,
-            100e6
+            5e4
         );
     }
 
-    function test__depositLocked() public {}
+    function test__depositLocked() public {
+        uint256 input = 10000e6;
+        uint256 inputAsShares = term.underlyingAsYieldShares(input);
 
-    function test__depositUnlocked() public {}
+        (
+            ,
+            ,
+            uint256 prevYieldShareReserveAsUnderlying,
+            uint256 prevImpliedUnderlyingReserve,
+            uint256 prevAccruedUnderlying
+        ) = term.reserveDetails();
+
+        vm.startPrank(user);
+        term.lock(
+            assetIds,
+            assetAmounts,
+            input,
+            false,
+            address(this),
+            address(this),
+            TERM_START,
+            TERM_END
+        );
+        vm.stopPrank();
+
+        (
+            uint256 underlyingReserve,
+            uint256 yieldShareReserve,
+            uint256 yieldShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
+        ) = term.reserveDetails();
+
+        uint256 yieldSharesIssued = term.yieldSharesIssued();
+
+        assertEq(underlyingReserve, 50000e6);
+        assertEq(yieldShareReserve, 950000e6);
+        assertEq(yieldSharesIssued, (1950000e6 + inputAsShares));
+        assertEq(
+            prevYieldShareReserveAsUnderlying,
+            yieldShareReserveAsUnderlying
+        );
+        assertEq(prevImpliedUnderlyingReserve, impliedUnderlyingReserve);
+        assertApproxEqAbs(prevAccruedUnderlying + input, accruedUnderlying, 1);
+    }
+
+    function test__depositUnlocked__below_max_reserve() public {
+        uint256 input = 10000e6;
+
+        (
+            uint256 prevUnderlyingReserve,
+            uint256 prevYieldShareReserve,
+            uint256 prevYieldShareReserveAsUnderlying,
+            uint256 prevImpliedUnderlyingReserve,
+            uint256 prevAccruedUnderlying
+        ) = term.reserveDetails();
+
+        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+
+        vm.startPrank(user);
+        term.depositUnlocked(input, 0, 0, user);
+        vm.stopPrank();
+
+        (
+            uint256 underlyingReserve,
+            uint256 yieldShareReserve,
+            uint256 yieldShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
+        ) = term.reserveDetails();
+
+        uint256 yieldSharesIssued = term.yieldSharesIssued();
+
+        assertEq(underlyingReserve, prevUnderlyingReserve + input);
+        assertEq(yieldShareReserve, prevYieldShareReserve);
+        assertEq(yieldSharesIssued, prevYieldSharesIssued);
+        assertEq(
+            yieldShareReserveAsUnderlying,
+            prevYieldShareReserveAsUnderlying
+        );
+        assertEq(
+            impliedUnderlyingReserve,
+            prevImpliedUnderlyingReserve + input
+        );
+        assertEq(accruedUnderlying, prevAccruedUnderlying);
+    }
+
+    function test__depositUnlocked__above_max_reserve() public {
+        uint256 input = 200_000e6;
+        uint256 inputInvested = 150_000e6;
+
+        (
+            uint256 prevUnderlyingReserve,
+            uint256 prevYieldShareReserve,
+            uint256 prevYieldShareReserveAsUnderlying,
+            uint256 prevImpliedUnderlyingReserve,
+            uint256 prevAccruedUnderlying
+        ) = term.reserveDetails();
+
+        uint256 inputInvestedAsShares = term.underlyingAsYieldShares(
+            inputInvested + prevUnderlyingReserve
+        );
+
+        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+
+        vm.startPrank(user);
+        term.depositUnlocked(input, 0, 0, user);
+        vm.stopPrank();
+
+        (
+            uint256 underlyingReserve,
+            uint256 yieldShareReserve,
+            uint256 yieldShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
+        ) = term.reserveDetails();
+
+        uint256 yieldSharesIssued = term.yieldSharesIssued();
+
+        assertEq(underlyingReserve, 50_000e6);
+        assertEq(
+            yieldShareReserve,
+            prevYieldShareReserve + inputInvestedAsShares
+        );
+        assertEq(
+            yieldSharesIssued,
+            prevYieldSharesIssued + inputInvestedAsShares
+        );
+        assertApproxEqAbs(
+            yieldShareReserveAsUnderlying,
+            prevYieldShareReserveAsUnderlying +
+                inputInvested +
+                prevUnderlyingReserve,
+            1
+        );
+        assertApproxEqAbs(
+            impliedUnderlyingReserve,
+            prevImpliedUnderlyingReserve + input,
+            1
+        );
+        assertApproxEqAbs(accruedUnderlying, prevAccruedUnderlying + input, 1);
+    }
 
     function test__withdrawLocked() public {}
 

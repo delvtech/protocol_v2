@@ -503,7 +503,7 @@ contract CompoundV3Term is Term {
         returns (uint256 yieldShares)
     {
         yieldShares =
-            (yieldSharesIssued * yieldShares) /
+            (yieldSharesIssued * underlying) /
             yieldSource.balanceOf(address(this));
     }
 
@@ -515,7 +515,7 @@ contract CompoundV3Term is Term {
         returns (uint256 underlying)
     {
         underlying =
-            (yieldSource.balanceOf(address(this)) * underlying) /
+            (yieldSource.balanceOf(address(this)) * yieldShares) /
             yieldSharesIssued;
     }
 
