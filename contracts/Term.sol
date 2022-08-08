@@ -7,8 +7,6 @@ import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
 
-import "forge-std/console2.sol";
-
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
     struct YieldState {
@@ -236,6 +234,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
         uint256 previousId = 0;
+
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < tokenIds.length; i++) {
