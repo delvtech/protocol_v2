@@ -257,12 +257,14 @@ contract CompoundV3TermTest is Test {
         uint256 inputAsShares = term.underlyingAsYieldShares(input);
 
         (
-            ,
-            ,
+            uint256 prevUnderlyingReserve,
+            uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
             uint256 prevImpliedUnderlyingReserve,
             uint256 prevAccruedUnderlying
         ) = term.reserveDetails();
+
+        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
 
         vm.startPrank(user);
         term.lock(
@@ -287,9 +289,9 @@ contract CompoundV3TermTest is Test {
 
         uint256 yieldSharesIssued = term.yieldSharesIssued();
 
-        assertEq(underlyingReserve, 50000e6);
-        assertEq(yieldShareReserve, 950000e6);
-        assertEq(yieldSharesIssued, (1950000e6 + inputAsShares));
+        assertEq(underlyingReserve, prevUnderlyingReserve);
+        assertEq(yieldShareReserve, prevYieldShareReserve);
+        assertEq(yieldSharesIssued, prevYieldSharesIssued + inputAsShares);
         assertEq(
             prevYieldShareReserveAsUnderlying,
             yieldShareReserveAsUnderlying
@@ -340,8 +342,8 @@ contract CompoundV3TermTest is Test {
     }
 
     function test__depositUnlocked__above_max_reserve() public {
-        uint256 input = 200_000e6;
-        uint256 inputInvested = 150_000e6;
+        uint256 input = 200000e6;
+        uint256 inputInvested = 150000e6;
 
         (
             uint256 prevUnderlyingReserve,
@@ -371,7 +373,7 @@ contract CompoundV3TermTest is Test {
 
         uint256 yieldSharesIssued = term.yieldSharesIssued();
 
-        assertEq(underlyingReserve, 50_000e6);
+        assertEq(underlyingReserve, 50000e6);
         assertEq(
             yieldShareReserve,
             prevYieldShareReserve + inputInvestedAsShares
@@ -395,7 +397,67 @@ contract CompoundV3TermTest is Test {
         assertApproxEqAbs(accruedUnderlying, prevAccruedUnderlying + input, 1);
     }
 
-    function test__withdrawLocked() public {}
+    function test__withdrawLocked() public {
+        uint256 inputDeposited = 1000000e6;
+
+        vm.startPrank(user);
+        term.lock(
+            assetIds,
+            assetAmounts,
+            inputDeposited,
+            false,
+            address(this),
+            address(this),
+            TERM_START,
+            TERM_END
+        );
+        vm.stopPrank();
+
+        (
+            uint256 prevUnderlyingReserve,
+            uint256 prevYieldShareReserve,
+            uint256 prevYieldShareReserveAsUnderlying,
+            uint256 prevImpliedUnderlyingReserve,
+            uint256 prevAccruedUnderlying
+        ) = term.reserveDetails();
+
+        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+
+        uint256 sharesToRedeem = 10000e6;
+        uint256 estimatedWithdrawnUnderlying = term.yieldSharesAsUnderlying(
+            sharesToRedeem
+        );
+
+        vm.startPrank(user);
+        assetIds[0] = TERM_END;
+        assetAmounts[0] = sharesToRedeem;
+        term.unlock(user, assetIds, assetAmounts);
+        vm.stopPrank();
+
+        (
+            uint256 underlyingReserve,
+            uint256 yieldShareReserve,
+            uint256 yieldShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
+        ) = term.reserveDetails();
+
+        uint256 yieldSharesIssued = term.yieldSharesIssued();
+
+        assertEq(underlyingReserve, prevUnderlyingReserve);
+        assertEq(yieldShareReserve, prevYieldShareReserve);
+        assertEq(yieldSharesIssued, prevYieldSharesIssued - sharesToRedeem);
+        assertEq(
+            yieldShareReserveAsUnderlying,
+            prevYieldShareReserveAsUnderlying
+        );
+        assertEq(impliedUnderlyingReserve, prevImpliedUnderlyingReserve);
+        assertApproxEqAbs(
+            accruedUnderlying,
+            prevAccruedUnderlying - estimatedWithdrawnUnderlying,
+            1
+        );
+    }
 
     function test__withdrawUnlocked() public {}
 
