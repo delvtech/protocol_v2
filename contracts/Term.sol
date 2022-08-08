@@ -6,7 +6,6 @@ import "./interfaces/IYieldAdapter.sol";
 import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
-import "forge-std/console2.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
@@ -202,7 +201,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             // Todo - Make sure there's a test for the fact no YT id passes
             require(ptExpiry < block.timestamp, "Not expired");
             // Then we burn the pt from the user and release its shares
-            console2.log("releasing asset");
             (uint256 lockedShares, uint256 ptValue) = _releaseAsset(
                 ptExpiry,
                 msg.sender,
@@ -210,16 +208,11 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             );
             // We convert those shares to a 'unlocked' form
             uint256 unlockedShares = _convert(ShareState.Locked, lockedShares);
-            console2.log("unlockedShares", unlockedShares);
             // Add them to ongoing totals
             shares += unlockedShares;
             value += ptValue;
         }
         // Mint YT for the user
-        console2.log("_createYT");
-        console2.log("destination", destination);
-        console2.log("value", value);
-        console2.log("shares", shares);
         _createYT(destination, value, shares, 0, 0);
         // Return how much was deposited and the shares created
         return (value, shares);
@@ -353,6 +346,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                     state.shares + uint128(totalShares),
                     state.pt + uint128(value - totalDiscount)
                 );
+                sharesPerExpiry[expiration] += totalShares - totalDiscount;
+
                 // Return the discount so the right number of PT are minted
                 return totalDiscount;
             }
@@ -379,7 +374,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // If the term's final interest rate has not been recorded we record it
         if (assetId != UNLOCKED_YT_ID && finalState.interest == 0) {
             finalState = _finalizeTerm(expiry);
-            console2.log("not yt, no interest");
         }
 
         //  Special case the unlocked share redemption
@@ -389,7 +383,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             // If the top bit is one do YT redemption
             return _releaseYT(finalState, assetId, source, amount);
         } else {
-            console2.log("releasing pt");
             return _releasePT(finalState, assetId, source, amount);
         }
     }
@@ -402,16 +395,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         internal
         returns (FinalizedState memory finalState)
     {
-        console2.log("finalizing term");
         // All shares corresponding to PT and YT expiring now
         uint256 termShares = sharesPerExpiry[expiry];
-        console2.log("termShares %s", termShares);
         // The implied value of term shares
         uint256 totalValue = _underlying(termShares, ShareState.Locked);
-        console2.log("totalValue %s", totalValue);
         // The interest is the value minus pt supply
         uint256 totalInterest = totalValue - totalSupply[expiry];
-        console2.log("totalInterest %s", totalInterest);
         // The shares needed to release this value at this point are calculated from the
         // implied price per share
         uint256 pricePerShare = (totalValue * one) / termShares;

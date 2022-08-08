@@ -86,7 +86,6 @@ contract MockTerm is Term {
         }
     }
 
-    /// @return the amount produced
     function _withdraw(
         uint256,
         address,
@@ -95,13 +94,13 @@ contract MockTerm is Term {
         return 0;
     }
 
-    function _convert(ShareState, uint256)
+    function _convert(ShareState, uint256 shares)
         internal
         pure
         override
         returns (uint256)
     {
-        return 0;
+        return shares;
     }
 }
 
@@ -110,6 +109,9 @@ contract TermTest is Test {
     MockTerm public term;
     MockERC20Permit public token;
     User public user;
+
+    uint256[] public assetIds;
+    uint256[] public sharesList;
 
     function setUp() public {
         ff = new ForwarderFactory();
@@ -124,7 +126,6 @@ contract TermTest is Test {
     }
 
     function testDeploy() public {
-        console2.log("term address %s", address(term));
         assertEq(
             address(0xf5a2fE45F4f1308502b1C136b9EF8af136141382),
             address(term)
@@ -217,6 +218,45 @@ contract TermTest is Test {
     // user has both underlying and pt
     function testDepositUnlocked_UnderlyingAndPt() public {
         uint256 underlyingAmount = 1 ether;
+        uint256 ptAmount = 1 ether;
+        uint256 ptExpiry = 1000;
+        address destination = address(user);
+
+        // mint enough pt to redeem
+        term.mint(ptExpiry, address(user), ptAmount);
+        term.setSharesPerExpiry(ptExpiry, ptAmount);
+
+        // give user some ETH and send requests as the user.
+        startHoax(address(user));
+        // jump to timestamp 2001, block number 2;
+        vm.warp(2000);
+        vm.roll(2);
+
+        token.setBalance(address(user), 10 ether);
+        token.approve(address(term), UINT256_MAX);
+
+        (uint256 shares, uint256 value) = term.depositUnlocked(
+            underlyingAmount,
+            ptAmount,
+            ptExpiry,
+            destination
+        );
+
+        assertEq(shares, underlyingAmount + ptAmount);
+        // user should not have any pts left
+        assertEq(term.balanceOf(ptExpiry, address(user)), 0);
+        // should have all yts now, both user shares and total supply = 1 ether
+        assertEq(term.balanceOf(term.UNLOCKED_YT_ID(), address(user)), 2 ether);
+        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 2 ether);
+
+        uint256 unlockYtId = term.UNLOCKED_YT_ID();
+        assetIds.push(unlockYtId);
+        sharesList.push(1 ether);
+        uint256 redeemValue = term.unlock(address(user), assetIds, sharesList);
+    }
+
+    function testDepositUnlocked_OnlyPt() public {
+        uint256 underlyingAmount = 0;
         uint256 ptAmount = 1 ether;
         uint256 ptExpiry = 1000;
         address destination = address(user);
