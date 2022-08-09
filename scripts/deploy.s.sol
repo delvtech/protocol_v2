@@ -9,13 +9,13 @@ import "../contracts/mocks/MockERC20Permit.sol";
 import "../contracts/mocks/MockERC20YearnVault.sol";
 import "../contracts/mocks/MockYieldAdapter.sol";
 
-contract Deployer is Script {
+contract MockDeployer is Script {
     function run() external {
         vm.startBroadcast();
         console.logString("start");
         console.logUint(block.timestamp);
 
-        // N̶̡̖̬͖̫̺̙̐̽̀̔̂̋̈́̊̚̕͘O̷̯͝T̶̡͔̤͔̗̳̳̦͙̻͚̘̜͊̆͑̑̄̌̈́͂̕͜͜E̷̡̛͕͈̥͂͊̍͌̒̓͌̀́̑̕̕
+        // Note
         // block.timestamp won't get updated (locally at least)
         uint256 timestamp = block.timestamp;
 
@@ -82,11 +82,15 @@ contract Deployer is Script {
 
         // start off 30/60/90 day terms for each token
         uint256 oneDaySeconds = 60 * 60 * 24;
-        // WRONG! TODO
-        uint256 oneMonthTerm = block.timestamp + oneDaySeconds * 30;
+        uint256 oneMonthSeconds = timestamp + oneDaySeconds * 30;
+        uint256 oneMonthExpiry = timestamp + oneMonthSeconds;
+        uint256 twoMonthExpiry = timestamp + oneMonthSeconds * 2;
+        uint256 threeMonthExpiry = timestamp + oneMonthSeconds * 3;
 
+        // empty dynamic array to satisfy types
         uint256[] memory emptyArray;
 
+        // give allowances to term contracts
         USDC.approve(address(USDCTerm), 1_000_000);
         DAI.approve(address(DAITerm), 1_000_000);
         WETH.approve(address(WETHTerm), 100_000);
@@ -100,7 +104,7 @@ contract Deployer is Script {
             msg.sender,
             msg.sender,
             block.timestamp + 3600, // term starts now
-            oneMonthTerm // term ends in 30 days
+            oneMonthExpiry // term ends in 30 days
         );
 
         USDCTerm.lock(
@@ -111,7 +115,7 @@ contract Deployer is Script {
             msg.sender,
             msg.sender,
             block.timestamp + 3600, // term starts now
-            oneMonthTerm * 2 // term ends in 60 days
+            twoMonthExpiry // term ends in 60 days
         );
 
         USDCTerm.lock(
@@ -122,7 +126,7 @@ contract Deployer is Script {
             msg.sender,
             msg.sender,
             block.timestamp + 3600, // term starts now
-            oneMonthTerm * 3 // term ends in 90 days
+            threeMonthExpiry // term ends in 90 days
         );
 
         //  DAI terms
@@ -134,7 +138,7 @@ contract Deployer is Script {
             msg.sender,
             msg.sender,
             block.timestamp + 3600, // term starts now
-            oneMonthTerm // term ends in 30 days
+            oneMonthExpiry // term ends in 30 days
         );
         DAITerm.lock(
             emptyArray, // no assets (PT, YT, unlocked shares) to lock
@@ -144,7 +148,7 @@ contract Deployer is Script {
             msg.sender,
             msg.sender,
             block.timestamp + 3600, // term starts now
-            oneMonthTerm * 2 // term ends in 60 days
+            twoMonthExpiry // term ends in 60 days
         );
         DAITerm.lock(
             emptyArray, // no assets (PT, YT, unlocked shares) to lock
@@ -153,8 +157,8 @@ contract Deployer is Script {
             false, // no prefunding i.e. no tokens previouslly transfered to lock
             msg.sender,
             msg.sender,
-            block.timestamp + 180, // term starts now
-            oneMonthTerm * 3 // term ends in 90 days
+            block.timestamp + 3600, // term starts now
+            threeMonthExpiry // term ends in 90 days
         );
 
         //  WETH terms
@@ -166,7 +170,7 @@ contract Deployer is Script {
             msg.sender,
             msg.sender,
             block.timestamp + 3600, // term starts now
-            oneMonthTerm // term ends in 30 days
+            oneMonthExpiry // term ends in 30 days
         );
         WETHTerm.lock(
             emptyArray, // no assets (PT, YT, unlocked shares) to lock
@@ -176,7 +180,7 @@ contract Deployer is Script {
             msg.sender,
             msg.sender,
             block.timestamp + 3600, // term starts now
-            oneMonthTerm * 2 // term ends in 60 days
+            twoMonthExpiry // term ends in 60 days
         );
         WETHTerm.lock(
             emptyArray, // no assets (PT, YT, unlocked shares) to lock
@@ -186,7 +190,7 @@ contract Deployer is Script {
             msg.sender,
             msg.sender,
             block.timestamp + 3600, // term starts now
-            oneMonthTerm * 3 // term ends in 90 days
+            threeMonthExpiry // term ends in 90 days
         );
 
         // deploy pools for each term
@@ -225,7 +229,7 @@ contract Deployer is Script {
 
         // usdc 30/60/90 day terms
         USDCPool.registerPoolId(
-            oneMonthTerm, // term expiry is pool id
+            oneMonthExpiry, // term expiry is pool id
             100_000, // amount in
             1, // timestretch HUH
             msg.sender,
@@ -234,17 +238,17 @@ contract Deployer is Script {
         );
 
         USDCPool.registerPoolId(
-            oneMonthTerm * 2, // term expiry is pool id
+            twoMonthExpiry, // term expiry is pool id
             100_000, // amount in
-            1, // timestretch HUH
+            1, // timestretch
             msg.sender,
             0, // max time
             0 // max length
         );
         USDCPool.registerPoolId(
-            oneMonthTerm * 3, // term expiry is pool id
+            threeMonthExpiry, // term expiry is pool id
             100_000, // amount in
-            1, // timestretch HUH
+            1, // timestretch
             msg.sender,
             0, // max time
             0 // max length
@@ -252,25 +256,25 @@ contract Deployer is Script {
 
         // DAI 30/60/90 day terms
         DAIPool.registerPoolId(
-            oneMonthTerm, // term expiry is pool id
+            oneMonthExpiry, // term expiry is pool id
             100_000, // amount in
-            1, // timestretch HUH
+            1, // timestretch
             msg.sender,
             0, // max time
             0 // max length
         );
         DAIPool.registerPoolId(
-            oneMonthTerm * 2, // term expiry is pool id
+            twoMonthExpiry, // term expiry is pool id
             100_000, // amount in
-            1, // timestretch HUH
+            1, // timestretch
             msg.sender,
             0, // max time
             0 // max length
         );
         DAIPool.registerPoolId(
-            oneMonthTerm * 3, // term expiry is pool id
+            threeMonthExpiry, // term expiry is pool id
             1_000, // amount in
-            1, // timestretch HUH
+            1, // timestretch
             msg.sender,
             0, // max time
             0 // max length
@@ -278,63 +282,69 @@ contract Deployer is Script {
 
         // WETH 30/60/90 day terms
         WETHPool.registerPoolId(
-            oneMonthTerm, // term expiry is pool id
+            oneMonthExpiry, // term expiry is pool id
             1_000, // amount in
-            1, // timestretch HUH
+            1, // timestretch
             msg.sender,
             0, // max time
             0 // max length
         );
         WETHPool.registerPoolId(
-            oneMonthTerm * 2, // term expiry is pool id
+            twoMonthExpiry, // term expiry is pool id
             1_000, // amount in
-            1, // timestretch HUH
+            1, // timestretch
             msg.sender,
             0, // max time
             0 // max length
         );
         WETHPool.registerPoolId(
-            oneMonthTerm * 3, // term expiry is pool id
+            threeMonthExpiry, // term expiry is pool id
             1_000, // amount in
-            1, // timestretch HUH
+            1, // timestretch
             msg.sender,
             0, // max time
             0 // max length
         );
 
-        // Create ERC20 forwarder tokens for term principleTokens and LP tokens
+        // // Create ERC20 forwarder tokens for term principleTokens and LP tokens
 
-        // principle tokens
-        ERC20Forwarder pUSDC30 = factory.create(USDCTerm, oneMonthTerm);
-        ERC20Forwarder pUSDC60 = factory.create(USDCTerm, oneMonthTerm * 2);
-        ERC20Forwarder pUSDC90 = factory.create(USDCTerm, oneMonthTerm * 3);
+        // // principle tokens
+        // ERC20Forwarder pUSDC30 = factory.create(USDCTerm, oneMonthExpiry);
+        // ERC20Forwarder pUSDC60 = factory.create(USDCTerm, twoMonthExpiry);
+        // ERC20Forwarder pUSDC90 = factory.create(USDCTerm, threeMonthExpiry);
 
-        ERC20Forwarder pDAI30 = factory.create(DAITerm, oneMonthTerm);
-        ERC20Forwarder pDAI60 = factory.create(DAITerm, oneMonthTerm * 2);
-        ERC20Forwarder pDAI90 = factory.create(DAITerm, oneMonthTerm * 3);
+        // ERC20Forwarder pDAI30 = factory.create(DAITerm, oneMonthExpiry);
+        // ERC20Forwarder pDAI60 = factory.create(DAITerm, twoMonthExpiry);
+        // ERC20Forwarder pDAI90 = factory.create(DAITerm, threeMonthExpiry);
 
-        ERC20Forwarder pWETH30 = factory.create(WETHTerm, oneMonthTerm);
-        ERC20Forwarder pWETH60 = factory.create(WETHTerm, oneMonthTerm * 2);
-        ERC20Forwarder pWETH90 = factory.create(WETHTerm, oneMonthTerm * 3);
+        // ERC20Forwarder pWETH30 = factory.create(WETHTerm, oneMonthExpiry);
+        // ERC20Forwarder pWETH60 = factory.create(WETHTerm, twoMonthExpiry);
+        // ERC20Forwarder pWETH90 = factory.create(WETHTerm, threeMonthExpiry);
 
-        // lp tokens
-        ERC20Forwarder lpUSDC30 = factory.create(USDCPool, oneMonthTerm);
-        ERC20Forwarder lpUSDC60 = factory.create(USDCPool, oneMonthTerm * 2);
-        ERC20Forwarder lpUSDC90 = factory.create(USDCPool, oneMonthTerm * 3);
+        // // lp tokens
+        // ERC20Forwarder lpUSDC30 = factory.create(USDCPool, oneMonthExpiry);
+        // ERC20Forwarder lpUSDC60 = factory.create(USDCPool, twoMonthExpiry);
+        // ERC20Forwarder lpUSDC90 = factory.create(USDCPool, threeMonthExpiry);
 
-        ERC20Forwarder lpDAI30 = factory.create(DAIPool, oneMonthTerm);
-        ERC20Forwarder lpDAI60 = factory.create(DAIPool, oneMonthTerm * 2);
-        ERC20Forwarder lpDAI90 = factory.create(DAIPool, oneMonthTerm * 3);
+        // ERC20Forwarder lpDAI30 = factory.create(DAIPool, oneMonthExpiry);
+        // ERC20Forwarder lpDAI60 = factory.create(DAIPool, twoMonthExpiry);
+        // ERC20Forwarder lpDAI90 = factory.create(DAIPool, threeMonthExpiry);
 
-        ERC20Forwarder lpWETH30 = factory.create(WETHPool, oneMonthTerm);
-        ERC20Forwarder lpWETH60 = factory.create(WETHPool, oneMonthTerm * 2);
-        ERC20Forwarder lpWETH90 = factory.create(WETHPool, oneMonthTerm * 3);
-        console.logString("end");
-        console.logUint(block.timestamp);
+        // ERC20Forwarder lpWETH30 = factory.create(WETHPool, oneMonthExpiry);
+        // ERC20Forwarder lpWETH60 = factory.create(WETHPool, twoMonthExpiry);
+        // ERC20Forwarder lpWETH90 = factory.create(WETHPool, threeMonthExpiry);
+
+        // // Purchase some pTokens
+        // // USDCPool.tradeBonds(oneMonthExpiry, 10_000, 0, msg.sender, true);
+        // // USDCPool.tradeBonds(twoMonthExpiry, 50_000, 0, msg.sender, true);
+        // // USDCPool.tradeBonds(threeMonthExpiry, 100_000, 0, msg.sender, true);
+
         vm.stopBroadcast();
 
-        // todo ask what contracts if any to verify
+        // todo ask jonny about pool params
 
         // deposit some principle tokens into amm
+
+        // output token list
     }
 }
