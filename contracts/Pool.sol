@@ -98,6 +98,10 @@ contract Pool is LP, Authorizable, TWAROracle {
         _authorize(_governanceContract);
         setOwner(_governanceContract);
 
+        // approve the max allowance for the term contract to
+        // transfer from the pool for depositUnlocked
+        _token.approve(address(_term), type(uint256).max);
+
         //----------------Perform some sstore---------------------//
         tradeFee = uint128(_tradeFee);
         governanceContract = _governanceContract;
