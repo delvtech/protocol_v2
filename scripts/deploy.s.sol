@@ -182,6 +182,8 @@ contract Deployer is Script {
             oneMonthTerm * 3 // term ends in 90 days
         );
 
+        // ================================================ //
+        // ================================================ //
         // deploy pools for each term
         uint256 fee = 10;
 
@@ -193,7 +195,6 @@ contract Deployer is Script {
             governance,
             factoryAddress
         );
-
         MockPool DAIPool = new MockPool(
             DAITerm,
             DAI,
@@ -211,16 +212,13 @@ contract Deployer is Script {
             factoryAddress
         );
 
-        //vm.prank(address(USDCPool), address(USDCPool));
-        USDC.approve(address(USDCPool), type(uint256).max);
-
-        // vm.prank(address(DAIPool), address(DAIPool));
-        DAI.approve(address(DAIPool), type(uint256).max);
-
-        // vm.prank(address(WETHPool), address(WETHPool));
-        WETH.approve(address(WETHPool), type(uint256).max);
-
+        // ================================================ //
+        // ================================================ //
         // register a poolId for each term
+
+        USDC.approve(address(USDCPool), type(uint256).max);
+        DAI.approve(address(DAIPool), type(uint256).max);
+        WETH.approve(address(WETHPool), type(uint256).max);
 
         // usdc 30/60/90 day terms
         USDCPool.registerPoolId(
@@ -300,6 +298,34 @@ contract Deployer is Script {
             0, // max time
             0 // max length
         );
+
+        // Create ERC20 forwarder tokens for term principleTokens and LP tokens
+
+        // principle tokens
+        ERC20Forwarder pUSDC30 = factory.create(USDCTerm, oneMonthTerm);
+        ERC20Forwarder pUSDC60 = factory.create(USDCTerm, oneMonthTerm * 2);
+        ERC20Forwarder pUSDC90 = factory.create(USDCTerm, oneMonthTerm * 3);
+
+        ERC20Forwarder pDAI30 = factory.create(DAITerm, oneMonthTerm);
+        ERC20Forwarder pDAI60 = factory.create(DAITerm, oneMonthTerm * 2);
+        ERC20Forwarder pDAI90 = factory.create(DAITerm, oneMonthTerm * 3);
+
+        ERC20Forwarder pWETH30 = factory.create(WETHTerm, oneMonthTerm);
+        ERC20Forwarder pWETH60 = factory.create(WETHTerm, oneMonthTerm * 2);
+        ERC20Forwarder pWETH90 = factory.create(WETHTerm, oneMonthTerm * 3);
+
+        // lp tokens
+        ERC20Forwarder lpUSDC30 = factory.create(USDCPool, oneMonthTerm);
+        ERC20Forwarder lpUSDC60 = factory.create(USDCPool, oneMonthTerm * 2);
+        ERC20Forwarder lpUSDC90 = factory.create(USDCPool, oneMonthTerm * 3);
+
+        ERC20Forwarder lpDAI30 = factory.create(DAIPool, oneMonthTerm);
+        ERC20Forwarder lpDAI60 = factory.create(DAIPool, oneMonthTerm * 2);
+        ERC20Forwarder lpDAI90 = factory.create(DAIPool, oneMonthTerm * 3);
+
+        ERC20Forwarder lpWETH30 = factory.create(WETHPool, oneMonthTerm);
+        ERC20Forwarder lpWETH60 = factory.create(WETHPool, oneMonthTerm * 2);
+        ERC20Forwarder lpWETH90 = factory.create(WETHPool, oneMonthTerm * 3);
 
         vm.stopBroadcast();
     }
