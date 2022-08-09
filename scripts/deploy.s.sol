@@ -215,18 +215,14 @@ contract Deployer is Script {
         USDC.approve(address(USDCPool), type(uint256).max);
 
         // vm.prank(address(DAIPool), address(DAIPool));
-        // DAI.approve(address(DAITerm), type(uint256).max);
+        DAI.approve(address(DAIPool), type(uint256).max);
 
         // vm.prank(address(WETHPool), address(WETHPool));
-        // WETH.approve(address(WETHTerm), type(uint256).max);
+        WETH.approve(address(WETHPool), type(uint256).max);
 
         // register a poolId for each term
 
         // usdc 30/60/90 day terms
-        console.logAddress(address(USDCPool));
-
-        console.logUint(USDC.allowance(address(USDCTerm), address(USDCPool)));
-
         USDCPool.registerPoolId(
             oneMonthTerm, // term expiry is pool id
             100_000, // amount in
@@ -235,75 +231,76 @@ contract Deployer is Script {
             0, // max time
             0 // max length
         );
+
+        USDCPool.registerPoolId(
+            oneMonthTerm * 2, // term expiry is pool id
+            100_000, // amount in
+            1, // timestretch HUH
+            msg.sender,
+            0, // max time
+            0 // max length
+        );
+        USDCPool.registerPoolId(
+            oneMonthTerm * 3, // term expiry is pool id
+            100_000, // amount in
+            1, // timestretch HUH
+            msg.sender,
+            0, // max time
+            0 // max length
+        );
+
+        // DAI 30/60/90 day terms
+        DAIPool.registerPoolId(
+            oneMonthTerm, // term expiry is pool id
+            100_000, // amount in
+            1, // timestretch HUH
+            msg.sender,
+            0, // max time
+            0 // max length
+        );
+        DAIPool.registerPoolId(
+            oneMonthTerm * 2, // term expiry is pool id
+            100_000, // amount in
+            1, // timestretch HUH
+            msg.sender,
+            0, // max time
+            0 // max length
+        );
+        DAIPool.registerPoolId(
+            oneMonthTerm * 3, // term expiry is pool id
+            1_000, // amount in
+            1, // timestretch HUH
+            msg.sender,
+            0, // max time
+            0 // max length
+        );
+
+        // WETH 30/60/90 day terms
+        WETHPool.registerPoolId(
+            oneMonthTerm, // term expiry is pool id
+            1_000, // amount in
+            1, // timestretch HUH
+            msg.sender,
+            0, // max time
+            0 // max length
+        );
+        WETHPool.registerPoolId(
+            oneMonthTerm * 2, // term expiry is pool id
+            1_000, // amount in
+            1, // timestretch HUH
+            msg.sender,
+            0, // max time
+            0 // max length
+        );
+        WETHPool.registerPoolId(
+            oneMonthTerm * 3, // term expiry is pool id
+            1_000, // amount in
+            1, // timestretch HUH
+            msg.sender,
+            0, // max time
+            0 // max length
+        );
+
         vm.stopBroadcast();
-
-        // USDCPool.registerPoolId(
-        //     oneMonthTerm * 2, // term expiry is pool id
-        //     100_000, // amount in
-        //     1, // timestretch HUH
-        //     msg.sender,
-        //     0, // max time
-        //     0 // max length
-        // );
-        // USDCPool.registerPoolId(
-        //     oneMonthTerm * 3, // term expiry is pool id
-        //     100_000, // amount in
-        //     1, // timestretch HUH
-        //     msg.sender,
-        //     0, // max time
-        //     0 // max length
-        // );
-
-        // // DAI 30/60/90 day terms
-        // DAIPool.registerPoolId(
-        //     oneMonthTerm, // term expiry is pool id
-        //     100_000, // amount in
-        //     1, // timestretch HUH
-        //     msg.sender,
-        //     0, // max time
-        //     0 // max length
-        // );
-        // DAIPool.registerPoolId(
-        //     oneMonthTerm * 2, // term expiry is pool id
-        //     100_000, // amount in
-        //     1, // timestretch HUH
-        //     msg.sender,
-        //     0, // max time
-        //     0 // max length
-        // );
-        // DAIPool.registerPoolId(
-        //     oneMonthTerm * 3, // term expiry is pool id
-        //     1_000, // amount in
-        //     1, // timestretch HUH
-        //     msg.sender,
-        //     0, // max time
-        //     0 // max length
-        // );
-
-        // // WETH 30/60/90 day terms
-        // WETHPool.registerPoolId(
-        //     oneMonthTerm, // term expiry is pool id
-        //     1_000, // amount in
-        //     1, // timestretch HUH
-        //     msg.sender,
-        //     0, // max time
-        //     0 // max length
-        // );
-        // WETHPool.registerPoolId(
-        //     oneMonthTerm * 2, // term expiry is pool id
-        //     1_000, // amount in
-        //     1, // timestretch HUH
-        //     msg.sender,
-        //     0, // max time
-        //     0 // max length
-        // );
-        // WETHPool.registerPoolId(
-        //     oneMonthTerm * 3, // term expiry is pool id
-        //     1_000, // amount in
-        //     1, // timestretch HUH
-        //     msg.sender,
-        //     0, // max time
-        //     0 // max length
-        // );
     }
 }
