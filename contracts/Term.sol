@@ -339,6 +339,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                     totalSupply[yieldTokenId];
                 // Now we mint the YT for the user
                 _mint(yieldTokenId, destination, value);
+
+                // Update the amount of shares for the expiry
+                sharesPerExpiry[expiration] += totalShares - totalDiscount;
+
                 // Update the reserve information for this YT term, and the total shares
                 // backing the PT it will create.
                 // NOTE - Reverts here if the interest is over 100% for the YT being minted
