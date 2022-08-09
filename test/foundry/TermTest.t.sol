@@ -2,10 +2,12 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import "forge-std/console2.sol";
+import "forge-std/console.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
 import "contracts/mocks/MockERC20Permit.sol";
+import "contracts/mocks/MockYieldAdapter.sol";
+import "contracts/mocks/MockERC20YearnVault.sol";
 import "contracts/interfaces/IERC20.sol";
 
 contract User {
@@ -13,101 +15,11 @@ contract User {
     receive() external payable {} // solhint-disable-line no-empty-blocks
 }
 
-contract MockTerm is Term {
-    uint256 public underlyingReserve;
-    uint256 public vaultShareReserve;
-
-    constructor(
-        bytes32 _linkerCodeHash,
-        address _factory,
-        IERC20 _token,
-        address _owner
-    ) Term(_linkerCodeHash, _factory, _token, _owner) {} // solhint-disable-line no-empty-blocks
-
-    function mint(
-        uint256 tokenID,
-        address to,
-        uint256 amount
-    ) public {
-        _mint(tokenID, to, amount);
-        uint256 expiry = uint256(uint128(tokenID));
-        sharesPerExpiry[expiry] += amount;
-    }
-
-    function setSharesPerExpiry(uint256 expiry, uint256 amount) public {
-        sharesPerExpiry[expiry] = amount;
-    }
-
-    function _deposit(ShareState state)
-        internal
-        override
-        returns (uint256 shares, uint256 value)
-    {
-        return
-            state == ShareState.Locked ? _depositLocked() : _depositUnlocked();
-    }
-
-    function _depositLocked()
-        internal
-        returns (uint256 shares, uint256 userSuppliedUnderlying)
-    {} // solhint-disable-line no-empty-blocks
-
-    // none goes to a vault, we just keep track
-    function _depositUnlocked()
-        internal
-        returns (uint256 shares, uint256 userSuppliedUnderlying)
-    {
-        uint256 termTokenBalance = token.balanceOf(address(this));
-        userSuppliedUnderlying = termTokenBalance - underlyingReserve;
-
-        if (underlyingReserve == 0) {
-            shares = userSuppliedUnderlying;
-        } else {
-            shares =
-                (userSuppliedUnderlying * totalSupply[UNLOCKED_YT_ID]) /
-                underlyingReserve;
-        }
-
-        underlyingReserve += token.balanceOf(address(this));
-    }
-
-    function _underlying(uint256 shares, ShareState state)
-        internal
-        view
-        override
-        returns (uint256)
-    {
-        if (state == ShareState.Locked) {
-            // just return 1-1 shares for underlying for lock right now
-            // mock interest later
-            return shares;
-        } else {
-            return (shares * underlyingReserve) / totalSupply[UNLOCKED_YT_ID];
-        }
-    }
-
-    function _withdraw(
-        uint256,
-        address,
-        ShareState
-    ) internal pure override returns (uint256) {
-        return 0;
-    }
-
-    function _convert(ShareState, uint256 shares)
-        internal
-        pure
-        override
-        returns (uint256)
-    {
-        return shares;
-    }
-}
-
 contract TermTest is Test {
     ForwarderFactory public ff;
-    MockTerm public term;
+    MockYieldAdapter public term;
     MockERC20Permit public token;
+    MockERC20YearnVault public yearnVault;
     User public user;
 
     uint256[] public assetIds;
@@ -117,17 +29,24 @@ contract TermTest is Test {
         ff = new ForwarderFactory();
         token = new MockERC20Permit("Test Token", "tt", 18);
         user = new User();
-        term = new MockTerm(
-            ff.ERC20LINK_HASH(),
+        yearnVault = new MockERC20YearnVault(address(token));
+        bytes32 linkerCodeHash = bytes32(0);
+        address governanceContract = address(
+            0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8
+        );
+
+        term = new MockYieldAdapter(
+            address(yearnVault),
+            governanceContract,
+            linkerCodeHash,
             address(ff),
-            token,
-            address(user)
+            token
         );
     }
 
     function testDeploy() public {
         assertEq(
-            address(0xf5a2fE45F4f1308502b1C136b9EF8af136141382),
+            address(0x42997aC9251E5BB0A61F4Ff790E5B991ea07Fd9B),
             address(term)
         );
     }
@@ -151,9 +70,12 @@ contract TermTest is Test {
             destination
         );
 
-        assertEq(value, underlyingAmount);
-        assertEq(shares, value);
-        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 1 ether);
+        // MockYieldAdapter returns twice the value for depositing unlocked assets
+        assertEq(value, 2 * underlyingAmount);
+        // MockYieldAdapter returns twice the value for depositing unlocked assets
+        assertEq(value, 2 * shares);
+        // MockYieldAdapter returns twice the value for depositing unlocked assets
+        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 2 ether);
     }
 
     function testDepositUnlocked_NotExpired() public {
@@ -243,11 +165,17 @@ contract TermTest is Test {
         );
 
         assertEq(shares, underlyingAmount + ptAmount);
+
         // user should not have any pts left
         assertEq(term.balanceOf(ptExpiry, address(user)), 0);
-        // should have all yts now, both user shares and total supply = 1 ether
-        assertEq(term.balanceOf(term.UNLOCKED_YT_ID(), address(user)), 2 ether);
-        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 2 ether);
+        // should have all yts now, both user shares and total supply = 2.5 ether
+        // MockYieldAdapter returns 2x for depositing unlocked assets and 0.5x for releasing the pts.
+        assertEq(
+            term.balanceOf(term.UNLOCKED_YT_ID(), address(user)),
+            2.5 ether
+        );
+        // MockYieldAdapter returns 2x for depositing underlying amount and 0.5x for releasing the pts.
+        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 2.5 ether);
 
         uint256 unlockYtId = term.UNLOCKED_YT_ID();
         assetIds.push(unlockYtId);
@@ -281,19 +209,16 @@ contract TermTest is Test {
             destination
         );
 
-        console2.log("underlyingAmount %s", underlyingAmount);
-        console2.log("value %s", value);
-        console2.log("shares %s", shares);
-        console2.log(
-            "user balance unlocked yts %s",
-            term.balanceOf(term.UNLOCKED_YT_ID(), address(user))
-        );
-
         assertEq(shares, underlyingAmount + ptAmount);
-        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 1 ether);
+        // MockYieldAdapter returns 0.5x for releasing pts
+        assertEq(term.totalSupply(term.UNLOCKED_YT_ID()), 0.5 ether);
         // user should not have any pts left
         assertEq(term.balanceOf(ptExpiry, address(user)), 0);
         // should have all yts now
-        assertEq(term.balanceOf(term.UNLOCKED_YT_ID(), address(user)), 1 ether);
+        // MockYieldAdapter returns 0.5x for releasing pts
+        assertEq(
+            term.balanceOf(term.UNLOCKED_YT_ID(), address(user)),
+            0.5 ether
+        );
     }
 }
