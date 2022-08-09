@@ -12,6 +12,12 @@ import "../contracts/mocks/MockYieldAdapter.sol";
 contract Deployer is Script {
     function run() external {
         vm.startBroadcast();
+        console.logString("start");
+        console.logUint(block.timestamp);
+
+        // N̶̡̖̬͖̫̺̙̐̽̀̔̂̋̈́̊̚̕͘O̷̯͝T̶̡͔̤͔̗̳̳̦͙̻͚̘̜͊̆͑̑̄̌̈́͂̕͜͜E̷̡̛͕͈̥͂͊̍͌̒̓͌̀́̑̕̕
+        // block.timestamp won't get updated (locally at least)
+        uint256 timestamp = block.timestamp;
 
         // Create the forwader factory
         ForwarderFactory factory = new ForwarderFactory();
@@ -76,6 +82,7 @@ contract Deployer is Script {
 
         // start off 30/60/90 day terms for each token
         uint256 oneDaySeconds = 60 * 60 * 24;
+        // WRONG! TODO
         uint256 oneMonthTerm = block.timestamp + oneDaySeconds * 30;
 
         uint256[] memory emptyArray;
@@ -92,7 +99,7 @@ contract Deployer is Script {
             false, // no prefunding i.e. no tokens previouslly transfered to lock
             msg.sender,
             msg.sender,
-            block.timestamp + 60, // term starts now
+            block.timestamp + 3600, // term starts now
             oneMonthTerm // term ends in 30 days
         );
 
@@ -103,7 +110,7 @@ contract Deployer is Script {
             false, // no prefunding i.e. no tokens previouslly transfered to lock
             msg.sender,
             msg.sender,
-            block.timestamp + 120, // term starts now
+            block.timestamp + 3600, // term starts now
             oneMonthTerm * 2 // term ends in 60 days
         );
 
@@ -114,7 +121,7 @@ contract Deployer is Script {
             false, // no prefunding i.e. no tokens previouslly transfered to lock
             msg.sender,
             msg.sender,
-            block.timestamp + 180, // term starts now
+            block.timestamp + 3600, // term starts now
             oneMonthTerm * 3 // term ends in 90 days
         );
 
@@ -126,7 +133,7 @@ contract Deployer is Script {
             false, // no prefunding i.e. no tokens previouslly transfered to lock
             msg.sender,
             msg.sender,
-            block.timestamp + 60, // term starts now
+            block.timestamp + 3600, // term starts now
             oneMonthTerm // term ends in 30 days
         );
         DAITerm.lock(
@@ -136,7 +143,7 @@ contract Deployer is Script {
             false, // no prefunding i.e. no tokens previouslly transfered to lock
             msg.sender,
             msg.sender,
-            block.timestamp + 120, // term starts now
+            block.timestamp + 3600, // term starts now
             oneMonthTerm * 2 // term ends in 60 days
         );
         DAITerm.lock(
@@ -158,7 +165,7 @@ contract Deployer is Script {
             false, // no prefunding i.e. no tokens previouslly transfered to lock
             msg.sender,
             msg.sender,
-            block.timestamp + 60, // term starts now
+            block.timestamp + 3600, // term starts now
             oneMonthTerm // term ends in 30 days
         );
         WETHTerm.lock(
@@ -168,7 +175,7 @@ contract Deployer is Script {
             false, // no prefunding i.e. no tokens previouslly transfered to lock
             msg.sender,
             msg.sender,
-            block.timestamp + 120, // term starts now
+            block.timestamp + 3600, // term starts now
             oneMonthTerm * 2 // term ends in 60 days
         );
         WETHTerm.lock(
@@ -178,12 +185,10 @@ contract Deployer is Script {
             false, // no prefunding i.e. no tokens previouslly transfered to lock
             msg.sender,
             msg.sender,
-            block.timestamp + 180, // term starts now
+            block.timestamp + 3600, // term starts now
             oneMonthTerm * 3 // term ends in 90 days
         );
 
-        // ================================================ //
-        // ================================================ //
         // deploy pools for each term
         uint256 fee = 10;
 
@@ -212,8 +217,6 @@ contract Deployer is Script {
             factoryAddress
         );
 
-        // ================================================ //
-        // ================================================ //
         // register a poolId for each term
 
         USDC.approve(address(USDCPool), type(uint256).max);
@@ -326,7 +329,12 @@ contract Deployer is Script {
         ERC20Forwarder lpWETH30 = factory.create(WETHPool, oneMonthTerm);
         ERC20Forwarder lpWETH60 = factory.create(WETHPool, oneMonthTerm * 2);
         ERC20Forwarder lpWETH90 = factory.create(WETHPool, oneMonthTerm * 3);
-
+        console.logString("end");
+        console.logUint(block.timestamp);
         vm.stopBroadcast();
+
+        // todo ask what contracts if any to verify
+
+        // deposit some principle tokens into amm
     }
 }
