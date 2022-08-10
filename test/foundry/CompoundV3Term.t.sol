@@ -475,7 +475,7 @@ contract CompoundV3TermTest is Test {
 
         assertTrue(
             underlying + prevUnderlyingReserve > term.maxReserve(),
-            "total amount of underlying existant in the contract should exceed the maxReserve"
+            "total amount of underlying existing in the contract should exceed the maxReserve"
         );
 
         uint256 underlyingInvested = underlying +
@@ -798,7 +798,7 @@ contract CompoundV3TermTest is Test {
         assertEq(
             yieldSharesIssued,
             prevYieldSharesIssued - unlockedYtsAsYieldShares,
-            "yieldSharesIsued should decrease by yieldShare value of unlocked YTs"
+            "yieldSharesIssued should decrease by yieldShare value of unlocked YTs"
         );
         assertEq(
             yieldShareReserveAsUnderlying,
@@ -902,7 +902,7 @@ contract CompoundV3TermTest is Test {
         assertEq(
             yieldSharesIssued,
             prevYieldSharesIssued,
-            "yieldSharesIsued should be unchanged"
+            "yieldSharesIssued should be unchanged"
         );
         assertApproxEqAbs(
             yieldShareReserveAsUnderlying,
@@ -1005,7 +1005,7 @@ contract CompoundV3TermTest is Test {
         assertEq(
             yieldSharesIssued,
             prevYieldSharesIssued,
-            "yieldSharesIsued should be unchanged"
+            "yieldSharesIssued should be unchanged"
         );
 
         assertApproxEqAbs(
