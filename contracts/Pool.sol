@@ -433,12 +433,7 @@ contract Pool is LP, Authorizable, TWAROracle {
             (totalFee - govFee);
 
         // Update oracle
-        _updateOracle(
-            poolId,
-            newShareReserve,
-            newBondReserve,
-            normalizedPricePerShare
-        );
+        _updateOracle(poolId, newShareReserve, newBondReserve);
 
         // The trade output is changeInBonds - total fee
         // Returns the new reserves and the trade output
@@ -483,12 +478,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         ) = _quoteSaleAndFees(poolId, amount, cachedReserve, pricePerShare);
 
         // Updates the oracle
-        _updateOracle(
-            poolId,
-            newShareReserve,
-            newBondReserve,
-            _normalize(pricePerShare)
-        );
+        _updateOracle(poolId, newShareReserve, newBondReserve);
 
         // The user amount is outputShares - shareFee and we withdraw to them
         // Create the arrays for a withdraw from term
@@ -584,12 +574,10 @@ contract Pool is LP, Authorizable, TWAROracle {
     /// @param poolId the ID of which pool's oracle to update
     /// @param newShareReserve the new share reserve
     /// @param newBondReserve the new bond reserve
-    /// @param normalizedPricePerShare the 18 point representation of the price per share [ie c]
     function _updateOracle(
         uint256 poolId,
         uint256 newShareReserve,
-        uint256 newBondReserve,
-        uint256 normalizedPricePerShare
+        uint256 newBondReserve
     ) internal {
         // NOTE - While the oracle prevent updates to un-initialized buffers this logic makes several sloads
         //        so by checking the initialization before calling into the oracle we optimize for gas.

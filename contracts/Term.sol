@@ -34,9 +34,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     uint8 public immutable decimals;
     uint256 public immutable one;
 
-    // The unlocked term details
-    // Note - No PT should ever exist with this ID
-    uint256 public constant UNLOCKED_PT_ID = 0;
+    // The unlocked term id is the YT id at start 0 expiration 0
     uint256 public constant UNLOCKED_YT_ID = 1 << 255;
 
     /// @notice Runs the initial deployment code
@@ -108,49 +106,47 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             (totalShares, totalValue) = _deposit(ShareState.Locked);
         }
 
-        // We pre-declare the index of the for loop to handle a special case
-        uint256 i = 0;
+        // Initialize the previous id for the sorting check
         uint256 previousId = 0;
-        // If the user has supplied 'unlocked' tokens because of the sorting they must
-        // be the first index
-        if (assetIds.length > 0 && assetIds[0] == UNLOCKED_YT_ID) {
-            // Burn the unlocked asset from the user
-            (uint256 unlockedShares, uint256 value) = _releaseAsset(
-                UNLOCKED_YT_ID,
-                msg.sender,
-                assetAmounts[0]
-            );
-            // Record the value
-            totalValue += value;
-            // Convert the shares
-            totalShares += _convert(ShareState.Unlocked, unlockedShares);
-            // Do not do the first step of the for loop
-            i = 1;
-            previousId = UNLOCKED_YT_ID;
-        }
 
         // Deletes (burn) any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
-        for (; i < assetIds.length; i++) {
+        for (uint256 i = 0; i < assetIds.length; i++) {
             // helps the stack
             uint256 id = assetIds[i];
             uint256 amount = assetAmounts[i];
             // Requiring strict sorting is a cheap way to check for uniqueness
             require(previousId < id, "Todo: Not unique or not sorted");
             previousId = id;
-            // Burns the tokens from the user account and returns how much they were worth
-            // in shares and token value. Does not formally withdraw from yield source.
-            (uint256 shares, uint256 value) = _releaseAsset(
-                id,
-                msg.sender,
-                amount
-            );
 
-            // Record the shares which were released. Note these cannot be the special case
-            // unlocked share type they must be locked shares
-            totalShares += shares;
-            // No matter the source add the value to the running total
-            totalValue += value;
+            // Split on unlocked vs locked case, the unlocked shares must be converted to locked in order
+            // to ensure that the accounting matches.
+            if (id == UNLOCKED_YT_ID) {
+                // Burn the unlocked asset from the user
+                (uint256 unlockedShares, uint256 value) = _releaseAsset(
+                    UNLOCKED_YT_ID,
+                    msg.sender,
+                    amount
+                );
+                // Record the value
+                totalValue += value;
+                // Convert the shares
+                totalShares += _convert(ShareState.Unlocked, unlockedShares);
+            } else {
+                // Burns the tokens from the user account and returns how much they were worth
+                // in shares and token value. Does not formally withdraw from yield source.
+                (uint256 shares, uint256 value) = _releaseAsset(
+                    id,
+                    msg.sender,
+                    amount
+                );
+
+                // Record the shares which were released. Note these cannot be the special case
+                // unlocked share type they must be locked shares
+                totalShares += shares;
+                // No matter the source add the value to the running total
+                totalValue += value;
+            }
         }
 
         // Use the total value to create the yield tokens, also sets internal accounting
