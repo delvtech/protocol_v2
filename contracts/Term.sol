@@ -350,6 +350,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                     state.shares + uint128(totalShares),
                     state.pt + uint128(value - totalDiscount)
                 );
+                sharesPerExpiry[expiration] += totalShares - totalDiscount;
+
                 // Return the discount so the right number of PT are minted
                 return totalDiscount;
             }
@@ -399,7 +401,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     {
         // All shares corresponding to PT and YT expiring now
         uint256 termShares = sharesPerExpiry[expiry];
-        // Load the implied value of term shares
+        // The implied value of term shares
         uint256 totalValue = _underlying(termShares, ShareState.Locked);
         // The interest is the value minus pt supply
         uint256 totalInterest = totalValue - totalSupply[expiry];
