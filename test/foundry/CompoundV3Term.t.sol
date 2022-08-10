@@ -2,12 +2,10 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import "forge-std/console2.sol";
+import "forge-std/console.sol";
 
 import "contracts/ForwarderFactory.sol";
-
 import "contracts/CompoundV3Term.sol";
-
 import "contracts/mocks/MockERC20Permit.sol";
 
 import "@compoundV3/contracts/Comet.sol";
@@ -388,11 +386,6 @@ contract CompoundV3TermTest is Test {
             "accruedUnderlying should increase by amount of underlying"
         );
         assertEq(
-            term.balanceOf(PT_ID, user),
-            underlyingAsYieldShares,
-            "should issue PTs to user proportional to current yieldShare value of underlying"
-        );
-        assertEq(
             term.balanceOf(YT_ID, user),
             underlying,
             "should issue YT's to user proportional to amount of underlying"
@@ -656,19 +649,7 @@ contract CompoundV3TermTest is Test {
         );
     }
 
-    function setupWithdraw()
-        public
-        returns (
-            uint256 prevUnderlyingReserve,
-            uint256 prevYieldShareReserve,
-            uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying,
-            uint256 prevYieldSharesIssued,
-            uint256 prevYieldTokenBalance,
-            uint256 prevUnderlyingBalance
-        )
-    {
+    function test__withdrawUnlocked__less_than_underlying_reserve() public {
         uint256 underlyingDeposited = 1000000e6;
 
         vm.startPrank(user);
@@ -687,19 +668,6 @@ contract CompoundV3TermTest is Test {
 
         uint256 prevYieldTokenBalance = term.balanceOf(UNLOCKED_YT_ID, user);
         uint256 prevUnderlyingBalance = USDC.balanceOf(user);
-    }
-
-    function test__withdrawUnlocked__less_than_underlying_reserve() public {
-        (
-            uint256 prevUnderlyingReserve,
-            uint256 prevYieldShareReserve,
-            uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying,
-            uint256 prevYieldSharesIssued,
-            uint256 prevYieldTokenBalance,
-            uint256 prevUnderlyingBalance
-        ) = setupWithdraw();
 
         uint256 unlockedYts = 10000e6;
         uint256 unlockedYtsAsUnderlying = CompoundV3TermHelper
@@ -797,11 +765,6 @@ contract CompoundV3TermTest is Test {
             unlockedYtsAsUnderlying
         );
 
-        // assertTrue(unlockedYtsAsUnderlying > prevUnderlyingReserve);
-        // assertTrue(
-        //     unlockedYtsAsUnderlying < prevYieldShareReserveAsUnderlying
-        // );
-
         uint256[] memory assetIds = new uint256[](1);
         uint256[] memory assetAmounts = new uint256[](1);
 
@@ -866,7 +829,7 @@ contract CompoundV3TermTest is Test {
     }
 
     function test__convertLocked() public {
-        uint256 inputDeposited = 1000000e6;
+        uint256 underlying = 1000000e6;
 
         uint256[] memory assetIds;
         uint256[] memory assetAmounts;
@@ -875,7 +838,7 @@ contract CompoundV3TermTest is Test {
         term.lock(
             assetIds,
             assetAmounts,
-            inputDeposited,
+            underlying,
             false,
             user,
             user,
@@ -891,32 +854,82 @@ contract CompoundV3TermTest is Test {
         (
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
-            ,
-            ,
-
+            uint256 prevYieldShareReserveAsUnderlying,
+            uint256 prevImpliedUnderlyingReserve,
+            uint256 prevAccruedUnderlying
         ) = term.reserveDetails();
-
         uint256 prevYieldSharesIssued = term.yieldSharesIssued();
-        uint256 prevLockedYieldShares = prevYieldSharesIssued -
+        uint256 prevLockedShares = prevYieldSharesIssued -
             prevYieldShareReserve;
+        uint256 prevUnlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
+        uint256 prevPrincipalTokenBalance = term.balanceOf(TERM_END, user);
+
+        uint256 pts = 10000e6;
+        uint256 ptsAsLockedShares = CompoundV3TermHelper
+            .principalTokensAsShares(term, TERM_END, pts);
+        uint256 ptsAsUnderlying = term.yieldSharesAsUnderlying(
+            ptsAsLockedShares
+        );
+        uint256 ptsAsUnlockedShares = CompoundV3TermHelper
+            .underlyingAsUnlockedShares(term, ptsAsUnderlying);
 
         vm.startPrank(user);
-        term.depositUnlocked(0, 10000e6, TERM_END, user);
+        term.depositUnlocked(0, pts, TERM_END, user);
         vm.stopPrank();
 
-        (uint256 underlyingReserve, uint256 yieldShareReserve, , , ) = term
-            .reserveDetails();
-
+        (
+            uint256 underlyingReserve,
+            uint256 yieldShareReserve,
+            uint256 yieldShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
+        ) = term.reserveDetails();
         uint256 yieldSharesIssued = term.yieldSharesIssued();
-        uint256 lockedYieldShares = yieldSharesIssued - yieldShareReserve;
+        uint256 lockedShares = yieldSharesIssued - yieldShareReserve;
+        uint256 unlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
+        uint256 principalTokenBalance = term.balanceOf(TERM_END, user);
 
-        console2.log(prevLockedYieldShares);
-        console2.log(lockedYieldShares);
-        assertTrue(lockedYieldShares < prevLockedYieldShares);
-        assertEq(underlyingReserve, prevUnderlyingReserve);
+        assertEq(
+            underlyingReserve,
+            prevUnderlyingReserve,
+            "underlyingReserve should be unchanged"
+        );
         assertEq(
             yieldShareReserve,
-            prevYieldShareReserve + (prevLockedYieldShares - lockedYieldShares)
+            prevYieldShareReserve + ptsAsLockedShares,
+            "yieldShareReserve should increase by the yield share value of principal tokens"
+        );
+        assertEq(
+            yieldSharesIssued,
+            prevYieldSharesIssued,
+            "yieldSharesIsued should be unchanged"
+        );
+        assertApproxEqAbs(
+            yieldShareReserveAsUnderlying,
+            prevYieldShareReserveAsUnderlying + ptsAsUnderlying,
+            1,
+            "yieldShareReserveAsUnderlying should increase by the underlying value of the principal tokens"
+        );
+        assertApproxEqAbs(
+            impliedUnderlyingReserve,
+            prevImpliedUnderlyingReserve + ptsAsUnderlying,
+            1,
+            "impliedUnderlyingReserve should increase by the underlying value of the principal tokens"
+        );
+        assertEq(
+            accruedUnderlying,
+            prevAccruedUnderlying,
+            "accruedUnderlying should be unchanged"
+        );
+        assertEq(
+            unlockedYTBalance,
+            prevUnlockedYTBalance + ptsAsUnlockedShares,
+            "user unlocked yield token balance should increase by unlocked share value of principal tokens"
+        );
+        assertEq(
+            principalTokenBalance,
+            prevPrincipalTokenBalance - pts,
+            "user principal token balance should decrease by amount of principal tokens"
         );
     }
 
@@ -930,22 +943,30 @@ contract CompoundV3TermTest is Test {
         (
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
-            ,
-            ,
-
+            uint256 prevYieldShareReserveAsUnderlying,
+            uint256 prevImpliedUnderlyingReserve,
+            uint256 prevAccruedUnderlying
         ) = term.reserveDetails();
 
         uint256 prevYieldSharesIssued = term.yieldSharesIssued();
-        uint256 prevLockedYieldShares = prevYieldSharesIssued -
+        uint256 prevLockedShares = prevYieldSharesIssued -
             prevYieldShareReserve;
+        uint256 prevUnlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
+        uint256 prevPrincipalTokenBalance = term.balanceOf(TERM_END, user);
 
-        uint256[] memory assetIds = new uint256[](1);
-        uint256[] memory assetAmounts = new uint256[](1);
+        uint256 unlockedYts = 10000e6;
+        uint256 unlockedYtsAsUnderlying = CompoundV3TermHelper
+            .unlockedSharesAsUnderlying(term, unlockedYts);
 
-        assetIds[0] = UNLOCKED_YT_ID;
-        assetAmounts[0] = term.balanceOf(UNLOCKED_YT_ID, user);
+        uint256 unlockedYtsAsLockedShares = term.underlyingAsYieldShares(
+            unlockedYtsAsUnderlying
+        );
 
         vm.startPrank(user);
+        uint256[] memory assetIds = new uint256[](1);
+        uint256[] memory assetAmounts = new uint256[](1);
+        assetIds[0] = UNLOCKED_YT_ID;
+        assetAmounts[0] = unlockedYts;
         term.lock(
             assetIds,
             assetAmounts,
@@ -958,17 +979,56 @@ contract CompoundV3TermTest is Test {
         );
         vm.stopPrank();
 
-        (uint256 underlyingReserve, uint256 yieldShareReserve, , , ) = term
-            .reserveDetails();
-
+        (
+            uint256 underlyingReserve,
+            uint256 yieldShareReserve,
+            uint256 yieldShareReserveAsUnderlying,
+            uint256 impliedUnderlyingReserve,
+            uint256 accruedUnderlying
+        ) = term.reserveDetails();
         uint256 yieldSharesIssued = term.yieldSharesIssued();
-        uint256 lockedYieldShares = yieldSharesIssued - yieldShareReserve;
+        uint256 lockedShares = yieldSharesIssued - yieldShareReserve;
+        uint256 unlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
+        uint256 principalTokenBalance = term.balanceOf(TERM_END, user);
 
-        assertTrue(lockedYieldShares > prevLockedYieldShares);
-        assertEq(underlyingReserve, prevUnderlyingReserve);
+        assertEq(
+            underlyingReserve,
+            prevUnderlyingReserve,
+            "underlyingReserve should be unchanged"
+        );
         assertEq(
             yieldShareReserve,
-            prevYieldShareReserve - (prevLockedYieldShares - lockedYieldShares)
+            prevYieldShareReserve - unlockedYtsAsLockedShares,
+            "yieldShareReserve should decrease by the yield share value of the unlocked YTs"
+        );
+
+        assertEq(
+            yieldSharesIssued,
+            prevYieldSharesIssued,
+            "yieldSharesIsued should be unchanged"
+        );
+
+        assertApproxEqAbs(
+            yieldShareReserveAsUnderlying,
+            prevYieldShareReserveAsUnderlying - unlockedYtsAsUnderlying,
+            1,
+            "yieldShareReserveAsUnderlying should decrease by the underlying value of the unlocked YTs"
+        );
+        assertApproxEqAbs(
+            impliedUnderlyingReserve,
+            prevImpliedUnderlyingReserve - unlockedYtsAsUnderlying,
+            1,
+            "impliedUnderlyingReserve should decrease by the underlying value of the unlocked YTs"
+        );
+        assertEq(
+            accruedUnderlying,
+            prevAccruedUnderlying,
+            "accruedUnderlying should be unchanged"
+        );
+        assertEq(
+            unlockedYTBalance,
+            prevUnlockedYTBalance - unlockedYts,
+            "user unlocked yield token balance should decrease by amount of unlocked YTs"
         );
     }
 }

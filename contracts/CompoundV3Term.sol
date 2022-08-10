@@ -6,8 +6,6 @@ import "./Term.sol";
 import "./MultiToken.sol";
 import "./interfaces/ICompoundV3.sol";
 
-import "forge-std/console2.sol";
-
 /// Docs: https://c3-docs.compound.finance/
 contract CompoundV3Term is Term {
     /// Compound address
@@ -224,12 +222,8 @@ contract CompoundV3Term is Term {
         /// Withdraw `underlying` from Compound
         yieldSource.withdrawTo(_dest, address(token), underlying);
 
-        console2.log("prev yieldSharesIssued: %s", yieldSharesIssued);
         /// Redeem back the `yieldShares`
         yieldSharesIssued -= _shares;
-        console2.log("### _withdrawLocked ###");
-        console2.log("yieldSharesIssued: %s", yieldSharesIssued);
-        console2.log("_shares: %s", _shares);
     }
 
     /// @notice Withdraws an amount of underlying from either the

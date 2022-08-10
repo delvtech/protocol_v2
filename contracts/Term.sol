@@ -7,8 +7,6 @@ import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
 
-import "forge-std/console2.sol";
-
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
     struct YieldState {
@@ -252,8 +250,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 amounts[i]
             );
 
-            console2.log("### unlock ###");
-            console2.log("shares: %s", shares);
             // Record the shares which were released
             if (tokenIds[i] == UNLOCKED_YT_ID) {
                 releasedSharesUnlocked += shares;
@@ -504,24 +500,19 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // then distributing the remaining shares pro-rata [meaning PT earn interest after expiry]
 
         uint256 termShares = sharesPerExpiry[assetId];
-        console2.log("termShares: %s", termShares);
 
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
 
         // Now we use the price per share to calculate the shares needed to satisfy interest
         uint256 sharesForInterest = (finalState.interest * one) /
             currentPricePerShare;
-        console2.log("sharesForInterest: %s", sharesForInterest);
 
         // The remaining shares for PT holders
         uint256 ptShares = termShares - sharesForInterest;
-        console2.log("ptShares: %s", ptShares);
 
         // The user's shares are their percent of the total
         // Note - This is more than 1 to 1 as interest goes up
         uint256 userShares = (amount * ptShares) / totalSupply[assetId];
-        console2.log("totalSupply: %s", totalSupply[assetId]);
-        console2.log("userShares: %s", userShares);
 
         sharesPerExpiry[assetId] = termShares - userShares;
 
