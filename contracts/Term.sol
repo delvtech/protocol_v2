@@ -86,8 +86,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         ytBeginDate = ytBeginDate >= block.timestamp
             ? block.timestamp
             : ytBeginDate;
+
         // Next check the validity of the requested expiry
         require(expiration > block.timestamp, "todo nice error");
+
         // The yt can't start after
         // Running tally of the added value
         uint256 totalValue = 0;
@@ -200,6 +202,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             //        block.timestamp.
             // Todo - Make sure there's a test for the fact no YT id passes
             require(ptExpiry < block.timestamp, "Not expired");
+
             // Then we burn the pt from the user and release its shares
             (uint256 lockedShares, uint256 ptValue) = _releaseAsset(
                 ptExpiry,
@@ -232,6 +235,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
         uint256 previousId = 0;
+
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
         for (uint256 i = 0; i < tokenIds.length; i++) {
@@ -495,18 +499,24 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // then distributing the remaining shares pro-rata [meaning PT earn interest after expiry]
 
         uint256 termShares = sharesPerExpiry[assetId];
+
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
+
         // Now we use the price per share to calculate the shares needed to satisfy interest
         uint256 sharesForInterest = (finalState.interest * one) /
             currentPricePerShare;
+
         // The remaining shares for PT holders
         uint256 ptShares = termShares - sharesForInterest;
+
         // The user's shares are their percent of the total
         // Note - This is more than 1 to 1 as interest goes up
         uint256 userShares = (amount * ptShares) / totalSupply[assetId];
+
         // Burn from the user and deduct their freed shares from the total for this term
         _burn(assetId, source, amount);
         sharesPerExpiry[assetId] = termShares - userShares;
+
         // Return the shares freed and use the price per share to get value
         return (userShares, (userShares * currentPricePerShare) / one);
     }
