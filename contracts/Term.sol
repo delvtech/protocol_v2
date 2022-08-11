@@ -513,10 +513,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // Note - This is more than 1 to 1 as interest goes up
         uint256 userShares = (amount * ptShares) / totalSupply[assetId];
 
-        sharesPerExpiry[assetId] = termShares - userShares;
-
         // Burn from the user and deduct their freed shares from the total for this term
         _burn(assetId, source, amount);
+        sharesPerExpiry[assetId] = termShares - userShares;
 
         // Return the shares freed and use the price per share to get value
         return (userShares, (userShares * currentPricePerShare) / one);
