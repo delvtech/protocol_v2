@@ -188,14 +188,14 @@ contract Pool is LP, Authorizable, TWAROracle {
     /// @notice Allows the user to buy and sell bonds (ie PT) at an interest rate set by yield space AMM invariant.
     /// @param  poolId Expiration timestamp of the bond (,i.e PT).
     /// @param  amount Represents the amount of asset user wants to send to the pool [token for BUY_PT, bond/PT for SELL_PT]
-    /// @param  amountOut  Minimum expected returns user is willing to accept if the output is less it will revert.
+    /// @param  minAmountOut  Minimum expected returns user is willing to accept if the output is less it will revert.
     /// @param  receiver   Address which receives the output of the trade
     /// @param  isBuy True if the caller intends to buy bonds, false otherwise
     /// @return outputAmount The amount out the receiver gets
     function tradeBonds(
         uint256 poolId,
         uint256 amount,
-        uint256 amountOut,
+        uint256 minAmountOut,
         address receiver,
         bool isBuy
     ) external returns (uint256 outputAmount) {
@@ -215,14 +215,14 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 newBondReserve;
         // Switch on buy vs sell case
         if (isBuy) {
-            (newShareReserve, newBondReserve, amountOut) = _buyBonds(
+            (newShareReserve, newBondReserve, outputAmount) = _buyBonds(
                 poolId,
                 amount,
                 cachedReserve,
                 receiver
             );
         } else {
-            (newShareReserve, newBondReserve, amountOut) = _sellBonds(
+            (newShareReserve, newBondReserve, outputAmount) = _sellBonds(
                 poolId,
                 amount,
                 cachedReserve,
@@ -231,7 +231,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         }
 
         // Minimum amount check.
-        require(outputAmount >= amountOut, "todo nice errors");
+        require(outputAmount >= minAmountOut, "todo nice errors");
 
         // Updated reserves.
         _update(poolId, uint128(newBondReserve), uint128(newShareReserve));
