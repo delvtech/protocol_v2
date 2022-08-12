@@ -1,23 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "forge-std/Script.sol";
-import "forge-std/console2.sol";
 import "../contracts/ForwarderFactory.sol";
-import "../contracts/mocks/MockPool.sol";
 import "../contracts/mocks/MockERC20Permit.sol";
 import "../contracts/mocks/MockERC20YearnVault.sol";
+import "../contracts/mocks/MockPool.sol";
 import "../contracts/mocks/MockYieldAdapter.sol";
+import "forge-std/Script.sol";
+import "forge-std/console2.sol";
 
 contract MockDeployer is Script {
     function run() external {
         vm.startBroadcast();
 
-        uint256 timestamp = block.timestamp;
-
         // Create the fowarder factory
         // This factory will be referenced in other contracts
-        // and will be used to deploy ERC20 proxy tokens for principle and LPs
+        // and will be used to deploy ERC20 proxy tokens for principal and LP positions
         ForwarderFactory factory = new ForwarderFactory();
 
         // Create mock ERC20 tokens
@@ -72,11 +70,11 @@ contract MockDeployer is Script {
         // These will be used as indentifers in multi-token contracts (Term, LP)
         uint256 oneDaySeconds = 60 * 60 * 24;
         uint256 oneMonthSeconds = oneDaySeconds * 30;
-        uint256 oneMonthExpiry = timestamp + oneMonthSeconds;
-        uint256 twoMonthExpiry = timestamp + oneMonthSeconds * 2;
-        uint256 threeMonthExpiry = timestamp + oneMonthSeconds * 3;
+        uint256 oneMonthExpiry = block.timestamp + oneMonthSeconds;
+        uint256 twoMonthExpiry = block.timestamp + oneMonthSeconds * 2;
+        uint256 threeMonthExpiry = block.timestamp + oneMonthSeconds * 3;
 
-        // Empty dynamic array to satisfy types
+        // Empty dynamic array to satisfy solidity types
         uint256[] memory emptyArray;
 
         // Give allowance to term contracts
@@ -85,7 +83,6 @@ contract MockDeployer is Script {
         WETH.approve(address(WETHTerm), type(uint256).max);
 
         // Buffer for yield token start dates
-        // When locking yield tokens that start in the future will start at the current timestamp
         uint256 ytBuffer = 3600;
 
         // USDC terms
@@ -187,7 +184,7 @@ contract MockDeployer is Script {
         );
 
         // Deploy pools for each term
-        uint256 fee = 2e17; // fee as 18 fixed point number
+        uint256 fee = 10 * 1e18; // 10 basis point fee as 18 fixed point number
 
         MockPool USDCPool = new MockPool(
             USDCTerm,
@@ -219,23 +216,23 @@ contract MockDeployer is Script {
         DAI.approve(address(DAIPool), type(uint256).max);
         WETH.approve(address(WETHPool), type(uint256).max);
 
-        // USDC 30/60/90 day term pools
-        // USDCPool.registerPoolId(
-        //     oneMonthExpiry, // term expiry is pool id
-        //     100_000 * 1e6, // amount in
-        //     1000, // timestretch
-        //     msg.sender,
-        //     0, // max time (used for oracle)
-        //     0 // max length (used for oracle)
-        // );
-        // USDCPool.registerPoolId(
-        //     twoMonthExpiry,
-        //     100_000 * 1e6,
-        //     1000,
-        //     msg.sender,
-        //     0,
-        //     0
-        // );
+        // USDC 30 / 60 / 90 day term pools
+        USDCPool.registerPoolId(
+            oneMonthExpiry, // term expiry is pool id
+            100_000 * 1e6, // underlying in
+            1000, // timestretch
+            msg.sender,
+            0, // max time (used for oracle)
+            0 // max length (used for oracle)
+        );
+        USDCPool.registerPoolId(
+            twoMonthExpiry,
+            100_000 * 1e6,
+            1000,
+            msg.sender,
+            0,
+            0
+        );
         USDCPool.registerPoolId(
             threeMonthExpiry,
             100_000 * 1e6,
@@ -245,61 +242,61 @@ contract MockDeployer is Script {
             0
         );
 
-        // // DAI 30/60/90 day term pools
-        // DAIPool.registerPoolId(
-        //     oneMonthExpiry,
-        //     100_000 * 1e18,
-        //     1000,
-        //     msg.sender,
-        //     0,
-        //     0
-        // );
-        // DAIPool.registerPoolId(
-        //     twoMonthExpiry,
-        //     100_000 * 1e18,
-        //     1000,
-        //     msg.sender,
-        //     0,
-        //     0
-        // );
-        // DAIPool.registerPoolId(
-        //     threeMonthExpiry,
-        //     100_000 * 1e18,
-        //     1000,
-        //     msg.sender,
-        //     0,
-        //     0
-        // );
+        // DAI 30 / 60 / 90 day term pools
+        DAIPool.registerPoolId(
+            oneMonthExpiry,
+            100_000 * 1e18,
+            1000,
+            msg.sender,
+            0,
+            0
+        );
+        DAIPool.registerPoolId(
+            twoMonthExpiry,
+            100_000 * 1e18,
+            1000,
+            msg.sender,
+            0,
+            0
+        );
+        DAIPool.registerPoolId(
+            threeMonthExpiry,
+            100_000 * 1e18,
+            1000,
+            msg.sender,
+            0,
+            0
+        );
 
-        // // WETH 30/60/90 day term pools
-        // WETHPool.registerPoolId(
-        //     oneMonthExpiry,
-        //     1_000 * 1e18,
-        //     1000,
-        //     msg.sender,
-        //     0,
-        //     0
-        // );
-        // WETHPool.registerPoolId(
-        //     twoMonthExpiry,
-        //     1_000 * 1e18,
-        //     1000,
-        //     msg.sender,
-        //     0,
-        //     0
-        // );
-        // WETHPool.registerPoolId(
-        //     threeMonthExpiry,
-        //     1_000 * 1e18,
-        //     1000,
-        //     msg.sender,
-        //     0,
-        //     0
-        // );
+        // WETH 30 / 60 / 90 day term pools
+        WETHPool.registerPoolId(
+            oneMonthExpiry,
+            1_000 * 1e18,
+            1000,
+            msg.sender,
+            0,
+            0
+        );
+        WETHPool.registerPoolId(
+            twoMonthExpiry,
+            1_000 * 1e18,
+            1000,
+            msg.sender,
+            0,
+            0
+        );
+        WETHPool.registerPoolId(
+            threeMonthExpiry,
+            1_000 * 1e18,
+            1000,
+            msg.sender,
+            0,
+            0
+        );
 
         // Create ERC20 forwarder tokens for term principle and LP tokens
 
-        // Principle tokens
+        // Principal tokens
         ERC20Forwarder pUSDC_30 = factory.create(USDCTerm, oneMonthExpiry);
         ERC20Forwarder pUSDC_60 = factory.create(USDCTerm, twoMonthExpiry);
         ERC20Forwarder pUSDC_90 = factory.create(USDCTerm, threeMonthExpiry);
@@ -325,103 +322,106 @@ contract MockDeployer is Script {
         ERC20Forwarder lpWETH_60 = factory.create(WETHPool, twoMonthExpiry);
         ERC20Forwarder lpWETH_90 = factory.create(WETHPool, threeMonthExpiry);
 
-        // misc approvals
-        USDCPool.setApproval(
-            threeMonthExpiry,
-            address(USDCTerm),
-            type(uint256).max
-        );
+        // Give term allownaces to pools
+        USDCTerm.setApprovalForAll(address(USDCPool), true);
+        DAITerm.setApprovalForAll(address(DAIPool), true);
+        WETHTerm.setApprovalForAll(address(WETHPool), true);
 
-        USDCTerm.setApproval(
-            threeMonthExpiry,
-            address(USDCPool),
-            type(uint256).max
-        );
-
-        // TODO @cashd: figure out how to init a pool with liquidity (v pls assist)
-        // Using USDC 3 month term as an example
-        // Initalize pool with liquidity
+        // Initalize pool with trade, adding PTs to the pool
+        USDCPool.tradeBonds(oneMonthExpiry, 10_000 * 1e6, 1, msg.sender, false);
+        USDCPool.tradeBonds(twoMonthExpiry, 10_000 * 1e6, 1, msg.sender, false);
         USDCPool.tradeBonds(
             threeMonthExpiry,
-            1_000 * 1e6,
+            10_000 * 1e6,
             1,
             msg.sender,
             false
         );
 
-        // below fails with a substraction overflow errror
-        // when calculating impliedInterest in _quoteSaleAndFees function
+        DAIPool.tradeBonds(oneMonthExpiry, 10_000 * 1e18, 1, msg.sender, false);
+        DAIPool.tradeBonds(twoMonthExpiry, 10_000 * 1e18, 1, msg.sender, false);
+        DAIPool.tradeBonds(
+            threeMonthExpiry,
+            10_000 * 1e18,
+            1,
+            msg.sender,
+            false
+        );
+
+        WETHPool.tradeBonds(oneMonthExpiry, 100 * 1e18, 1, msg.sender, false);
+        WETHPool.tradeBonds(twoMonthExpiry, 100 * 1e18, 1, msg.sender, false);
+        WETHPool.tradeBonds(threeMonthExpiry, 100 * 1e18, 1, msg.sender, false);
 
         vm.stopBroadcast();
 
-        // output token list
-        // console.logString("Forwarder Factory address:");
-        // console.logAddress(factoryAddress);
+        // Output token list
+        console.logString("Forwarder Factory address:");
+        console.logAddress(address(factory));
 
-        // console.logString("USDC Token address:");
-        // console.logAddress(address(USDC));
-        // console.logString("DAI Token address:");
-        // console.logAddress(address(DAI));
-        // console.logString("WETH Token address:");
-        // console.logAddress(address(WETH));
+        console.logString("USDC Token address:");
+        console.logAddress(address(USDC));
+        console.logString("DAI Token address:");
+        console.logAddress(address(DAI));
+        console.logString("WETH Token address:");
+        console.logAddress(address(WETH));
 
-        // console.logString("yvUSDC address:");
-        // console.logAddress(yvaddress(USDC));
-        // console.logString("yvDAI address:");
-        // console.logAddress(yvaddress(DAI));
-        // console.logString("yvWETH address:");
-        // console.logAddress(yvaddress(WETH));
+        console.logString("yvUSDC address:");
+        console.logAddress(address(yvUSDC));
+        console.logString("yvDAI address:");
+        console.logAddress(address(yvDAI));
+        console.logString("yvWETH address:");
+        console.logAddress(address(yvWETH));
 
-        // console.logString("USDC Term address:");
-        // console.logAddress(address(USDCTerm));
-        // console.logString("DAI Term address:");
-        // console.logAddress(address(DAITerm));
-        // console.logString("WETH Term address:");
-        // console.logAddress(address(WETHTerm));
+        console.logString("USDC Term address:");
+        console.logAddress(address(USDCTerm));
+        console.logString("DAI Term address:");
+        console.logAddress(address(DAITerm));
+        console.logString("WETH Term address:");
+        console.logAddress(address(WETHTerm));
 
-        // console.logString("USDC Pool address:");
-        // console.logAddress(address(USDCPool));
-        // console.logString("DAI Pool address:");
-        // console.logAddress(address(DAIPool));
-        // console.logString("WETH Pool address:");
-        // console.logAddress(address(WETHPool));
+        console.logString("USDC Pool address:");
+        console.logAddress(address(USDCPool));
+        console.logString("DAI Pool address:");
+        console.logAddress(address(DAIPool));
+        console.logString("WETH Pool address:");
+        console.logAddress(address(WETHPool));
 
-        // console.logString("pUSDC_30 Token address:");
-        // console.logAddress(address(pUSDC_30));
-        // console.logString("pUSDC_60 Token address:");
-        // console.logAddress(address(pUSDC_60));
-        // console.logString("pUSDC_90 Token address:");
-        // console.logAddress(address(pUSDC_90));
-        // console.logString("pDAI_30 Token address:");
-        // console.logAddress(address(pDAI_30));
-        // console.logString("pDAI_60 Token address:");
-        // console.logAddress(address(pDAI_60));
-        // console.logString("pDAI_90 Token address:");
-        // console.logAddress(address(pDAI_90));
-        // console.logString("pWETH_30 Token address:");
-        // console.logAddress(address(pWETH_30));
-        // console.logString("pWETH_60 Token address:");
-        // console.logAddress(address(pWETH_60));
-        // console.logString("pWETH_90 Token address:");
-        // console.logAddress(address(pWETH_90));
+        console.logString("pUSDC_30 Token address:");
+        console.logAddress(address(pUSDC_30));
+        console.logString("pUSDC_60 Token address:");
+        console.logAddress(address(pUSDC_60));
+        console.logString("pUSDC_90 Token address:");
+        console.logAddress(address(pUSDC_90));
+        console.logString("pDAI_30 Token address:");
+        console.logAddress(address(pDAI_30));
+        console.logString("pDAI_60 Token address:");
+        console.logAddress(address(pDAI_60));
+        console.logString("pDAI_90 Token address:");
+        console.logAddress(address(pDAI_90));
+        console.logString("pWETH_30 Token address:");
+        console.logAddress(address(pWETH_30));
+        console.logString("pWETH_60 Token address:");
+        console.logAddress(address(pWETH_60));
+        console.logString("pWETH_90 Token address:");
+        console.logAddress(address(pWETH_90));
 
-        // console.logString("lpUSDC_30 Token address:");
-        // console.logAddress(address(lpUSDC_30));
-        // console.logString("lpUSDC_60 Token address:");
-        // console.logAddress(address(lpUSDC_60));
-        // console.logString("lpUSDC_90 Token address:");
-        // console.logAddress(address(lpUSDC_90));
-        // console.logString("lpDAI_30 Token address:");
-        // console.logAddress(address(lpDAI_30));
-        // console.logString("lpDAI_60 Token address:");
-        // console.logAddress(address(lpDAI_60));
-        // console.logString("lpDAI_90 Token address:");
-        // console.logAddress(address(lpDAI_90));
-        // console.logString("lpWETH_30 Token address:");
-        // console.logAddress(address(lpWETH_30));
-        // console.logString("lpWETH_60 Token address:");
-        // console.logAddress(address(lpWETH_60));
-        // console.logString("lpWETH_90 Token address:");
-        // console.logAddress(address(lpWETH_90));
+        console.logString("lpUSDC_30 Token address:");
+        console.logAddress(address(lpUSDC_30));
+        console.logString("lpUSDC_60 Token address:");
+        console.logAddress(address(lpUSDC_60));
+        console.logString("lpUSDC_90 Token address:");
+        console.logAddress(address(lpUSDC_90));
+        console.logString("lpDAI_30 Token address:");
+        console.logAddress(address(lpDAI_30));
+        console.logString("lpDAI_60 Token address:");
+        console.logAddress(address(lpDAI_60));
+        console.logString("lpDAI_90 Token address:");
+        console.logAddress(address(lpDAI_90));
+        console.logString("lpWETH_30 Token address:");
+        console.logAddress(address(lpWETH_30));
+        console.logString("lpWETH_60 Token address:");
+        console.logAddress(address(lpWETH_60));
+        console.logString("lpWETH_90 Token address:");
+        console.logAddress(address(lpWETH_90));
     }
 }
