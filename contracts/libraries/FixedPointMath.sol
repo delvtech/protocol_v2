@@ -11,13 +11,15 @@ library FixedPointMath {
 
     error AddOverflow();
     error SubOverflow();
+    error InvalidExponent();
+    error XOutOfBounds();
 
     /// @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/FixedPoint.sol)
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
         // Fixed Point addition is the same as regular checked addition
 
         uint256 c = a + b;
-        if (c < a) revert AddOverflow();
+        if (!(c >= a)) revert AddOverflow();
         return c;
     }
 
@@ -25,7 +27,7 @@ library FixedPointMath {
     function sub(uint256 a, uint256 b) internal pure returns (uint256) {
         // Fixed Point addition is the same as regular checked addition
 
-        _require(b <= a, Errors.SUB_OVERFLOW);
+        if(!(b <= a)) revert SubOverflow();
         uint256 c = a - b;
         return c;
     }
@@ -116,7 +118,7 @@ library FixedPointMath {
 
             // When the result is > (2**255 - 1) / 1e18 we can not represent it
             // as an int256. This happens when x >= floor(log((2**255 -1) / 1e18) * 1e18) ~ 135.
-            _require(x < 135305999368893231589, Errors.INVALID_EXPONENT);
+            if(!(x < 135305999368893231589)) revert InvalidExponent();
 
             // x is now in the range (-42, 136) * 1e18. Convert to (-42, 136) * 2**96
             // for more intermediate precision and a binary basis. This base conversion
@@ -172,7 +174,7 @@ library FixedPointMath {
     /// @dev Reverts if x is negative
     /// @dev Credit to Remco (https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol)
     function ln(int256 x) internal pure returns (int256) {
-        _require(x > 0, Errors.X_OUT_OF_BOUNDS);
+        if (!(x > 0)) revert XOutOfBounds();
         return _ln(x);
     }
 
@@ -181,7 +183,7 @@ library FixedPointMath {
         unchecked {
             // Intentionally allowing ln(0) to pass bc the function will return 0
             // to pow() so that pow(0,1)=0 without a branch
-            _require(x >= 0, Errors.X_OUT_OF_BOUNDS);
+            if (!(x >= 0)) revert XOutOfBounds();
 
             // We want to convert x from 10**18 fixed point to 2**96 fixed point.
             // We do this by multiplying by 2**96 / 10**18.
