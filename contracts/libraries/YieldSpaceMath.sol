@@ -37,7 +37,14 @@ library YieldSpaceMath {
         uint256 oneMinusT = FixedPointMath.ONE_18.sub(s.mulDown(t));
         // c/mu
         uint256 cDivMu = c.divDown(mu);
-        uint256 modifiedBondReserves = bondReserves.add(totalSupply);
+        // Warn - Total supply should be set to have parity with shares added, or the
+        //        factor of mu could cause bugs in the trading.
+        // This reserve adjustment works by increasing liquidity which interest rates are positive
+        // so that when the reserve has zero bonds on (on init) the curve thinks it has equal bonds and
+        // underlying.
+        uint256 modifiedBondReserves = bondReserves.add(
+            totalSupply.mulDown(mu)
+        );
         // c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t)
         uint256 k = cDivMu
             .mulDown(mu.mulDown(shareReserves).pow(oneMinusT))
