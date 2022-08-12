@@ -12,7 +12,7 @@ library YieldSpaceMath {
     /// Calculates the amount of bond a user would get for given amount of shares.
     /// @param shareReserves yield bearing vault shares reserve amount
     /// @param bondReserves bond reserves amount
-    /// @param totalSupply total supply amount
+    /// @param bondReserveAdjustment An optional adjustment to the reserve which MUST have units of underlying.
     /// @param amountIn amount to be traded
     /// @param t time till maturity in seconds
     /// @param s time stretch coefficient.  e.g. 25 years in seconds
@@ -23,7 +23,7 @@ library YieldSpaceMath {
     function calculateOutGivenIn(
         uint256 shareReserves,
         uint256 bondReserves,
-        uint256 totalSupply,
+        uint256 bondReserveAdjustment,
         uint256 amountIn,
         uint256 t,
         uint256 s,
@@ -37,14 +37,8 @@ library YieldSpaceMath {
         uint256 oneMinusT = FixedPointMath.ONE_18.sub(s.mulDown(t));
         // c/mu
         uint256 cDivMu = c.divDown(mu);
-        // Warn - Total supply should be set to have parity with shares added, or the
-        //        factor of mu could cause bugs in the trading.
-        // This reserve adjustment works by increasing liquidity which interest rates are positive
-        // so that when the reserve has zero bonds on (on init) the curve thinks it has equal bonds and
-        // underlying.
-        uint256 modifiedBondReserves = bondReserves.add(
-            totalSupply.mulDown(mu)
-        );
+        // Adjust the bond reserve, optionally shifts the curve around the inflection point
+        uint256 modifiedBondReserves = bondReserves.add(bondReserveAdjustment);
         // c/mu * (mu*shareReserves)^(1-t) + bondReserves^(1-t)
         uint256 k = cDivMu
             .mulDown(mu.mulDown(shareReserves).pow(oneMinusT))
