@@ -10,10 +10,10 @@ library YieldSpaceMath {
     using FixedPointMath for uint256;
 
     /// Calculates the amount of bond a user would get for given amount of shares.
-    /// @param shareReserves yield bearing vault shares reserve amount
-    /// @param bondReserves bond reserves amount
+    /// @param shareReserves yield bearing vault shares reserve amount, unit is shares
+    /// @param bondReserves bond reserves amount, unit is the face value in underlying
     /// @param bondReserveAdjustment An optional adjustment to the reserve which MUST have units of underlying.
-    /// @param amountIn amount to be traded
+    /// @param amountIn amount to be traded, if bonds in the unit is underlying, if shares in the unit is shares
     /// @param t time till maturity in seconds
     /// @param s time stretch coefficient.  e.g. 25 years in seconds
     /// @param c price of shares in terms of their base
