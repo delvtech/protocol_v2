@@ -1,8 +1,6 @@
 /// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "contracts/libraries/Errors.sol";
-
 /// @notice A fixed-point math library.
 /// @author Element Finance
 library FixedPointMath {

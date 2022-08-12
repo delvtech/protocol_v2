@@ -6,7 +6,6 @@ import "./interfaces/IYieldAdapter.sol";
 import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
-import "./libraries/Errors.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
@@ -37,6 +36,17 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
     // The unlocked term id is the YT id at start 0 expiration 0
     uint256 public constant UNLOCKED_YT_ID = 1 << 255;
+
+    error NonZeroDiscount(uint256 discount);
+    error LockAfterExpiration(uint256 now, uint256 expiration);
+    error UnsortedAssetIds();
+    error PrincipalTokenRedemptionBeforeExpiry(uint256 now, uint256 expiration);
+    error YieldTokenBackdatingToNonExistingTerm();
+    error ReleaseAssetBeforeExpiry();
+    error NonYieldTokenAssetId();
+    error InvalidExpiry();
+    error InvalidStartDate();
+    error MismatchedPrincipalAndYieldTokens();
 
     /// @notice Runs the initial deployment code
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
@@ -87,7 +97,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             : ytBeginDate;
 
         // Next check the validity of the requested expiry
-        require(expiration > block.timestamp, "todo nice error");
+        if (expiration <= block.timestamp) revert LockAfterExpiration({ now: block.timestamp, expiration: expiration });
 
         // The yt can't start after
         // Running tally of the added value
@@ -119,7 +129,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             uint256 id = assetIds[i];
             uint256 amount = assetAmounts[i];
             // Requiring strict sorting is a cheap way to check for uniqueness
-            require(previousId < id, "Todo: Not unique or not sorted");
+            if (previousId >= id) revert UnsortedAssetIds();
             previousId = id;
 
             // Burn the asset from the user
@@ -188,6 +198,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             //        block.timestamp.
             // Todo - Make sure there's a test for the fact no YT id passes
             require(ptExpiry < block.timestamp, "Not expired");
+            if (ptExpiry >= block.timestamp) revert PrincipalTokenRedemptionBeforeExpiry({ now: block.timestamp, expiration: ptExpiry });
 
             // Then we burn the pt from the user and release its shares
             (uint256 lockedShares, uint256 ptValue) = _releaseAsset(
@@ -226,7 +237,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // shares and value they are worth.
         for (uint256 i = 0; i < tokenIds.length; i++) {
             // Requiring strict sorting is a cheap way to check for uniqueness
-            require(previousId < tokenIds[i], "Todo: Not unique or not sorted");
+            if (previousId >= tokenIds[i]) revert UnsortedAssetIds();
+
             previousId = tokenIds[i];
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
@@ -314,7 +326,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 // We require that it already existed, or we would not be able to capture accurate
                 // interest rate data in the period
                 YieldState memory state = yieldTerms[yieldTokenId];
-                require(state.shares != 0 && state.pt != 0, "Todo nice error");
+                if (state.shares == 0 && state.pt == 0) revert YieldTokenBackdatingToNonExistingTerm();
+
                 // We calculate the current fair value of the YT by dividing the interest
                 // earned by the number of YT. We can get the interest earned by subtracting
                 // PT outstanding from the share multiplied by current price per share
@@ -362,7 +375,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // Note for both yt and pt the first 128 bits contain the expiry.
         uint256 expiry = assetId & (2**(128) - 1);
         // Check that the expiry has been hit
-        require(expiry <= block.timestamp || expiry == 0, "todo nice error");
+        if (!(expiry <= block.timestamp || expiry == 0)) revert ReleaseAssetBeforeExpiry();
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
         // If the term's final interest rate has not been recorded we record it
@@ -520,18 +533,18 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         bool isCompound
     ) external returns (uint256) {
         // make sure asset is a YT
-        require(assetId >> 255 == 1, "asset ID is not YT");
+        if (assetId >> 255 != 1) revert NonYieldTokenAssetId();
         // expiry must be greater than zero
         uint256 expiry = assetId & (2**(128) - 1);
-        require(expiry > 0, "invalid expiry");
+        if (expiry == 0) revert InvalidExpiry();
         // start date must be greater than zero
         uint256 startDate = ((assetId) & (2**255 - 1)) >> 128;
-        require(startDate > 0, "invalid token start date");
+        if (startDate == 0) revert InvalidStartDate();
 
         // load the state for the term
         YieldState memory state = yieldTerms[assetId];
         // make sure a term exists for the input asset
-        // todo: is this logic good or should be &&?
+        // todo: is this logic good or should be &?
         require(state.pt != 0 || state.shares != 0, "no term for input asset");
         // calculate the shares belonging to the user
         uint256 userShares = (state.shares * amount) / totalSupply[assetId];
@@ -558,7 +571,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             );
 
             // yt created at current time so discount should always be 0
-            if (discount != 0) revert ElementError.NonZeroDiscount();
+            if (discount != 0) revert NonZeroDiscount({ discount: discount });
 
             // create PT
             _mint(expiry, destination, value - amount);
@@ -605,7 +618,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // The YTs and PTs must be from the same term and therefore
         // the expiration times must be equal
         uint256 ytExpiry = yieldTokenId & (2**(128) - 1);
-        require(ytExpiry == principalTokenId, "tokens from different terms");
+        if (ytExpiry != principalTokenId) revert MismatchedPrincipalAndYieldTokens();
 
         // YTs can have different start times for a particular expiry.
         // This means that each YieldState instance is backed by

@@ -34,6 +34,14 @@ contract MultiToken is IMultiToken {
     // Error triggered when the create2 verification fails
     error NonLinkerCaller();
 
+    error TransferFromZeroAddress();
+    error TransferToZeroAddress();
+    error BatchLengthMismatch();
+
+    error ERC20Permit_ExpiredDeadline(uint256 now, uint256 deadline);
+    error ERC20Permit_InvalidOwnerAddress();
+    error ERC20Permit_InvalidSignature(address owner, address signer);
+
     // The contract which deployed this one
     address public immutable factory;
     // The bytecode hash of the contract which forwards purely erc20 calls
@@ -309,10 +317,12 @@ contract MultiToken is IMultiToken {
         uint256[] calldata values
     ) external {
         // Checks for inconsistent addresses
-        require(from != address(0), "transfer from the zero address");
-        require(to != address(0), "transfer to the zero address");
+        if (from == address(0)) revert TransferFromZeroAddress();
+        if (to == address(0)) revert TransferToZeroAddress();
+
         // Check for inconsistent length
-        require(ids.length == values.length, "ids and values length mismatch");
+        if (ids.length != values.length) revert BatchLengthMismatch();
+
         // Call internal transfer for each asset
         for (uint256 i = 0; i < ids.length; i++) {
             _transferFrom(ids[i], from, to, values[i], msg.sender);
@@ -342,9 +352,9 @@ contract MultiToken is IMultiToken {
         bytes32 s
     ) external {
         // Require that the signature is not expired
-        require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
+        if (block.timestamp > deadline) revert ERC20Permit_ExpiredDeadline({ now: block.timestamp, deadline: deadline });
         // Require that the owner is not zero
-        require(owner != address(0), "ERC20: invalid-address-0");
+        if (owner == address(0)) revert ERC20Permit_InvalidOwnerAddress();
 
         bytes32 structHash = keccak256(
             abi.encodePacked(
@@ -365,7 +375,7 @@ contract MultiToken is IMultiToken {
 
         // Check that the signature is valid
         address signer = ecrecover(structHash, v, r, s);
-        require(signer == owner, "ERC20Permit: invalid signature");
+        if (signer != owner) revert ERC20Permit_InvalidSignature({ owner: owner, signer: signer });
 
         // Increment the signature nonce
         nonces[owner]++;
