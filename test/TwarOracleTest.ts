@@ -304,10 +304,9 @@ describe("TWAR Oracle", function () {
     await advanceTime(provider, 3);
     await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 2, sum 3
     await advanceTime(provider, 3);
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
-    await advanceTime(provider, 3);
-    await oracleContract.updateBuffer(BUFFER_ID, parseEther("2")); // position 4, sum 5
-    await advanceTime(provider, 3);
+
+    // Test before the buffer fills up:
+
     // record a new block so when we try to provide a time that's less than 3s we won't
     // even hit the last update to the buffer
     await advanceBlock(provider);
@@ -315,7 +314,21 @@ describe("TWAR Oracle", function () {
     // let's barely step back, shouldn't even go back to the last recorded update to the buffer
     const timeInSeconds = 2;
 
-    const averageValue = await oracleContract.calculateAverageWeightedValue(
+    let averageValue = await oracleContract.calculateAverageWeightedValue(
+      BUFFER_ID,
+      timeInSeconds
+    );
+
+    expect(formatEther(averageValue)).to.equal("1.0");
+
+    // Now fill up the buffer and test again:
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("1")); // position 3, sum 4
+    await advanceTime(provider, 3);
+    await oracleContract.updateBuffer(BUFFER_ID, parseEther("2")); // position 4, sum 5
+    await advanceTime(provider, 3);
+
+    await advanceBlock(provider);
+    averageValue = await oracleContract.calculateAverageWeightedValue(
       BUFFER_ID,
       timeInSeconds
     );
