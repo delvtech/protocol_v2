@@ -633,17 +633,23 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 timestretch = 1e21 / uint256(params.timestretch);
         // Calculate the total supply, and _normalize
         uint256 totalSupply = _normalize(totalSupply[expiry]);
+        uint256 mu = uint256(params.mu);
+        // We adjust the bond reserve by a factor of totalSupply*mu
+        // This reserve adjustment works by increasing liquidity which interest rates are positive
+        // so that when the reserve has zero bonds on (on init) the curve thinks it has equal bonds and
+        // underlying.
+        uint256 totalSupplyTimesMu = totalSupply.mulDown(mu);
 
         // Call our internal price library
         uint256 result = YieldSpaceMath.calculateOutGivenIn(
             shareReserve,
             bondReserve,
-            totalSupply,
+            totalSupplyTimesMu,
             input,
             timeToExpiry,
             timestretch,
             pricePerShare,
-            params.mu,
+            mu,
             isBondOut
         );
 
