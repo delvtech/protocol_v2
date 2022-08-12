@@ -6,6 +6,7 @@ import "./interfaces/IYieldAdapter.sol";
 import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
+import "./libraries/Errors.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
@@ -570,8 +571,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 block.timestamp,
                 expiry
             );
+
             // yt created at current time so discount should always be 0
-            require(discount == 0, "todo nice error");
+            if (discount != 0) revert ElementError.NonZeroDiscount();
+
             // create PT
             _mint(expiry, destination, value - amount);
         } else {

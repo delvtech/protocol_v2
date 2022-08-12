@@ -9,12 +9,15 @@ library FixedPointMath {
     int256 internal constant _ONE_18 = 1e18;
     uint256 public constant ONE_18 = 1e18;
 
+    error AddOverflow();
+    error SubOverflow();
+
     /// @dev Credit to Balancer (https://github.com/balancer-labs/balancer-v2-monorepo/blob/master/pkg/solidity-utils/contracts/math/FixedPoint.sol)
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
         // Fixed Point addition is the same as regular checked addition
 
         uint256 c = a + b;
-        _require(c >= a, Errors.ADD_OVERFLOW);
+        if (c < a) revert AddOverflow();
         return c;
     }
 
