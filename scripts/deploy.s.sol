@@ -220,22 +220,22 @@ contract MockDeployer is Script {
         WETH.approve(address(WETHPool), type(uint256).max);
 
         // USDC 30/60/90 day term pools
-        USDCPool.registerPoolId(
-            oneMonthExpiry, // term expiry is pool id
-            100_000 * 1e6, // amount in
-            1000, // timestretch
-            msg.sender,
-            0, // max time (used for oracle)
-            0 // max length (used for oracle)
-        );
-        USDCPool.registerPoolId(
-            twoMonthExpiry,
-            100_000 * 1e6,
-            1000,
-            msg.sender,
-            0,
-            0
-        );
+        // USDCPool.registerPoolId(
+        //     oneMonthExpiry, // term expiry is pool id
+        //     100_000 * 1e6, // amount in
+        //     1000, // timestretch
+        //     msg.sender,
+        //     0, // max time (used for oracle)
+        //     0 // max length (used for oracle)
+        // );
+        // USDCPool.registerPoolId(
+        //     twoMonthExpiry,
+        //     100_000 * 1e6,
+        //     1000,
+        //     msg.sender,
+        //     0,
+        //     0
+        // );
         USDCPool.registerPoolId(
             threeMonthExpiry,
             100_000 * 1e6,
@@ -245,57 +245,57 @@ contract MockDeployer is Script {
             0
         );
 
-        // DAI 30/60/90 day term pools
-        DAIPool.registerPoolId(
-            oneMonthExpiry,
-            100_000 * 1e18,
-            1000,
-            msg.sender,
-            0,
-            0
-        );
-        DAIPool.registerPoolId(
-            twoMonthExpiry,
-            100_000 * 1e18,
-            1000,
-            msg.sender,
-            0,
-            0
-        );
-        DAIPool.registerPoolId(
-            threeMonthExpiry,
-            100_000 * 1e18,
-            1000,
-            msg.sender,
-            0,
-            0
-        );
+        // // DAI 30/60/90 day term pools
+        // DAIPool.registerPoolId(
+        //     oneMonthExpiry,
+        //     100_000 * 1e18,
+        //     1000,
+        //     msg.sender,
+        //     0,
+        //     0
+        // );
+        // DAIPool.registerPoolId(
+        //     twoMonthExpiry,
+        //     100_000 * 1e18,
+        //     1000,
+        //     msg.sender,
+        //     0,
+        //     0
+        // );
+        // DAIPool.registerPoolId(
+        //     threeMonthExpiry,
+        //     100_000 * 1e18,
+        //     1000,
+        //     msg.sender,
+        //     0,
+        //     0
+        // );
 
-        // WETH 30/60/90 day term pools
-        WETHPool.registerPoolId(
-            oneMonthExpiry,
-            1_000 * 1e18,
-            1000,
-            msg.sender,
-            0,
-            0
-        );
-        WETHPool.registerPoolId(
-            twoMonthExpiry,
-            1_000 * 1e18,
-            1000,
-            msg.sender,
-            0,
-            0
-        );
-        WETHPool.registerPoolId(
-            threeMonthExpiry,
-            1_000 * 1e18,
-            1000,
-            msg.sender,
-            0,
-            0
-        );
+        // // WETH 30/60/90 day term pools
+        // WETHPool.registerPoolId(
+        //     oneMonthExpiry,
+        //     1_000 * 1e18,
+        //     1000,
+        //     msg.sender,
+        //     0,
+        //     0
+        // );
+        // WETHPool.registerPoolId(
+        //     twoMonthExpiry,
+        //     1_000 * 1e18,
+        //     1000,
+        //     msg.sender,
+        //     0,
+        //     0
+        // );
+        // WETHPool.registerPoolId(
+        //     threeMonthExpiry,
+        //     1_000 * 1e18,
+        //     1000,
+        //     msg.sender,
+        //     0,
+        //     0
+        // );
 
         // Create ERC20 forwarder tokens for term principle and LP tokens
 
@@ -341,7 +341,13 @@ contract MockDeployer is Script {
         // TODO @cashd: figure out how to init a pool with liquidity (v pls assist)
         // Using USDC 3 month term as an example
         // Initalize pool with liquidity
-        // USDCPool.tradeBonds(threeMonthExpiry, 1_000 * 1e6, 1, msg.sender, false);
+        USDCPool.tradeBonds(
+            threeMonthExpiry,
+            1_000 * 1e6,
+            1,
+            msg.sender,
+            false
+        );
 
         // below fails with a substraction overflow errror
         // when calculating impliedInterest in _quoteSaleAndFees function
