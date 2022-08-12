@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
 import "contracts/mocks/MockERC20Permit.sol";
@@ -15,6 +14,8 @@ contract User {
     receive() external payable {} // solhint-disable-line no-empty-blocks
 }
 
+// Unit tests for the lock function on a simple Term.  MockYieldAdapter is used as
+// for the Term implementation.  Cases cover all asset types, pre-funding, sorting.
 contract TermTestLock is Test {
     uint256 public constant UNLOCKED_YT_ID = 1 << 255;
     ForwarderFactory public ff;
@@ -119,6 +120,7 @@ contract TermTestLock is Test {
         );
     }
 
+    // If the caller does not have enough underlying, the transaction should revert.
     function testFailLock_NotEnoughUnderlying() public {
         uint256 underlyingAmount = 1 ether;
 
@@ -147,6 +149,7 @@ contract TermTestLock is Test {
         );
     }
 
+    // only provide unlocked assets to lock.
     function testLock_OnlyUnlockedAssets() public {
         uint256 underlyingAmount = 0;
 
@@ -203,6 +206,7 @@ contract TermTestLock is Test {
         assertEq(userPts, shares);
     }
 
+    // if the caller does not have enough unlocked assets, revert.
     function testFailLock_NotEnoughUnlockedAssets() public {
         uint256 underlyingAmount = 0;
 
@@ -241,6 +245,7 @@ contract TermTestLock is Test {
         );
     }
 
+    // test when only mature principal tokens should be locked
     function testLock_OnlyPrincipalTokens() public {
         uint256 underlyingAmount = 1 ether;
 
@@ -306,6 +311,7 @@ contract TermTestLock is Test {
         assertEq(userPts, 1 ether);
     }
 
+    // test when principal tokens are not expired, should revert
     function testFailLock_PrincipalTokensNotExpired() public {
         uint256 underlyingAmount = 1 ether;
 
@@ -325,7 +331,7 @@ contract TermTestLock is Test {
         token.approve(address(term), UINT256_MAX);
 
         // do a lock to get some pts
-        (uint256 shares, uint256 value) = term.lock(
+        term.lock(
             assetIds,
             assetAmounts,
             underlyingAmount,
@@ -357,6 +363,7 @@ contract TermTestLock is Test {
         );
     }
 
+    // test when only mature yield tokens should be locked
     function testLock_OnlyYieldTokens() public {
         uint256 underlyingAmount = 1 ether;
 
@@ -429,6 +436,7 @@ contract TermTestLock is Test {
         assertEq(userPts, profit);
     }
 
+    // test when yield tokens are not expired, should revert
     function testFailLock_YieldTokensNotExpired() public {
         uint256 underlyingAmount = 1 ether;
 
@@ -448,7 +456,7 @@ contract TermTestLock is Test {
         token.approve(address(term), UINT256_MAX);
 
         // do a lock to get some yts
-        (uint256 shares, uint256 value) = term.lock(
+        term.lock(
             assetIds,
             assetAmounts,
             underlyingAmount,
@@ -492,12 +500,12 @@ contract TermTestLock is Test {
     // tests many combinations of assets.  this is a sanity check and just makes sure that the
     // lock transactions don't fail.
     function testLock_Combinations(
-        uint32 numUnderlyingAmount,
-        uint32 numPts1,
         uint32 numPts2,
-        uint32 numYts1,
+        uint32 numPts1,
         uint32 numYts2,
-        uint32 numUnlockedAssets
+        uint32 numYts1,
+        uint32 numUnlockedAssets,
+        uint32 numUnderlyingAmount
     ) public {
         // make sure we get at least one value
         vm.assume(
@@ -540,7 +548,7 @@ contract TermTestLock is Test {
 
         skip(2_500_000);
 
-        uint256 ytBeginDate2 = 1 + 2_500_000;
+        uint256 ytBeginDate2 = timeStamp + 2_500_000;
         uint256 expiration2 = 5_000_000;
         // do another lock to get different pts and yts
         (uint256 shares, uint256 value) = term.lock(
@@ -557,10 +565,6 @@ contract TermTestLock is Test {
         // get some unlocked assets as well
         uint256 amountDepositedUnlocked = 1 ether;
         term.depositUnlocked(amountDepositedUnlocked, 0, 0, address(user));
-        uint256 userUnlockedBalance = term.balanceOf(
-            UNLOCKED_YT_ID,
-            address(user)
-        );
 
         // add some profit to the yearn vault
         // this has to happen before we skip ahead in time since the mock vault pro-rates profit
@@ -577,34 +581,29 @@ contract TermTestLock is Test {
             (ytBeginDate2 << 128) +
             expiration2;
 
+        if (numPts2 > 0) {
+            assetIds.push(expiration2);
+            assetAmounts.push(uint256(numPts2));
+        }
+
+        if (numPts1 > 0) {
+            assetIds.push(expiration);
+            assetAmounts.push(uint256(numPts1));
+        }
+
         if (numUnlockedAssets > 0) {
             assetIds.push(UNLOCKED_YT_ID);
-            console.log("UNLOCKED_YT_ID", UNLOCKED_YT_ID);
             assetAmounts.push(uint256(numUnlockedAssets));
         }
 
         if (numYts1 > 0) {
             assetIds.push(yieldTokenId);
-            console.log("yieldTokenId", yieldTokenId);
             assetAmounts.push(uint256(numYts1));
         }
 
         if (numYts2 > 0) {
             assetIds.push(yieldTokenId2);
-            console.log("yieldTokenId2", yieldTokenId2);
             assetAmounts.push(uint256(numYts2));
-        }
-
-        if (numPts1 > 0) {
-            assetIds.push(expiration);
-            console.log("expiration", expiration);
-            assetAmounts.push(uint256(numPts1));
-        }
-
-        if (numPts2 > 0) {
-            assetIds.push(expiration2);
-            console.log("expiration2", expiration2);
-            assetAmounts.push(uint256(numPts2));
         }
 
         (shares, value) = term.lock(
@@ -617,15 +616,6 @@ contract TermTestLock is Test {
             15_000_000, // set yt start date in the future to guarantee it starts at current timestamp
             15_000_000
         );
-
-        console.log("shares", shares);
-        console.log("value", value);
-        console.log("numUnderlyingAmount", numUnderlyingAmount);
-        console.log("numPts1", numPts1);
-        console.log("numPts2", numPts2);
-        console.log("numYts1", numYts1);
-        console.log("numYts2", numYts2);
-        console.log("numUnlockedAssets", numUnlockedAssets);
 
         // TODO: figure out a good way to calculate total value.
         // assertApproxEqAbs(
