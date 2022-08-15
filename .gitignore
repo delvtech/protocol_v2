@@ -8,6 +8,7 @@ gasReporterOutput.json
 coverage.json
 coverage/
 typechain/
+.env
 
 # Foundry files
 forge-cache/
