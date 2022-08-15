@@ -3,6 +3,7 @@
 pragma solidity ^0.8.15;
 
 import "../interfaces/IERC20Permit.sol";
+import "./Errors.sol";
 
 // This default erc20 library is designed for max efficiency and security.
 // WARNING: By default it does not include totalSupply which breaks the ERC20 standard
@@ -100,7 +101,9 @@ abstract contract ERC20Permit is IERC20Permit {
     ) public virtual override returns (bool) {
         // Load balance and allowance
         uint256 balance = balanceOf[spender];
-        require(balance >= amount, "ERC20: insufficient-balance");
+        if (balance < amount)
+            revert ElementError.ERC20Permit__TransferFrom_InsufficientBalance();
+
         // We potentially have to change allowances
         if (spender != msg.sender) {
             // Loading the allowance in the if block prevents vanilla transfers
@@ -110,7 +113,9 @@ abstract contract ERC20Permit is IERC20Permit {
             // Note - This means that max allowances will be more gas efficient
             // by not requiring a sstore on 'transferFrom'
             if (allowed != type(uint256).max) {
-                require(allowed >= amount, "ERC20: insufficient-allowance");
+                if (allowed < amount)
+                    revert ElementError
+                        .ERC20Permit__TransferFrom_InsufficientAllowance();
                 allowance[spender][msg.sender] = allowed - amount;
             }
         }
@@ -211,20 +216,19 @@ abstract contract ERC20Permit is IERC20Permit {
             )
         );
         // Require that the owner is not zero
-        require(owner != address(0), "ERC20: invalid-address-0");
+        if (owner == address(0))
+            revert ElementError.ERC20Permit__Permit_OwnerIsZeroAddress();
         // Require that we have a valid signature from the owner
-        require(owner == ecrecover(digest, v, r, s), "ERC20: invalid-permit");
+        if (owner != ecrecover(digest, v, r, s))
+            revert ElementError.ERC20Permit__Permit_OwnerIsNotSigner();
         // Require that the signature is not expired
-        require(
-            deadline == 0 || block.timestamp <= deadline,
-            "ERC20: permit-expired"
-        );
+        if (!(deadline == 0 || block.timestamp <= deadline))
+            revert ElementError.ERC20Permit__Permit_Expired();
         // Format the signature to the default format
-        require(
-            uint256(s) <=
-                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0,
-            "ERC20: invalid signature 's' value"
-        );
+        if (
+            uint256(s) >
+            0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+        ) revert ElementError.ERC20Permit__Permit_InvalidSignature();
         // Increment the signature nonce to prevent replay
         nonces[owner]++;
         // Set the allowance to the new value

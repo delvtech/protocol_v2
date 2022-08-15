@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.7.0;
 
+import "./Errors.sol";
+
 contract Authorizable {
     // This contract allows a flexible authorization scheme
 
@@ -16,13 +18,16 @@ contract Authorizable {
 
     /// @dev This modifier checks if the msg.sender is the owner
     modifier onlyOwner() {
-        require(msg.sender == owner, "Sender not owner");
+        if (msg.sender != owner)
+            revert ElementError.Authorizable__OnlyOwner_SenderMustBeOwner();
         _;
     }
 
     /// @dev This modifier checks if an address is authorized
     modifier onlyAuthorized() {
-        require(isAuthorized(msg.sender), "Sender not Authorized");
+        if (!isAuthorized(msg.sender))
+            revert ElementError
+                .Authorizable__OnlyAuthorized_SenderMustBeAuthorized();
         _;
     }
 

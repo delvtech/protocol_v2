@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "./interfaces/IMultiToken.sol";
+import "./libraries/Errors.sol";
 
 // A lite version of a semi fungible, which removes some methods and so
 // is not technically a 1155 compliant multi-token semi fungible, but almost
@@ -30,17 +31,6 @@ contract MultiToken is IMultiToken {
     // Sub Token Name and Symbol, created by inheriting contracts
     mapping(uint256 => string) internal _name;
     mapping(uint256 => string) internal _symbol;
-
-    // Error triggered when the create2 verification fails
-    error NonLinkerCaller();
-
-    error TransferFromZeroAddress();
-    error TransferToZeroAddress();
-    error BatchLengthMismatch();
-
-    error ERC20Permit_ExpiredDeadline(uint256 now, uint256 deadline);
-    error ERC20Permit_InvalidOwnerAddress();
-    error ERC20Permit_InvalidSignature(address owner, address signer);
 
     // The contract which deployed this one
     address public immutable factory;
@@ -95,7 +85,7 @@ contract MultiToken is IMultiToken {
         // If the caller does not match the address hash, we revert because it is not
         // allowed to access permission-ed methods.
         if (msg.sender != _deriveForwarderAddress(tokenID)) {
-            revert NonLinkerCaller();
+            revert ElementError.MultiToken__OnlyLinker_NonLinkerCaller();
         }
         // Execute the following function
         _;
@@ -317,11 +307,14 @@ contract MultiToken is IMultiToken {
         uint256[] calldata values
     ) external {
         // Checks for inconsistent addresses
-        if (from == address(0)) revert TransferFromZeroAddress();
-        if (to == address(0)) revert TransferToZeroAddress();
+        if (from == address(0))
+            revert ElementError.MultiToken__BatchTransfer_ZeroAddressFrom();
+        if (to == address(0))
+            revert ElementError.MultiToken__BatchTransfer_ZeroAddressTo();
 
         // Check for inconsistent length
-        if (ids.length != values.length) revert BatchLengthMismatch();
+        if (ids.length != values.length)
+            revert ElementError.MultiToken__BatchTransfer_InputLengthMismatch();
 
         // Call internal transfer for each asset
         for (uint256 i = 0; i < ids.length; i++) {
@@ -352,9 +345,11 @@ contract MultiToken is IMultiToken {
         bytes32 s
     ) external {
         // Require that the signature is not expired
-        if (block.timestamp > deadline) revert ERC20Permit_ExpiredDeadline({ now: block.timestamp, deadline: deadline });
+        if (block.timestamp > deadline)
+            revert ElementError.MultiToken__PermitForAll_ExpiredDeadline();
         // Require that the owner is not zero
-        if (owner == address(0)) revert ERC20Permit_InvalidOwnerAddress();
+        if (owner == address(0))
+            revert ElementError.MultiToken__PermitForAll_OwnerIsZeroAddress();
 
         bytes32 structHash = keccak256(
             abi.encodePacked(
@@ -375,7 +370,8 @@ contract MultiToken is IMultiToken {
 
         // Check that the signature is valid
         address signer = ecrecover(structHash, v, r, s);
-        if (signer != owner) revert ERC20Permit_InvalidSignature({ owner: owner, signer: signer });
+        if (signer != owner)
+            revert ElementError.MultiToken__PermitForAll_OwnerIsNotSigner();
 
         // Increment the signature nonce
         nonces[owner]++;
