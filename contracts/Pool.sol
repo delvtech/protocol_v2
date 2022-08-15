@@ -537,8 +537,8 @@ contract Pool is LP, Authorizable, TWAROracle {
         // Calculate total fee with the multiplier which is an 18 point fraction
         uint256 fee = (impliedInterest * uint256(tradeFee)) /
             FixedPointMath.ONE_18;
-        // The fee in shares is the percent of share value that is fee times shares
-        uint256 shareFee = (shareValue * fee) / shareValue;
+        // Divide the fee value by the price per share to get the fee in shares
+        uint256 shareFee = (fee * _one) / pricePerShare;
         // The governance percent is the this times by the 18 point governance percent
         // fraction
         uint256 governanceFee = (shareFee * uint256(governanceFeePercent)) /
