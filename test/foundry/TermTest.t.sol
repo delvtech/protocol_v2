@@ -9,6 +9,7 @@ import "contracts/mocks/MockERC20Permit.sol";
 import "contracts/mocks/MockYieldAdapter.sol";
 import "contracts/mocks/MockERC20YearnVault.sol";
 import "contracts/interfaces/IERC20.sol";
+import "contracts/libraries/Errors.sol";
 
 contract User {
     // to be able to receive funds
@@ -90,7 +91,11 @@ contract TermTest is Test {
         token.setBalance(address(user), 10 ether);
         token.approve(address(term), UINT256_MAX);
 
-        vm.expectRevert("Not expired");
+        vm.expectRevert(
+            ElementError
+                .Term__DepositUnlocked_PrincipalTokenHasNotExpired
+                .selector
+        );
         term.depositUnlocked(underlyingAmount, ptAmount, ptExpiry, destination);
     }
 
