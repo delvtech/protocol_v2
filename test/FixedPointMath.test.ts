@@ -166,7 +166,9 @@ describe("FixedPointMath Tests", function () {
         const x = "10000";
         const y = "289480223093290488558927462521719769633.174961664101410098";
         const fn = MockFixedPointMath.pow(fp(x), fp(y));
-        await expect(fn).to.be.revertedWith("ELF#009"); //INVALID_EXPONENT in exp()
+        await expect(fn).to.be.revertedWith(
+          "FixedPointMath__Exp_InvalidExponent()"
+        ); //INVALID_EXPONENT in exp()
       });
 
       it("Should revert when pow(2**255/1e18,1) bc x overflows an int256", async function () {
@@ -174,7 +176,9 @@ describe("FixedPointMath Tests", function () {
           "57896044618658097711785492504343953926634992332820282019728.792003956564819968";
         const y = "1";
         const fn = MockFixedPointMath.pow(fp(x), fp(y));
-        await expect(fn).to.be.revertedWith("ELF#006"); //X_OUT_OF_BOUNDS in _ln()
+        await expect(fn).to.be.revertedWith(
+          "FixedPointMath__Ln_NegativeInput()"
+        ); //X_OUT_OF_BOUNDS in _ln()
       });
     }); // End Untyped
   }); // End pow()
@@ -217,7 +221,9 @@ describe("FixedPointMath Tests", function () {
       it("Should revert when x >= floor(log((2**255-1) / 1e18) * 1e18)", async function () {
         const x = "135.305999368893231589";
         const fn = MockFixedPointMath.exp(fp(x));
-        await expect(fn).to.be.revertedWith("ELF#009"); //INVALID_EXPONENT in _ln()
+        await expect(fn).to.be.revertedWith(
+          "FixedPointMath__Exp_InvalidExponent()"
+        ); //INVALID_EXPONENT in _ln()
       });
     }); // End Untyped
   }); // End exp()
@@ -261,13 +267,17 @@ describe("FixedPointMath Tests", function () {
       it("Should revert when x == 0)", async function () {
         const x = fp("0");
         const fn = MockFixedPointMath.ln(x);
-        await expect(fn).to.be.revertedWith("ELF#006"); // X_OUT_OF_BOUNDS in ln()
+        await expect(fn).to.be.revertedWith(
+          "FixedPointMath__Ln_NegativeOrZeroInput()"
+        ); // X_OUT_OF_BOUNDS in ln()
       });
 
       it("Should revert when x < 0)", async function () {
         const x = fp("-1");
         const fn = MockFixedPointMath.ln(x);
-        await expect(fn).to.be.revertedWith("ELF#006"); // X_OUT_OF_BOUNDS in ln()
+        await expect(fn).to.be.revertedWith(
+          "FixedPointMath__Ln_NegativeOrZeroInput()"
+        ); // X_OUT_OF_BOUNDS in ln()
       });
     }); // End Untyped
   }); // End ln()

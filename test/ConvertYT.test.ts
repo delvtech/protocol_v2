@@ -85,14 +85,18 @@ describe("Convert YT Tests", async () => {
       // function fails for assetID's without leading 1
       const ptID = 0;
       const tx = yieldAdapter.convertYT(ptID, 0, signers[0].address, false);
-      await expect(tx).to.be.revertedWith("asset ID is not YT");
+      await expect(tx).to.be.revertedWith(
+        "Term__ConvertYT_AssetIdDoesNotMatchYieldToken()"
+      );
     });
 
     it("fails invalid expiry", async () => {
       const start = await getCurrentTimestamp(provider);
       const id = getTokenId(start, 0);
       const tx = yieldAdapter.convertYT(id, 0, signers[0].address, false);
-      await expect(tx).to.be.revertedWith("invalid expiry");
+      await expect(tx).to.be.revertedWith(
+        "Term__ConvertYT_ExpirationDateIsZero()"
+      );
     });
 
     it("fails invalid start date", async () => {
@@ -101,7 +105,7 @@ describe("Convert YT Tests", async () => {
       // construct asset ID with 0 start date
       const id = getTokenId(0, expiration);
       const tx = yieldAdapter.convertYT(id, 0, signers[0].address, false);
-      await expect(tx).to.be.revertedWith("invalid token start date");
+      await expect(tx).to.be.revertedWith("Term__ConvertYT_StartDateIsZero()");
     });
 
     it("fails for nonexistent term", async () => {
@@ -109,7 +113,7 @@ describe("Convert YT Tests", async () => {
       const expiration = start + ONE_YEAR_IN_SECONDS;
       const id = getTokenId(start, expiration);
       const tx = yieldAdapter.convertYT(id, 0, signers[0].address, false);
-      await expect(tx).to.be.revertedWith("no term for input asset");
+      await expect(tx).to.be.revertedWith("Term__ConvertYT_TermDoesNotExist()");
     });
 
     it("fail to convert amount greater than available", async () => {
