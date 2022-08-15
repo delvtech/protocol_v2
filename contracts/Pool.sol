@@ -304,6 +304,9 @@ contract Pool is LP, Authorizable, TWAROracle {
         // Make sure that the generated PTs are equal to
         /// TODO: The rounding errors might make this check fail
         require(pt == amount, "todo nice error");
+
+        // Update the oracle
+        _updateOracle(poolId, newShareReserve, newBondReserve);
         // Updated reserves.
         _update(poolId, uint128(newBondReserve), uint128(newShareReserve));
         // Todo update oracle
@@ -497,7 +500,7 @@ contract Pool is LP, Authorizable, TWAROracle {
     }
 
     /// @notice Helper function to calculate sale and fees for a sell, plus update the fee state.
-    /// @dev Unlike the buy flow we use this logic in both 'buyYt' and '_sellBonds' and so abstract
+    /// @dev Unlike the buy flow we use this logic in both 'purchaseYt' and '_sellBonds' and so abstract
     ///      it into a function.
     ///      WARN - Do not allow calling this function outside the context of a trade
     /// @param  poolId Pool Id supported for the trade.
