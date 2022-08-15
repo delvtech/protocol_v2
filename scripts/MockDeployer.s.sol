@@ -184,7 +184,7 @@ contract MockDeployer is Script {
         );
 
         // Deploy pools for each term
-        uint256 fee = 10 * 1e18; // 10 basis point fee as 18 fixed point number
+        uint256 fee = 10 * 1e14; // 10 basis point fee as 18 fixed point number
 
         MockPool USDCPool = new MockPool(
             USDCTerm,
