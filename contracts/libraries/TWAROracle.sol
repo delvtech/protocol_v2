@@ -27,20 +27,18 @@ contract TWAROracle {
         // maxLength of zero indicates a buffer has not been initialized.  Upper value for
         // maxLength checked by the fact that it is uint16.
         if (maxLength <= 1)
-            revert ElementError
-                .TWAROracle__InitializeBuffer_IncorrectBufferLength();
+            revert ElementError.TWAROracle_IncorrectBufferLength();
 
         (, , , uint16 _maxLength, ) = readMetadataParsed(bufferId);
         if (_maxLength > 0)
-            revert ElementError
-                .TWAROracle__InitializeBuffer_BufferAlreadyInitialized();
+            revert ElementError.TWAROracle_BufferAlreadyInitialized();
 
         // The minimum time required to pass before an update will be made to a buffer.
         uint32 minTimeStep = uint32(maxTime) / uint32(maxLength);
         // This is more of a sanity check.  Note that minimum time steps that are less time than a
         // block can lead to dangerous side effects.
         if (minTimeStep == 0)
-            revert ElementError.TWAROracle__InitializeBuffer_ZeroMinTimeStep();
+            revert ElementError.TWAROracle_MinTimeStepMustBeNonZero();
 
         uint256 metadata = _combineMetadata(
             minTimeStep,
@@ -177,8 +175,7 @@ contract TWAROracle {
 
         // Because we use the length prop for metadata, we need to specifically check the index.
         if (index >= bufferLength)
-            revert ElementError
-                .TWAROracle__ReadSumAndTimeStampForPool_IndexOutOfBounds();
+            revert ElementError.TWAROracle_IndexOutOfBounds();
 
         uint256 value = _buffers[bufferId][index];
         cumulativeSum = uint224(value);
@@ -209,8 +206,7 @@ contract TWAROracle {
 
         // We can't calculate the value from just one element since there is no previous timeStamp.
         if (bufferLength <= 1)
-            revert ElementError
-                .TWAROracle__CalculateAverageWeightedValue_NotEnoughElements();
+            revert ElementError.TWAROracle_NotEnoughElements();
 
         // If the buffer is full, the oldest index is the next index, otherwise its the first
         // element in the array.

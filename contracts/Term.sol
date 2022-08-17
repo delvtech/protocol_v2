@@ -87,8 +87,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             : ytBeginDate;
 
         // Next check the validity of the requested expiry
-        if (expiration <= block.timestamp)
-            revert ElementError.Term__Lock_BeyondExpirationDate();
+        if (expiration <= block.timestamp) revert ElementError.TermExpired();
 
         // The yt can't start after
         // Running tally of the added value
@@ -120,8 +119,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             uint256 id = assetIds[i];
             uint256 amount = assetAmounts[i];
             // Requiring strict sorting is a cheap way to check for uniqueness
-            if (previousId >= id)
-                revert ElementError.Term__Lock_UnsortedAssetIds();
+            if (previousId >= id) revert ElementError.UnsortedAssetIds();
             previousId = id;
 
             // Burn the asset from the user
@@ -189,9 +187,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             // NOTE - All YT have the top bit as 1 and so are larger than any conceivable
             //        block.timestamp.
             // Todo - Make sure there's a test for the fact no YT id passes
-            if (ptExpiry >= block.timestamp)
-                revert ElementError
-                    .Term__DepositUnlocked_PrincipalTokenHasNotExpired();
+            if (ptExpiry >= block.timestamp) revert ElementError.TermExpired();
 
             // Then we burn the pt from the user and release its shares
             (uint256 lockedShares, uint256 ptValue) = _releaseAsset(
@@ -231,7 +227,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         for (uint256 i = 0; i < tokenIds.length; i++) {
             // Requiring strict sorting is a cheap way to check for uniqueness
             if (previousId >= tokenIds[i])
-                revert ElementError.Term__Unlock_UnsortedAssetIds();
+                revert ElementError.UnsortedAssetIds();
 
             previousId = tokenIds[i];
             // Burns the tokens from the user account and returns how much they were worth
@@ -321,7 +317,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 // interest rate data in the period
                 YieldState memory state = yieldTerms[yieldTokenId];
                 if (state.shares == 0 || state.pt == 0)
-                    revert ElementError.Term__CreateYT_TermDoesNotExist();
+                    revert ElementError.TermNotInitialized();
 
                 // We calculate the current fair value of the YT by dividing the interest
                 // earned by the number of YT. We can get the interest earned by subtracting
@@ -371,7 +367,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 expiry = assetId & (2**(128) - 1);
         // Check that the expiry has been hit
         if (expiry > block.timestamp && expiry != 0)
-            revert ElementError.Term__ReleaseAsset_AssetNotExpired();
+            revert ElementError.TermNotExpired();
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
         // If the term's final interest rate has not been recorded we record it
@@ -529,23 +525,20 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         bool isCompound
     ) external returns (uint256) {
         // make sure asset is a YT
-        if (assetId >> 255 != 1)
-            revert ElementError.Term__ConvertYT_AssetIdDoesNotMatchYieldToken();
+        if (assetId >> 255 != 1) revert ElementError.NotAYieldTokenId();
         // expiry must be greater than zero
         uint256 expiry = assetId & (2**(128) - 1);
-        if (expiry == 0)
-            revert ElementError.Term__ConvertYT_ExpirationDateIsZero();
+        if (expiry == 0) revert ElementError.ExpirationDateMustBeNonZero();
         // start date must be greater than zero
         uint256 startDate = ((assetId) & (2**255 - 1)) >> 128;
-        if (startDate == 0)
-            revert ElementError.Term__ConvertYT_StartDateIsZero();
+        if (startDate == 0) revert ElementError.StartDateMustBeNonZero();
 
         // load the state for the term
         YieldState memory state = yieldTerms[assetId];
         // make sure a term exists for the input asset
         // todo: is this logic good or should be &?
         if (state.pt == 0 && state.shares == 0)
-            revert ElementError.Term__ConvertYT_TermDoesNotExist();
+            revert ElementError.TermNotInitialized();
         // calculate the shares belonging to the user
         uint256 userShares = (state.shares * amount) / totalSupply[assetId];
         // remove shares from the yield state and the yt to burn from pt
@@ -571,8 +564,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             );
 
             // yt created at current time so discount should always be 0
-            if (discount != 0)
-                revert ElementError.Term__ConvertYT_YieldTokenBackdated();
+            if (discount != 0) revert ElementError.InvalidYieldTokenCreation();
 
             // create PT
             _mint(expiry, destination, value - amount);
@@ -620,8 +612,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // the expiration times must be equal
         uint256 ytExpiry = yieldTokenId & (2**(128) - 1);
         if (ytExpiry != principalTokenId)
-            revert ElementError
-                .Term__Redeem_IncongruentPrincipalAndYieldTokenIds();
+            revert ElementError.IncongruentPrincipalAndYieldTokenIds();
 
         // YTs can have different start times for a particular expiry.
         // This means that each YieldState instance is backed by

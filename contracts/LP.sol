@@ -68,8 +68,7 @@ contract LP is MultiToken {
         uint256 minOutput
     ) external returns (uint256) {
         // No minting after expiration
-        if (poolId <= block.timestamp)
-            revert ElementError.LP__DepositUnderlying_BeyondExpirationDate();
+        if (poolId <= block.timestamp) revert ElementError.TermExpired();
         // Transfer from the user
         token.transferFrom(msg.sender, address(this), amount);
         // We deposit into the unlocked position of the term in order to calculate
@@ -92,8 +91,7 @@ contract LP is MultiToken {
             destination
         );
         // Check enough has been made and return that amount
-        if (newLpToken < minOutput)
-            revert ElementError.LP__DepositUnderlying_ExceededSlippageLimit();
+        if (newLpToken < minOutput) revert ElementError.ExceededSlippageLimit();
         return (newLpToken);
     }
 
@@ -112,8 +110,7 @@ contract LP is MultiToken {
         uint256 minLpOut
     ) external returns (uint256) {
         // No minting after expiration
-        if (poolId <= block.timestamp)
-            revert ElementError.LP__DepositBonds_BeyondExpirationDate();
+        if (poolId <= block.timestamp) revert ElementError.TermExpired();
 
         // Load the pool details
         uint256 loadedShares = uint256(reserves[poolId].shares);
@@ -138,8 +135,7 @@ contract LP is MultiToken {
         reserves[poolId].shares = uint128(loadedShares + sharesNeeded);
         reserves[poolId].bonds = uint128(loadedBonds + bondsDeposited);
         // Check enough has been made and return that amount
-        if (lpCreated < minLpOut)
-            revert ElementError.LP__DepositBonds_ExceededSlippageLimit();
+        if (lpCreated < minLpOut) revert ElementError.ExceededSlippageLimit();
 
         return (lpCreated);
     }
@@ -195,8 +191,9 @@ contract LP is MultiToken {
         uint256 minOutput
     ) external returns (uint256) {
         // Only expired bonds can be rolled over
-        if (fromPoolId >= block.timestamp || toPoolId < block.timestamp)
-            revert ElementError.LP__Rollover_BeyondExpirationDate();
+        if (fromPoolId >= block.timestamp) revert ElementError.TermNotExpired();
+
+        if (toPoolId < block.timestamp) revert ElementError.TermExpired();
 
         // Burn lp token and free assets. Will also finalize the pool and so return
         // zero for the userBonds if it's after expiry time.
@@ -217,8 +214,7 @@ contract LP is MultiToken {
             destination
         );
         // Require that the output matches user expectations
-        if (newLpToken < minOutput)
-            revert ElementError.LP__Rollover_ExceededSlippageLimit();
+        if (newLpToken < minOutput) revert ElementError.ExceededSlippageLimit();
 
         return (newLpToken);
     }
@@ -244,10 +240,9 @@ contract LP is MultiToken {
         // NOTE - There's a strong requirement for trades to not be able to move the pool to
         //        have a reserve of exactly 0 in either asset
         if (currentShares == 0 || currentBonds == 0)
-            revert ElementError.LP__DepositFromShares_PoolNotInitialized();
+            revert ElementError.PoolNotInitialized();
         // No deposits after expiry
-        if (poolId <= block.timestamp)
-            revert ElementError.LP__DepositFromShares_BeyondExpirationDate();
+        if (poolId <= block.timestamp) revert ElementError.TermExpired();
 
         // Calculate total reserve with conversion to underlying units
         // IE: amount_bonds + amountShares*underlyingPerShare

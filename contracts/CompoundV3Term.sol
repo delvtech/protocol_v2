@@ -413,8 +413,7 @@ contract CompoundV3Term is Term {
 
         /// Check if enough `lockedShares`/`yieldShares` are in the `yieldShareReserve`
         if (lockedShares > yieldShareReserve_)
-            revert ElementError
-                .CompoundV3Term__ConvertUnlocked_VaultShareReserveTooLow();
+            revert ElementError.VaultShareReserveTooLow();
 
         /// Deduct `lockedShares` from the `yieldShareReserve`
         _setReserves(underlyingReserve_, yieldShareReserve_ - lockedShares);

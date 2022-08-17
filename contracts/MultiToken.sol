@@ -85,7 +85,7 @@ contract MultiToken is IMultiToken {
         // If the caller does not match the address hash, we revert because it is not
         // allowed to access permission-ed methods.
         if (msg.sender != _deriveForwarderAddress(tokenID)) {
-            revert ElementError.MultiToken__OnlyLinker_NonLinkerCaller();
+            revert ElementError.InvalidERC20Bridge();
         }
         // Execute the following function
         _;
@@ -307,14 +307,12 @@ contract MultiToken is IMultiToken {
         uint256[] calldata values
     ) external {
         // Checks for inconsistent addresses
-        if (from == address(0))
-            revert ElementError.MultiToken__BatchTransfer_ZeroAddressFrom();
-        if (to == address(0))
-            revert ElementError.MultiToken__BatchTransfer_ZeroAddressTo();
+        if (from == address(0) || to == address(0))
+            revert ElementError.RestrictedZeroAddress();
 
         // Check for inconsistent length
         if (ids.length != values.length)
-            revert ElementError.MultiToken__BatchTransfer_InputLengthMismatch();
+            revert ElementError.BatchInputLengthMismatch();
 
         // Call internal transfer for each asset
         for (uint256 i = 0; i < ids.length; i++) {
@@ -345,11 +343,9 @@ contract MultiToken is IMultiToken {
         bytes32 s
     ) external {
         // Require that the signature is not expired
-        if (block.timestamp > deadline)
-            revert ElementError.MultiToken__PermitForAll_ExpiredDeadline();
+        if (block.timestamp > deadline) revert ElementError.ExpiredDeadline();
         // Require that the owner is not zero
-        if (owner == address(0))
-            revert ElementError.MultiToken__PermitForAll_OwnerIsZeroAddress();
+        if (owner == address(0)) revert ElementError.RestrictedZeroAddress();
 
         bytes32 structHash = keccak256(
             abi.encodePacked(
@@ -370,8 +366,7 @@ contract MultiToken is IMultiToken {
 
         // Check that the signature is valid
         address signer = ecrecover(structHash, v, r, s);
-        if (signer != owner)
-            revert ElementError.MultiToken__PermitForAll_OwnerIsNotSigner();
+        if (signer != owner) revert ElementError.InvalidSignature();
 
         // Increment the signature nonce
         nonces[owner]++;

@@ -95,8 +95,7 @@ contract Pool is LP, Authorizable, TWAROracle {
     {
         // Should not be zero.
         if (_governanceContract == address(0))
-            revert ElementError
-                .Pool__Constructor_ZeroAddressGovernanceContract();
+            revert ElementError.RestrictedZeroAddress();
 
         // Set the owner of this contract
         _authorize(_governanceContract);
@@ -154,17 +153,15 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint16 maxLength
     ) external returns (uint256 mintedLpTokens) {
         // Expired PTs are not supported.
-        if (poolId <= block.timestamp)
-            revert ElementError.Pool__RegisterPoolId_BeyondExpirationDate();
+        if (poolId <= block.timestamp) revert ElementError.TermExpired();
         // Should not be already initialized.
         if (totalSupply[poolId] != uint256(0))
-            revert ElementError.Pool__RegisterPoolId_PoolAlreadyInitialized();
+            revert ElementError.PoolInitialized();
         // Make sure the timestretch is non-zero.
         if (timeStretch == uint32(0))
-            revert ElementError.Pool__RegisterPoolId_ZeroTimeStretch();
+            revert ElementError.TimeStretchMustBeNonZero();
         // Make sure the provided bondsIn and amount are non-zero values.
-        if (underlyingIn == 0)
-            revert ElementError.Pool__RegisterPoolId_ZeroUnderlyingDeposit();
+        if (underlyingIn == 0) revert ElementError.UnderlyingInMustBeNonZero();
         // Transfer tokens from the user
         token.transferFrom(msg.sender, address(this), underlyingIn);
         // Make a deposit to the unlocked shares in the term for the user
@@ -208,8 +205,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         bool isBuy
     ) external returns (uint256 outputAmount) {
         // No trade after expiration
-        if (poolId <= block.timestamp)
-            revert ElementError.Pool__TradeBonds_BeyondExpirationDate();
+        if (poolId <= block.timestamp) revert ElementError.TermExpired();
 
         // Read the cached reserves for the unlocked shares and bonds ,i.e. PT.
         Reserve memory cachedReserve = reserves[poolId];
@@ -217,7 +213,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         if (
             cachedReserve.shares == uint128(0) &&
             cachedReserve.bonds == uint128(0)
-        ) revert ElementError.Pool__TradeBonds_PoolNotInitialized();
+        ) revert ElementError.PoolNotInitialized();
 
         uint256 newShareReserve;
         uint256 newBondReserve;
@@ -240,7 +236,7 @@ contract Pool is LP, Authorizable, TWAROracle {
 
         // Minimum amount check.
         if (outputAmount < minAmountOut)
-            revert ElementError.Pool__TradeBonds_ExceededSlippageLimit();
+            revert ElementError.ExceededSlippageLimit();
 
         // Updated reserves.
         _update(poolId, uint128(newBondReserve), uint128(newShareReserve));
@@ -262,8 +258,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 maxInput
     ) external {
         // No trade after expiration
-        if (poolId <= block.timestamp)
-            revert ElementError.Pool__PurchaseYT_BeyondExpirationDate();
+        if (poolId <= block.timestamp) revert ElementError.TermExpired();
 
         // Load reserves
         Reserve memory cachedReserve = reserves[poolId];
@@ -271,7 +266,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         if (
             !(cachedReserve.shares != uint128(0) ||
                 cachedReserve.bonds != uint128(0))
-        ) revert ElementError.Pool__PurchaseYT_PoolNotInitialized();
+        ) revert ElementError.PoolNotInitialized();
 
         // Load the current price per share
         uint256 pricePerShare = term.unlockedSharePrice();
@@ -291,7 +286,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 underlyingOwed = amount - saleUnderlying;
         // We check this is not more than the user slippage bound
         if (underlyingOwed > maxInput)
-            revert ElementError.Pool__PurchaseYT_ExceededSlippageLimit();
+            revert ElementError.ExceededSlippageLimit();
 
         // We transfer this amount from the user
         token.transferFrom(msg.sender, address(this), underlyingOwed);
@@ -315,9 +310,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         );
         // Make sure that the generated PTs are equal to
         /// TODO: The rounding errors might make this check fail
-        if (pt != amount)
-            revert ElementError
-                .Pool__PurchaseYT_IncorrectEstimateOfPrincipalTokens();
+        if (pt != amount) revert ElementError.InaccurateUnlockShareTrade();
 
         // Update the oracle
         _updateOracle(poolId, newShareReserve, newBondReserve);

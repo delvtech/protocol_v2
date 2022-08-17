@@ -398,8 +398,7 @@ contract ERC4626Term is Term {
 
         /// Check if enough `vaultShares` in the `vaultShareReserve`
         if (lockedShares > vaultShareReserve)
-            revert ElementError
-                .ERC4626Term__ConvertUnlocked_VaultShareReserveTooLow();
+            revert ElementError.VaultShareReserveTooLow();
 
         /// Deduct `lockedShares` from the `vaultShareReserve`
         _setReserves(underlyingReserve, vaultShareReserve - lockedShares);

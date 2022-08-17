@@ -19,15 +19,14 @@ contract Authorizable {
     /// @dev This modifier checks if the msg.sender is the owner
     modifier onlyOwner() {
         if (msg.sender != owner)
-            revert ElementError.Authorizable__OnlyOwner_SenderMustBeOwner();
+            revert ElementError.Authorizable_SenderMustBeOwner();
         _;
     }
 
     /// @dev This modifier checks if an address is authorized
     modifier onlyAuthorized() {
         if (!isAuthorized(msg.sender))
-            revert ElementError
-                .Authorizable__OnlyAuthorized_SenderMustBeAuthorized();
+            revert ElementError.Authorizable_SenderMustBeAuthorized();
         _;
     }
 

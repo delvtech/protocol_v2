@@ -184,11 +184,9 @@ contract ERC20Forwarder is IERC20 {
         bytes32 s
     ) external {
         // Require that the signature is not expired
-        if (block.timestamp > deadline)
-            revert ElementError.ERC20Forwarder__Permit_Expired();
+        if (block.timestamp > deadline) revert ElementError.ExpiredDeadline();
         // Require that the owner is not zero
-        if (owner == address(0))
-            revert ElementError.ERC20Forwarder__Permit_OwnerIsZeroAddress();
+        if (owner == address(0)) revert ElementError.RestrictedZeroAddress();
 
         bytes32 structHash = keccak256(
             abi.encodePacked(
@@ -209,8 +207,7 @@ contract ERC20Forwarder is IERC20 {
 
         // Check that the signature is valid
         address signer = ecrecover(structHash, v, r, s);
-        if (signer != owner)
-            revert ElementError.ERC20Forwarder__Permit_OwnerIsNotSigner();
+        if (signer != owner) revert ElementError.InvalidSignature();
 
         // Increment the signature nonce
         nonces[owner]++;
