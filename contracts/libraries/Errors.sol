@@ -4,6 +4,12 @@ pragma solidity ^0.8.15;
 library ElementError {
     ///
     /// ##################
+    /// ### Generic ###
+    /// ##################
+    ///
+
+    ///
+    /// ##################
     /// ### MultiToken ###
     /// ##################
     ///
@@ -79,6 +85,7 @@ library ElementError {
     /// ### ERC4626Term ###
     /// ###################
     error ERC4626Term__ConvertUnlocked_VaultShareReserveTooLow();
+
     ///
     /// ###################
     /// ### CompoundV3Term ###

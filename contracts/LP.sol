@@ -195,7 +195,7 @@ contract LP is MultiToken {
         uint256 minOutput
     ) external returns (uint256) {
         // Only expired bonds can be rolled over
-        if (!(fromPoolId < block.timestamp && toPoolId > block.timestamp))
+        if (fromPoolId >= block.timestamp || toPoolId < block.timestamp)
             revert ElementError.LP__Rollover_BeyondExpirationDate();
 
         // Burn lp token and free assets. Will also finalize the pool and so return
@@ -243,7 +243,7 @@ contract LP is MultiToken {
         // Must be initialized
         // NOTE - There's a strong requirement for trades to not be able to move the pool to
         //        have a reserve of exactly 0 in either asset
-        if (!(currentShares != 0 && currentBonds != 0))
+        if (currentShares == 0 || currentBonds == 0)
             revert ElementError.LP__DepositFromShares_PoolNotInitialized();
         // No deposits after expiry
         if (poolId <= block.timestamp)

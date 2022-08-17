@@ -320,7 +320,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 // We require that it already existed, or we would not be able to capture accurate
                 // interest rate data in the period
                 YieldState memory state = yieldTerms[yieldTokenId];
-                if (state.shares == 0 && state.pt == 0)
+                if (state.shares == 0 || state.pt == 0)
                     revert ElementError.Term__CreateYT_TermDoesNotExist();
 
                 // We calculate the current fair value of the YT by dividing the interest
@@ -370,7 +370,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // Note for both yt and pt the first 128 bits contain the expiry.
         uint256 expiry = assetId & (2**(128) - 1);
         // Check that the expiry has been hit
-        if (!(expiry <= block.timestamp || expiry == 0))
+        if (expiry > block.timestamp && expiry != 0)
             revert ElementError.Term__ReleaseAsset_AssetNotExpired();
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
@@ -544,7 +544,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         YieldState memory state = yieldTerms[assetId];
         // make sure a term exists for the input asset
         // todo: is this logic good or should be &?
-        if (!(state.pt != 0 || state.shares != 0))
+        if (state.pt == 0 && state.shares == 0)
             revert ElementError.Term__ConvertYT_TermDoesNotExist();
         // calculate the shares belonging to the user
         uint256 userShares = (state.shares * amount) / totalSupply[assetId];
