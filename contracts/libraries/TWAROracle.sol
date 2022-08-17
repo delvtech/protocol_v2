@@ -218,10 +218,6 @@ contract TWAROracle {
             ? (headIndex + 1) % maxLength
             : 0;
 
-        // Keep track of these for later calculations.
-        uint32 endTime = uint32(block.timestamp);
-        uint224 currentSum;
-
         // The point in time we work back to.
         uint256 requestedTimeStamp = block.timestamp - uint256(timeInSeconds);
 
@@ -231,6 +227,10 @@ contract TWAROracle {
             uint224 cumulativeSum
         ) = readSumAndTimeStampForPool(bufferId, headIndex);
         uint16 index = headIndex;
+
+        // Keep track of these for later calculations.
+        uint32 endTime = currentTimeStamp;
+        uint224 currentSum = 0;
 
         // Edge case:
         // If the requested time doesn't reach far enough back, then we just return the last value.
