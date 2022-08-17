@@ -91,11 +91,7 @@ contract TermTest is Test {
         token.setBalance(address(user), 10 ether);
         token.approve(address(term), UINT256_MAX);
 
-        vm.expectRevert(
-            ElementError
-                .Term__DepositUnlocked_PrincipalTokenHasNotExpired
-                .selector
-        );
+        vm.expectRevert(ElementError.TermExpired.selector);
         term.depositUnlocked(underlyingAmount, ptAmount, ptExpiry, destination);
     }
 

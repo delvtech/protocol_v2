@@ -874,9 +874,7 @@ describe("ERC4626Term", () => {
             TERM_END
           );
 
-        await expect(tx).to.be.revertedWith(
-          "ERC4626Term__ConvertUnlocked_VaultShareReserveTooLow()"
-        );
+        await expect(tx).to.be.revertedWith("VaultShareReserveTooLow()");
       });
     });
   });

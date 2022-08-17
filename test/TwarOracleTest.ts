@@ -65,9 +65,7 @@ describe("TWAR Oracle", function () {
       await oracleContract.initializeBuffer(NEW_BUFFER_ID, MAX_TIME, "0");
     } catch (error) {
       if (isErrorWithReason(error)) {
-        expect(error.reason).to.include(
-          "TWAROracle__InitializeBuffer_IncorrectBufferLength()"
-        );
+        expect(error.reason).to.include("TWAROracle_IncorrectBufferLength()");
       } else {
         throw error;
       }
@@ -80,7 +78,7 @@ describe("TWAR Oracle", function () {
     } catch (error) {
       if (isErrorWithReason(error)) {
         expect(error.reason).to.include(
-          "TWAROracle__InitializeBuffer_BufferAlreadyInitialized()"
+          "TWAROracle_BufferAlreadyInitialized()"
         );
       } else {
         throw error;

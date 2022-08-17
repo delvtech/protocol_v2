@@ -297,9 +297,7 @@ describe("MultiToken", async () => {
           r,
           s
         );
-      await expect(tx).to.be.revertedWith(
-        "MultiToken__PermitForAll_OwnerIsNotSigner()"
-      );
+      await expect(tx).to.be.revertedWith("InvalidSignature()");
     });
     it("Fails invalid deadline", async () => {
       const badDeadline = 0;
@@ -332,9 +330,7 @@ describe("MultiToken", async () => {
           r,
           s
         );
-      await expect(tx).to.be.revertedWith(
-        "MultiToken__PermitForAll_ExpiredDeadline()"
-      );
+      await expect(tx).to.be.revertedWith("ExpiredDeadline()");
     });
     it("Fails for zero address", async () => {
       const [wallet] = provider.getWallets();
@@ -366,9 +362,7 @@ describe("MultiToken", async () => {
           r,
           s
         );
-      await expect(tx).to.be.revertedWith(
-        "MultiToken__PermitForAll_OwnerIsZeroAddress()"
-      );
+      await expect(tx).to.be.revertedWith("RestrictedZeroAddress()");
     });
   });
 
@@ -533,9 +527,7 @@ describe("MultiToken", async () => {
           r,
           s
         );
-      await expect(tx).to.be.revertedWith(
-        "ERC20Forwarder__Permit_OwnerIsNotSigner()"
-      );
+      await expect(tx).to.be.revertedWith("InvalidSignature()");
     });
   });
 });

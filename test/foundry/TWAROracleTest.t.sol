@@ -29,26 +29,20 @@ contract TWAROracleTest is Test {
     function testCannotInitialize_OutOfBounds() public {
         uint16 maxLength = 65535;
         vm.expectRevert(
-            ElementError.TWAROracle__InitializeBuffer_ZeroMinTimeStep.selector
+            ElementError.TWAROracle_MinTimeStepMustBeNonZero.selector
         );
         oracle.initializeBuffer(BUFFER_ID, MAX_TIME, maxLength);
     }
 
     function testCannotInitialize_MaxLengthTooSmall() public {
-        vm.expectRevert(
-            ElementError
-                .TWAROracle__InitializeBuffer_IncorrectBufferLength
-                .selector
-        );
+        vm.expectRevert(ElementError.TWAROracle_IncorrectBufferLength.selector);
         oracle.initializeBuffer(BUFFER_ID, MAX_TIME, 0);
     }
 
     function testCannotInitialize_AlreadyInitialized() public {
         oracle.initializeBuffer(BUFFER_ID, MAX_TIME, MAX_LENGTH);
         vm.expectRevert(
-            ElementError
-                .TWAROracle__InitializeBuffer_BufferAlreadyInitialized
-                .selector
+            ElementError.TWAROracle_BufferAlreadyInitialized.selector
         );
         oracle.initializeBuffer(BUFFER_ID, MAX_TIME, MAX_LENGTH);
     }
