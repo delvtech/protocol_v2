@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 import "contracts/mocks/MockTWAROracle.sol";
+import "contracts/libraries/Errors.sol";
 
 // solhint-disable func-name-mixedcase
 
@@ -27,18 +28,22 @@ contract TWAROracleTest is Test {
 
     function testCannotInitialize_OutOfBounds() public {
         uint16 maxLength = 65535;
-        vm.expectRevert("minimum time step is 1");
+        vm.expectRevert(
+            ElementError.TWAROracle_MinTimeStepMustBeNonZero.selector
+        );
         oracle.initializeBuffer(BUFFER_ID, MAX_TIME, maxLength);
     }
 
     function testCannotInitialize_MaxLengthTooSmall() public {
-        vm.expectRevert("min length is 1");
+        vm.expectRevert(ElementError.TWAROracle_IncorrectBufferLength.selector);
         oracle.initializeBuffer(BUFFER_ID, MAX_TIME, 0);
     }
 
     function testCannotInitialize_AlreadyInitialized() public {
         oracle.initializeBuffer(BUFFER_ID, MAX_TIME, MAX_LENGTH);
-        vm.expectRevert("buffer already initialized");
+        vm.expectRevert(
+            ElementError.TWAROracle_BufferAlreadyInitialized.selector
+        );
         oracle.initializeBuffer(BUFFER_ID, MAX_TIME, MAX_LENGTH);
     }
 

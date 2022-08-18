@@ -874,7 +874,7 @@ describe("ERC4626Term", () => {
             TERM_END
           );
 
-        await expect(tx).to.be.revertedWith("not enough vault shares");
+        await expect(tx).to.be.revertedWith("VaultShareReserveTooLow()");
       });
     });
   });
