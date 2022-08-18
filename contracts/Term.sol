@@ -364,7 +364,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 amount
     ) internal returns (uint256, uint256) {
         // Note for both yt and pt the first 128 bits contain the expiry.
-        uint256 expiry = assetId & (2**(128) - 1);
+        (bool isYieldToken, , uint256 expiry) = _decode(assetId);
         // Check that the expiry has been hit
         if (expiry > block.timestamp && expiry != 0)
             revert ElementError.TermNotExpired();
@@ -378,7 +378,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         //  Special case the unlocked share redemption
         if (assetId == UNLOCKED_YT_ID) {
             return _releaseUnlocked(source, amount);
-        } else if (assetId >> 255 == 1) {
+        } else if (isYieldToken) {
             // If the top bit is one do YT redemption
             return _releaseYT(finalState, assetId, source, amount);
         } else {
@@ -457,7 +457,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
         uint256 userShares = (userInterest * one) / currentPricePerShare;
         // Now we decrement the PT shares and interest outstanding
-        uint256 expiry = assetId & (2**(128) - 1);
+        (, , uint256 expiry) = _decode(assetId);
         sharesPerExpiry[expiry] -= userShares;
         finalizedTerms[expiry].interest -= uint128(userInterest);
         // Next burn the user's YT and update the finalized YT info
@@ -524,13 +524,14 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         address destination,
         bool isCompound
     ) external returns (uint256) {
+        (bool isYieldToken, uint256 startDate, uint256 expiry) = _decode(
+            assetId
+        );
         // make sure asset is a YT
-        if (assetId >> 255 != 1) revert ElementError.NotAYieldTokenId();
+        if (!isYieldToken) revert ElementError.NotAYieldTokenId();
         // expiry must be greater than zero
-        uint256 expiry = assetId & (2**(128) - 1);
         if (expiry == 0) revert ElementError.ExpirationDateMustBeNonZero();
         // start date must be greater than zero
-        uint256 startDate = ((assetId) & (2**255 - 1)) >> 128;
         if (startDate == 0) revert ElementError.StartDateMustBeNonZero();
 
         // load the state for the term
@@ -609,7 +610,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
         // The YTs and PTs must be from the same term and therefore
         // the expiration times must be equal
-        uint256 ytExpiry = yieldTokenId & (2**(128) - 1);
+        (, , uint256 ytExpiry) = _decode(yieldTokenId);
         if (ytExpiry != principalTokenId)
             revert ElementError.IncongruentPrincipalAndYieldTokenIds();
 
@@ -637,5 +638,26 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         sharesPerExpiry[principalTokenId] -= totalSharesRedeemable;
         // withdraw shares from vault to user and return the amount of underlying withdrawn
         return _withdraw(totalSharesRedeemable, msg.sender, ShareState.Locked);
+    }
+
+    /// @notice Decodes an unknown assetId into either a YT or PT and gives the
+    ///         relevant time paramaters
+    /// @param assetId A YT or PT id
+    function _decode(uint256 assetId)
+        internal
+        view
+        returns (
+            bool isYieldToken,
+            uint256 startDate,
+            uint256 expirationDate
+        )
+    {
+        isYieldToken = assetId >> 255 == 1;
+        if (isYieldToken) {
+            startDate = ((assetId) & (2**255 - 1)) >> 128;
+            expirationDate = assetId & (2**(128) - 1);
+        } else {
+            expirationDate = assetId;
+        }
     }
 }
