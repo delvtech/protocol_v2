@@ -120,6 +120,43 @@ contract TermTestLock is Test {
         );
     }
 
+    // Deposit only underlying asset with pre-funding
+    function testLock_OnlyPreFundedUnderlying() public {
+        uint256 underlyingAmount = 1 ether;
+
+        address ytDestination = address(user);
+        address ptDestination = address(user);
+        bool hasPreFunding = true;
+        uint256 ytBeginDate = block.timestamp;
+        uint256 expiration = block.timestamp + 60 * 60 * 24 * 7; // one week in seconds
+
+        // give user some ETH and send requests as the user.
+        startHoax(address(user));
+
+        token.setBalance(address(user), underlyingAmount);
+        token.transfer(address(term), underlyingAmount);
+        // no approval should be needed
+
+        (uint256 shares, uint256 value) = term.lock(
+            assetIds,
+            assetAmounts,
+            0, // underlyingAmount,
+            hasPreFunding,
+            ytDestination,
+            ptDestination,
+            ytBeginDate,
+            expiration
+        );
+
+        assertEq(value, underlyingAmount, "value not equal to underlying");
+        assertEq(shares, value, "shares not equal to value");
+        assertEq(
+            term.totalSupply(expiration),
+            underlyingAmount,
+            "totalSupply incorrect"
+        );
+    }
+
     // If the caller does not have enough underlying, the transaction should revert.
     function testFailLock_NotEnoughUnderlying() public {
         uint256 underlyingAmount = 1 ether;
@@ -498,14 +535,16 @@ contract TermTestLock is Test {
     }
 
     // tests many combinations of assets.  this is a sanity check and just makes sure that the
-    // lock transactions don't fail.
+    // lock transactions don't fail.  also tests when there is both underlying and prefunded
+    // underlying.
     function testLock_Combinations(
         uint32 numPts2,
         uint32 numPts1,
         uint32 numYts2,
         uint32 numYts1,
         uint32 numUnlockedAssets,
-        uint32 numUnderlyingAmount
+        uint32 numUnderlyingAmount,
+        uint32 numPrefundedUnderlyingAmount
     ) public {
         // make sure we get at least one value
         vm.assume(
@@ -521,7 +560,6 @@ contract TermTestLock is Test {
 
         address ytDestination = address(user);
         address ptDestination = address(user);
-        bool hasPreFunding = false;
 
         // block.timestamp starts at 1.  don't use block.timestamp because it is buggy when used
         // with vm.warp() or skip()
@@ -533,6 +571,11 @@ contract TermTestLock is Test {
         startHoax(address(user));
         token.setBalance(address(user), 10 ether);
         token.approve(address(term), UINT256_MAX);
+
+        bool hasPreFunding = numPrefundedUnderlyingAmount > 0;
+        if (hasPreFunding) {
+            token.transfer(address(term), numPrefundedUnderlyingAmount);
+        }
 
         // do a lock to get some pts and yts
         term.lock(
@@ -616,18 +659,5 @@ contract TermTestLock is Test {
             15_000_000, // set yt start date in the future to guarantee it starts at current timestamp
             15_000_000
         );
-
-        // TODO: figure out a good way to calculate total value.
-        // assertApproxEqAbs(
-        //     value,
-        //     numUnderlyingAmount +
-        //         (numUnlockedAssets / 2) +
-        //         numPts1 +
-        //         numPts2 +
-        //         (numYts1 / 2),
-        //     (numYts2 / 2),
-        //     1000,
-        //     "value not equal to assets"
-        // );
     }
 }
