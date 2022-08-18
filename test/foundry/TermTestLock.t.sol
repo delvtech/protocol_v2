@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
 import "contracts/mocks/MockERC20Permit.sol";
@@ -471,6 +472,90 @@ contract TermTestLock is Test {
         uint256 userPts = term.balanceOf(expiration, address(user));
         assertEq(userYts, profit);
         assertEq(userPts, profit);
+    }
+
+    // test when only mature yield tokens should be locked
+    function testLock_OnlyYieldTokensFuzz(uint64 profit) public {
+        uint256 underlyingAmount = 20 ether;
+
+        address ytDestination = address(user);
+        address ptDestination = address(user);
+        bool hasPreFunding = false;
+
+        // block.timestamp starts at 1.  don't use block.timestamp because it is buggy when used
+        // with vm.warp() or skip()
+        uint256 timeStamp = 1;
+        uint256 ytBeginDate = 1;
+        uint256 expiration = 10_000_000;
+
+        // give user some ETH and send requests as the user.
+        startHoax(address(user));
+        // need extra balance to give to yearn vault for profit
+        token.setBalance(address(user), 100 ether);
+        token.approve(address(term), UINT256_MAX);
+
+        // do a lock to get some yts
+        (uint256 shares, uint256 value) = term.lock(
+            assetIds,
+            assetAmounts,
+            underlyingAmount,
+            hasPreFunding,
+            ytDestination,
+            ptDestination,
+            ytBeginDate,
+            expiration
+        );
+
+        // add some profit to the yearn vault
+        // this has to happen before we skip ahead in time since the mock vault pro-rates profit
+        // from the last time it was added.
+        token.approve(address(yearnVault), UINT256_MAX);
+        yearnVault.report(profit);
+
+        // expire the tokens
+        skip(expiration);
+
+        // now do a lock with only yts
+        uint256 yieldTokenId = (1 << 255) + (ytBeginDate << 128) + expiration;
+        assetIds.push(yieldTokenId); // pt id's are just the expiration
+        // take all the shares and lock them into a new term
+        assetAmounts.push(shares);
+        timeStamp += 10_000_000;
+        expiration += 10_000_000;
+        ytBeginDate = timeStamp;
+
+        console.log("shares", shares);
+        console.log("profit", profit);
+        console.log("value", value);
+
+        (shares, value) = term.lock(
+            assetIds,
+            assetAmounts,
+            0,
+            hasPreFunding,
+            ytDestination,
+            ptDestination,
+            ytBeginDate,
+            expiration
+        );
+
+        // there is a small rounding when releasing the assets
+        assertApproxEqAbs(value, profit, 20, "value not equal to underlying");
+        assertApproxEqAbs(shares, value, 20, "shares not equal to value");
+        assertApproxEqAbs(
+            term.totalSupply(expiration),
+            profit,
+            20,
+            "totalSupply incorrect"
+        );
+
+        uint256 newYieldTokenId = (1 << 255) +
+            (ytBeginDate << 128) +
+            expiration;
+        uint256 userYts = term.balanceOf(newYieldTokenId, address(user));
+        uint256 userPts = term.balanceOf(expiration, address(user));
+        assertEq(userYts, value, "yts not equal to value");
+        assertEq(userPts, value, "pts not equal to value");
     }
 
     // test when yield tokens are not expired, should revert
