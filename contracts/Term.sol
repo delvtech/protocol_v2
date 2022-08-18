@@ -536,8 +536,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // load the state for the term
         YieldState memory state = yieldTerms[assetId];
         // make sure a term exists for the input asset
-        // todo: is this logic good or should be &?
-        if (state.pt == 0 && state.shares == 0)
+        if (state.pt == 0 || state.shares == 0)
             revert ElementError.TermNotInitialized();
         // calculate the shares belonging to the user
         uint256 userShares = (state.shares * amount) / totalSupply[assetId];

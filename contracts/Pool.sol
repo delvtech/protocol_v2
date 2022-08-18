@@ -264,8 +264,8 @@ contract Pool is LP, Authorizable, TWAROracle {
         Reserve memory cachedReserve = reserves[poolId];
         // Should check for the support with the pool.
         if (
-            !(cachedReserve.shares != uint128(0) ||
-                cachedReserve.bonds != uint128(0))
+            cachedReserve.shares == uint128(0) &&
+            cachedReserve.bonds == uint128(0)
         ) revert ElementError.PoolNotInitialized();
 
         // Load the current price per share
