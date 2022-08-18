@@ -86,9 +86,7 @@ contract TermTestLock is Test {
     }
 
     // Deposit only underlying asset
-    function testLock_OnlyUnderlying() public {
-        uint256 underlyingAmount = 1 ether;
-
+    function testLock_OnlyUnderlying(uint128 underlyingAmount) public {
         address ytDestination = address(user);
         address ptDestination = address(user);
         bool hasPreFunding = false;
@@ -122,9 +120,7 @@ contract TermTestLock is Test {
     }
 
     // Deposit only underlying asset with pre-funding
-    function testLock_OnlyPreFundedUnderlying() public {
-        uint256 underlyingAmount = 1 ether;
-
+    function testLock_OnlyPreFundedUnderlying(uint128 underlyingAmount) public {
         address ytDestination = address(user);
         address ptDestination = address(user);
         bool hasPreFunding = true;
@@ -188,7 +184,13 @@ contract TermTestLock is Test {
     }
 
     // only provide unlocked assets to lock.
-    function testLock_OnlyUnlockedAssets() public {
+    function testLock_OnlyUnlockedAssets(uint128 amountDepositedUnlocked)
+        public
+    {
+        vm.assume(
+            amountDepositedUnlocked < 100_000_000 ether &&
+                amountDepositedUnlocked > 1_000_000_000
+        );
         uint256 underlyingAmount = 0;
 
         address ytDestination = address(user);
@@ -200,10 +202,9 @@ contract TermTestLock is Test {
         // give user some ETH and send requests as the user.
         startHoax(address(user));
 
-        token.setBalance(address(user), 10 ether);
+        token.setBalance(address(user), amountDepositedUnlocked);
         token.approve(address(term), UINT256_MAX);
 
-        uint256 amountDepositedUnlocked = 1 ether;
         term.depositUnlocked(amountDepositedUnlocked, 0, 0, address(user));
         uint256 userUnlockedBalance = term.balanceOf(
             UNLOCKED_YT_ID,
@@ -284,8 +285,12 @@ contract TermTestLock is Test {
     }
 
     // test when only mature principal tokens should be locked
-    function testLock_OnlyPrincipalTokens() public {
-        uint256 underlyingAmount = 1 ether;
+    function testLock_OnlyPrincipalTokens(
+        uint128 underlyingAmount,
+        uint128 ptAmount
+    ) public {
+        vm.assume(underlyingAmount < 100_000_000 ether && underlyingAmount > 0);
+        vm.assume(ptAmount < underlyingAmount && ptAmount > 0);
 
         address ytDestination = address(user);
         address ptDestination = address(user);
@@ -299,7 +304,7 @@ contract TermTestLock is Test {
 
         // give user some ETH and send requests as the user.
         startHoax(address(user));
-        token.setBalance(address(user), 10 ether);
+        token.setBalance(address(user), underlyingAmount);
         token.approve(address(term), UINT256_MAX);
 
         // do a lock to get some pts
@@ -319,7 +324,7 @@ contract TermTestLock is Test {
 
         // now do a lock with only expired pts
         assetIds.push(expiration); // pt id's are just the expiration
-        assetAmounts.push(1 ether);
+        assetAmounts.push(ptAmount);
         timeStamp += 10;
         expiration += 10;
         ytBeginDate = timeStamp;
@@ -334,19 +339,19 @@ contract TermTestLock is Test {
             expiration
         );
 
-        assertEq(value, underlyingAmount, "value not equal to underlying");
+        assertEq(value, ptAmount, "value not equal to underlying");
         assertEq(shares, value, "shares not equal to value");
         assertEq(
             term.totalSupply(expiration),
-            underlyingAmount,
+            ptAmount,
             "totalSupply incorrect"
         );
 
         uint256 yieldTokenId = (1 << 255) + (ytBeginDate << 128) + expiration;
         uint256 userYts = term.balanceOf(yieldTokenId, address(user));
         uint256 userPts = term.balanceOf(expiration, address(user));
-        assertEq(userYts, 1 ether);
-        assertEq(userPts, 1 ether);
+        assertEq(userYts, ptAmount);
+        assertEq(userPts, ptAmount);
     }
 
     // test when principal tokens are not expired, should revert
