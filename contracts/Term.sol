@@ -7,6 +7,7 @@ import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
 import "./libraries/Errors.sol";
+import "./libraries/ElementUtils.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
@@ -300,7 +301,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             // Return that this is a 100% discount so no PT are made
             return value;
         } else {
-            uint256 yieldTokenId = (1 << 255) + (startTime << 128) + expiration;
+            uint256 yieldTokenId = ElementUtils.encodeYieldTokenId(
+                startTime,
+                expiration
+            );
             // For new YT, we split into two cases ones at this block and back dated
             if (startTime == block.timestamp) {
                 // Initiate a new term
@@ -364,7 +368,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 amount
     ) internal returns (uint256, uint256) {
         // Note for both yt and pt the first 128 bits contain the expiry.
-        (bool isYieldToken, , uint256 expiry) = _decode(assetId);
+        (bool isYieldToken, , uint256 expiry) = ElementUtils.decodeAssetId(
+            assetId
+        );
         // Check that the expiry has been hit
         if (expiry > block.timestamp && expiry != 0)
             revert ElementError.TermNotExpired();
@@ -457,7 +463,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
         uint256 userShares = (userInterest * one) / currentPricePerShare;
         // Now we decrement the PT shares and interest outstanding
-        (, , uint256 expiry) = _decode(assetId);
+        (, , uint256 expiry) = ElementUtils.decodeAssetId(assetId);
         sharesPerExpiry[expiry] -= userShares;
         finalizedTerms[expiry].interest -= uint128(userInterest);
         // Next burn the user's YT and update the finalized YT info
@@ -524,9 +530,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         address destination,
         bool isCompound
     ) external returns (uint256) {
-        (bool isYieldToken, uint256 startDate, uint256 expiry) = _decode(
-            assetId
-        );
+        (bool isYieldToken, uint256 startDate, uint256 expiry) = ElementUtils
+            .decodeAssetId(assetId);
         // make sure asset is a YT
         if (!isYieldToken) revert ElementError.NotAYieldTokenId();
         // expiry must be greater than zero
@@ -610,7 +615,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
         // The YTs and PTs must be from the same term and therefore
         // the expiration times must be equal
-        (, , uint256 ytExpiry) = _decode(yieldTokenId);
+        (, , uint256 ytExpiry) = ElementUtils.decodeAssetId(yieldTokenId);
         if (ytExpiry != principalTokenId)
             revert ElementError.IncongruentPrincipalAndYieldTokenIds();
 
@@ -638,26 +643,5 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         sharesPerExpiry[principalTokenId] -= totalSharesRedeemable;
         // withdraw shares from vault to user and return the amount of underlying withdrawn
         return _withdraw(totalSharesRedeemable, msg.sender, ShareState.Locked);
-    }
-
-    /// @notice Decodes an unknown assetId into either a YT or PT and gives the
-    ///         relevant time paramaters
-    /// @param assetId A YT or PT id
-    function _decode(uint256 assetId)
-        internal
-        view
-        returns (
-            bool isYieldToken,
-            uint256 startDate,
-            uint256 expirationDate
-        )
-    {
-        isYieldToken = assetId >> 255 == 1;
-        if (isYieldToken) {
-            startDate = ((assetId) & (2**255 - 1)) >> 128;
-            expirationDate = assetId & (2**(128) - 1);
-        } else {
-            expirationDate = assetId;
-        }
     }
 }

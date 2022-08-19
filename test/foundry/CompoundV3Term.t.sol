@@ -6,6 +6,7 @@ import "forge-std/Test.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/CompoundV3Term.sol";
 import "contracts/mocks/MockERC20Permit.sol";
+import "contracts/libraries/ElementUtils.sol";
 
 import "@compoundV3/contracts/Comet.sol";
 import "@compoundV3/contracts/test/SimplePriceFeed.sol";
@@ -245,7 +246,7 @@ contract CompoundV3TermTest is Test {
 
         UNLOCKED_YT_ID = term.UNLOCKED_YT_ID();
         PT_ID = TERM_END;
-        YT_ID = (1 << 255) + (TERM_START << 128) + TERM_END;
+        YT_ID = ElementUtils.encodeYieldTokenId(TERM_START, TERM_END);
 
         // Move halfway through the term so underlying and yieldShares are not 1:1
         vm.warp(block.timestamp + YEAR / 2);
