@@ -364,7 +364,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 amount
     ) internal returns (uint256, uint256) {
         // Note for both yt and pt the first 128 bits contain the expiry.
-        (bool isYieldToken, , uint256 expiry) = _decode(assetId);
+        (bool isYieldToken, , uint256 expiry) = _parseAssetId(assetId);
         // Check that the expiry has been hit
         if (expiry > block.timestamp && expiry != 0)
             revert ElementError.TermNotExpired();
@@ -457,7 +457,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
         uint256 userShares = (userInterest * one) / currentPricePerShare;
         // Now we decrement the PT shares and interest outstanding
-        (, , uint256 expiry) = _decode(assetId);
+        (, , uint256 expiry) = _parseAssetId(assetId);
         sharesPerExpiry[expiry] -= userShares;
         finalizedTerms[expiry].interest -= uint128(userInterest);
         // Next burn the user's YT and update the finalized YT info
@@ -524,7 +524,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         address destination,
         bool isCompound
     ) external returns (uint256) {
-        (bool isYieldToken, uint256 startDate, uint256 expiry) = _decode(
+        (bool isYieldToken, uint256 startDate, uint256 expiry) = _parseAssetId(
             assetId
         );
         // make sure asset is a YT
@@ -610,7 +610,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
         // The YTs and PTs must be from the same term and therefore
         // the expiration times must be equal
-        (, , uint256 ytExpiry) = _decode(yieldTokenId);
+        (, , uint256 ytExpiry) = _parseAssetId(yieldTokenId);
         if (ytExpiry != principalTokenId)
             revert ElementError.IncongruentPrincipalAndYieldTokenIds();
 
@@ -643,7 +643,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     /// @notice Decodes an unknown assetId into either a YT or PT and gives the
     ///         relevant time paramaters
     /// @param assetId A YT or PT id
-    function _decode(uint256 assetId)
+    function _parseAssetId(uint256 assetId)
         internal
         view
         returns (
