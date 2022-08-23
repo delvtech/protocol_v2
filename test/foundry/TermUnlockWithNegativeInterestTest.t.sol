@@ -52,10 +52,10 @@ contract TermTestUnlock is Test {
         }
     }
 
-    // Testing the zero's case where all values are zero.
     // test unlocking yield tokens when there is negative interest
-    function testUnlock_YieldTokensWithNegativeInterest() public {
+    function testUnlock_YieldTokensWithNegativeInterest(uint256 loss) public {
         uint256 underlyingAmount = 1 ether;
+        vm.assume(loss <= underlyingAmount);
 
         address ytDestination = address(user);
         address ptDestination = address(user);
@@ -83,12 +83,7 @@ contract TermTestUnlock is Test {
             expiration
         );
 
-        // add some profit to the yearn vault
-        // this has to happen before we skip ahead in time since the mock vault pro-rates profit
-        // from the last time it was added.
-        token.approve(address(yearnVault), UINT256_MAX);
-
-        uint256 loss = 0.5 ether;
+        // remove some assets from the vault
         yearnVault.reportLoss(loss);
 
         // expire the tokens
@@ -110,8 +105,11 @@ contract TermTestUnlock is Test {
     }
 
     // test unlocking principal tokens when there is negative interest
-    function testUnlock_PrincipalTokensWithNegativeInterest() public {
+    function testUnlock_PrincipalTokensWithNegativeInterest(uint256 loss)
+        public
+    {
         uint256 underlyingAmount = 1 ether;
+        vm.assume(loss <= underlyingAmount);
 
         address ytDestination = address(user);
         address ptDestination = address(user);
@@ -139,12 +137,7 @@ contract TermTestUnlock is Test {
             expiration
         );
 
-        // add some profit to the yearn vault
-        // this has to happen before we skip ahead in time since the mock vault pro-rates profit
-        // from the last time it was added.
-        token.approve(address(yearnVault), UINT256_MAX);
-
-        uint256 loss = 0.5 ether;
+        // remove some assets from the vault
         yearnVault.reportLoss(loss);
 
         // expire the tokens
@@ -165,7 +158,12 @@ contract TermTestUnlock is Test {
     }
 
     // test unlocking unlocked assets when there is negative interest
-    function testUnlock_UnlockedAssetsWithNegativeInterest() public {
+    function testUnlock_UnlockedAssetsWithNegativeInterest(uint256 loss)
+        public
+    {
+        uint256 underlyingAmount = 20 ether;
+        vm.assume(loss <= underlyingAmount);
+
         // give user some ETH and send requests as the user.
         startHoax(address(user));
         token.setBalance(address(user), 20 ether);
@@ -173,15 +171,13 @@ contract TermTestUnlock is Test {
 
         // do a deposit to get some unlockedAssets
         // get some unlocked assets as well
-        uint256 amountDepositedUnlocked = 20 ether;
         (, uint256 shares) = term.depositUnlocked(
-            amountDepositedUnlocked,
+            underlyingAmount,
             0,
             0,
             address(user)
         );
 
-        uint256 loss = 0.5 ether;
         yearnVault.reportLoss(loss);
 
         // now lets add some pts to unlock, which should have 1/2 their value still
@@ -195,6 +191,109 @@ contract TermTestUnlock is Test {
         );
 
         // value should be everything that's left
-        assertEq(unlockValue, amountDepositedUnlocked - loss);
+        assertEq(unlockValue, underlyingAmount - loss);
+    }
+
+    // tests many combinations of assets.  this is a sanity check and just makes sure that the
+    // unlock transactions don't fail when there is negative interest.
+    function testUnlock_CombinationsWithNegativeInterest(
+        uint64 numUnlockedAssets,
+        uint64 numPts2,
+        uint64 numPts1,
+        uint64 numYts2,
+        uint64 numYts1,
+        uint256 loss
+    ) public {
+        uint256 underlyingAmount = 20 ether;
+        // we lock twice with underlyingAmount
+        vm.assume(loss <= underlyingAmount * 2);
+
+        address ytDestination = address(user);
+        address ptDestination = address(user);
+        bool hasPreFunding = false;
+
+        // block.timestamp starts at 1.  don't use block.timestamp because it is buggy when used
+        // with vm.warp() or skip()
+        uint256 timeStamp = 1;
+        uint256 ytBeginDate = 1;
+        uint256 expiration = 10_000_000;
+
+        // give user some ETH and send requests as the user
+        startHoax(address(user));
+        token.setBalance(address(user), 1000 ether);
+        token.approve(address(term), UINT256_MAX);
+
+        // do a lock to get some pts and yts
+        term.lock(
+            assetIds,
+            assetAmounts,
+            underlyingAmount,
+            hasPreFunding,
+            ytDestination,
+            ptDestination,
+            ytBeginDate,
+            expiration
+        );
+
+        skip(2_500_000);
+
+        uint256 ytBeginDate2 = timeStamp + 2_500_000;
+        uint256 expiration2 = 5_000_000;
+        // do another lock to get different pts and yts
+        term.lock(
+            assetIds,
+            assetAmounts,
+            underlyingAmount,
+            hasPreFunding,
+            ytDestination,
+            ptDestination,
+            ytBeginDate2,
+            expiration2
+        );
+
+        // get some unlocked assets as well
+        uint256 amountDepositedUnlocked = 20 ether;
+        term.depositUnlocked(amountDepositedUnlocked, 0, 0, address(user));
+
+        // expire the tokens
+        skip(expiration);
+
+        // experience a loss between 0 and 100%
+        yearnVault.reportLoss(loss);
+
+        uint256 yieldTokenId = (1 << 255) + (ytBeginDate << 128) + expiration;
+        uint256 yieldTokenId2 = (1 << 255) +
+            (ytBeginDate2 << 128) +
+            expiration2;
+
+        if (numPts2 > 1) {
+            assetIds.push(expiration2);
+            assetAmounts.push(uint256(numPts2));
+        }
+
+        if (numPts1 > 1) {
+            assetIds.push(expiration);
+            assetAmounts.push(uint256(numPts1));
+        }
+
+        if (numUnlockedAssets > 1) {
+            assetIds.push(UNLOCKED_YT_ID);
+            assetAmounts.push(uint256(numUnlockedAssets));
+        }
+
+        if (numYts1 > 1) {
+            assetIds.push(yieldTokenId);
+            assetAmounts.push(uint256(numYts1));
+        }
+
+        if (numYts2 > 1) {
+            assetIds.push(yieldTokenId2);
+            assetAmounts.push(uint256(numYts2));
+        }
+
+        // can't withdraw zero assets from vault, make sure there's at least 1
+        if (assetIds.length > 0) {
+            term.unlock(address(user), assetIds, assetAmounts);
+        }
     }
 }
