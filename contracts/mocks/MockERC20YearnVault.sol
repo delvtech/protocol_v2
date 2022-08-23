@@ -53,6 +53,17 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
     }
 
     /**
+    @notice Remove tokens from the vault.
+    @param loss The amount of tokens to burn
+    */
+    function reportLoss(uint256 loss) external onlyAuthorized {
+        lastReport = block.timestamp;
+        // mock vault does not take performance or management fee
+        // so the full deposit is locked profit.
+        token.transferFrom(address(this), address(1), loss);
+    }
+
+    /**
     @notice Deposit `_amount` of tokens into the yearn vault.
     `_recipient` receives shares.
     @param _amount The amount of underlying tokens to deposit.
