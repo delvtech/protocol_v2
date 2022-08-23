@@ -95,7 +95,6 @@ contract TermRegistry is Authorizable {
 
     /// @notice Gets all active terms registered by this contract, excluding expired terms.
     ///         Useful for getting active term information off-chain
-    /// @param tokenId Token Id of the token whose forwader contract address need to drived.
     /// @return All active terms registered by this contract, excluding expired terms.
     function getAllActiveTerms() public view returns (TermInfo[] memory) {
         TermInfo[] memory allActiveTerms = new TermInfo[](terms.length);
