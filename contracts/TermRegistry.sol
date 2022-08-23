@@ -24,13 +24,11 @@ contract TermRegistry is Authorizable {
         uint256 expiry
     );
 
-    address public immutable factory; // ERC20 forwarder factory registered in term and pool contracts
     mapping(bytes32 => TermInfo) private _termData;
     bytes32[] public terms;
 
-    constructor(address governance, address _factory) {
+    constructor(address governance) {
         setOwner(governance); // set authorizable owner to governance
-        factory = _factory;
     }
 
     /// @notice Add a term to a registery
@@ -54,7 +52,6 @@ contract TermRegistry is Authorizable {
         bytes32 id = keccak256(
             abi.encodePacked(termAddress, poolAddress, expiry)
         );
-
         TermInfo memory info = TermInfo(
             termAddress,
             poolAddress,
@@ -64,7 +61,6 @@ contract TermRegistry is Authorizable {
 
         // add term info to mapping with id as key
         _termData[id] = info;
-
         // push id to terms array
         terms.push(id);
 
@@ -82,7 +78,7 @@ contract TermRegistry is Authorizable {
     /// @notice Gets all terms registered by this contract, including expired terms.
     ///         Useful for getting term information off-chain
     /// @return All terms registered by this contract, including expired terms
-    function getAllTerms() public view returns (TermInfo[] memory) {
+    function getAllTerms() external view returns (TermInfo[] memory) {
         TermInfo[] memory allTerms = new TermInfo[](terms.length);
 
         for (uint256 i = 0; i < terms.length; i++) {
@@ -94,9 +90,9 @@ contract TermRegistry is Authorizable {
     }
 
     /// @notice Gets all active terms registered by this contract, excluding expired terms.
-    ///         Useful for getting active term information off-chain
+    ///         Useful for getting active term information off-chain.
     /// @return All active terms registered by this contract, excluding expired terms.
-    function getAllActiveTerms() public view returns (TermInfo[] memory) {
+    function getAllActiveTerms() external view returns (TermInfo[] memory) {
         TermInfo[] memory allActiveTerms = new TermInfo[](terms.length);
 
         for (uint256 i = 0; i < terms.length; i++) {
