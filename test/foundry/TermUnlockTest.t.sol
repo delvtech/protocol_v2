@@ -102,8 +102,8 @@ contract TermTestUnlock is Test {
 
         assertApproxEqAbs(
             value,
-            underlyingAmount,
-            20,
+            underlyingAmount + profit,
+            100,
             "value not equal amount deposited"
         );
     }
@@ -282,7 +282,7 @@ contract TermTestUnlock is Test {
         token.approve(address(term), UINT256_MAX);
 
         // do a lock to get some yts
-        (uint256 ptShares, uint256 ytShares) = term.lock(
+        (, uint256 ytShares) = term.lock(
             assetIds,
             assetAmounts,
             underlyingAmount,
