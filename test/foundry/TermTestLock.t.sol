@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
 import "contracts/mocks/MockERC20Permit.sol";
@@ -528,10 +527,6 @@ contract TermTestLock is Test {
         timeStamp += 10_000_000;
         expiration += 10_000_000;
         ytBeginDate = timeStamp;
-
-        console.log("shares", shares);
-        console.log("profit", profit);
-        console.log("value", value);
 
         (shares, value) = term.lock(
             assetIds,
