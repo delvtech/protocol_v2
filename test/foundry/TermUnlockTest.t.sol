@@ -93,8 +93,6 @@ contract TermTestUnlock is Test {
         assetAmounts.push(userUnlockedBalance);
 
         // add some profit to the yearn vault
-        // this has to happen before we skip ahead in time since the mock vault pro-rates profit
-        // from the last time it was added.
         token.approve(address(yearnVault), UINT256_MAX);
         yearnVault.report(profit);
 
@@ -128,9 +126,8 @@ contract TermTestUnlock is Test {
         // try to redeem 1 more than the user has
         assetAmounts.push(userUnlockedBalance + 1);
 
-        // should fail
-        uint256 value = term.unlock(address(user), assetIds, assetAmounts);
-        assertEq(value, 0);
+        // should fail since the user doesn't have enough balance
+        term.unlock(address(user), assetIds, assetAmounts);
     }
 
     // test when only mature principal tokens should be unlocked
