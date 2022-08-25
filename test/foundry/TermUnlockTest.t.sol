@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
@@ -66,22 +66,24 @@ contract TermTestUnlock is Test {
     }
 
     // test unlocking only unlocked assets
-    function testUnlock_OnlyUnlockedAssets(uint128 amountDepositedUnlocked)
-        public
-    {
+    function testUnlock_OnlyUnlockedAssets(
+        uint128 underlyingAmount,
+        uint128 profit
+    ) public {
         vm.assume(
-            amountDepositedUnlocked < 100_000_000 ether &&
-                amountDepositedUnlocked > 1_000_000_000
+            underlyingAmount < 100_000_000 ether &&
+                underlyingAmount > 1_000_000_000
         );
+        vm.assume(profit < underlyingAmount);
 
         // give user some ETH and send requests as the user.
         startHoax(address(user));
 
-        token.setBalance(address(user), amountDepositedUnlocked);
+        token.setBalance(address(user), underlyingAmount + profit);
         token.approve(address(term), UINT256_MAX);
 
         // create some unlocked assets
-        term.depositUnlocked(amountDepositedUnlocked, 0, 0, address(user));
+        term.depositUnlocked(underlyingAmount, 0, 0, address(user));
         uint256 userUnlockedBalance = term.balanceOf(
             UNLOCKED_YT_ID,
             address(user)
@@ -90,13 +92,15 @@ contract TermTestUnlock is Test {
         assetIds.push(UNLOCKED_YT_ID);
         assetAmounts.push(userUnlockedBalance);
 
+        // add some profit to the yearn vault
+        // this has to happen before we skip ahead in time since the mock vault pro-rates profit
+        // from the last time it was added.
+        token.approve(address(yearnVault), UINT256_MAX);
+        yearnVault.report(profit);
+
         uint256 value = term.unlock(address(user), assetIds, assetAmounts);
 
-        assertEq(
-            value,
-            amountDepositedUnlocked,
-            "value not equal amount deposited"
-        );
+        assertEq(value, underlyingAmount, "value not equal amount deposited");
     }
 
     // if the caller does not have enough unlocked assets, revert.
@@ -127,9 +131,11 @@ contract TermTestUnlock is Test {
     // test when only mature principal tokens should be unlocked
     function testUnlock_OnlyPrincipalTokens(
         uint128 underlyingAmount,
+        uint128 profit,
         uint128 unlockAmount
     ) public {
         vm.assume(underlyingAmount < 100_000_000 ether && underlyingAmount > 0);
+        vm.assume(profit < underlyingAmount);
         vm.assume(unlockAmount < underlyingAmount && unlockAmount > 0);
 
         address ytDestination = address(user);
@@ -141,7 +147,7 @@ contract TermTestUnlock is Test {
 
         // give user some ETH and send requests as the user.
         startHoax(address(user));
-        token.setBalance(address(user), underlyingAmount);
+        token.setBalance(address(user), underlyingAmount + profit);
         token.approve(address(term), UINT256_MAX);
 
         // do a lock to get some pts
@@ -156,25 +162,53 @@ contract TermTestUnlock is Test {
             expiration
         );
 
+        // add some profit to the yearn vault
+        // this has to happen before we skip ahead in time since the mock vault pro-rates profit
+        // from the last time it was added.
+        token.approve(address(yearnVault), UINT256_MAX);
+        yearnVault.report(profit);
+
         // expire the tokens
         skip(expiration);
 
         // now unlock with only expired pts
         assetIds.push(expiration); // pt id's are just the expiration
         assetAmounts.push(unlockAmount);
+
         uint256 unlockedValue = term.unlock(
             address(user),
             assetIds,
             assetAmounts
         );
 
-        assertEq(
-            unlockAmount,
-            unlockedValue,
-            "unlockAmount not equal to unlockedValue"
-        );
         uint256 userBalance = token.balanceOf(address(user));
-        assertEq(userBalance, unlockAmount, "tokens not transferred to user");
+        if (unlockedValue < 1 ether) {
+            assertApproxEqAbs(
+                unlockAmount,
+                unlockedValue,
+                100,
+                "unlockAmount not equal to unlockedValue"
+            );
+            assertApproxEqAbs(
+                userBalance,
+                unlockAmount,
+                100,
+                "tokens not transferred to user"
+            );
+        } else {
+            assertApproxEqRel(
+                unlockAmount,
+                unlockedValue,
+                0.0000001 ether,
+                "unlockAmount not equal to unlockedValue"
+            );
+            assertApproxEqRel(
+                userBalance,
+                unlockAmount,
+                0.0000001 ether,
+                "tokens not transferred to user"
+            );
+        }
     }
 
     // test when only principal tokens are not mature, should revert
@@ -220,8 +254,13 @@ contract TermTestUnlock is Test {
     }
 
     // test when only mature yield tokens should be locked
-    function testUnlock_OnlyYieldTokens() public {
-        uint256 underlyingAmount = 1 ether;
+    function testUnlock_OnlyYieldTokens(
+        uint128 underlyingAmount,
+        uint128 profit
+    ) public {
+        vm.assume(underlyingAmount < 100_000_000 ether && underlyingAmount > 0);
+        vm.assume(profit < underlyingAmount);
+        vm.assume(profit > 0.1 ether);
 
         address ytDestination = address(user);
         address ptDestination = address(user);
@@ -230,15 +269,15 @@ contract TermTestUnlock is Test {
         // block.timestamp starts at 1.  don't use block.timestamp because it is buggy when used
         // with vm.warp() or skip()
         uint256 ytBeginDate = 1;
-        uint256 expiration = 10_000_000;
+        uint256 expiration = 10_000_000_000;
 
         // give user some ETH and send requests as the user.
         startHoax(address(user));
-        token.setBalance(address(user), 10 ether);
+        token.setBalance(address(user), underlyingAmount + profit);
         token.approve(address(term), UINT256_MAX);
 
         // do a lock to get some yts
-        (uint256 shares, ) = term.lock(
+        (uint256 ptShares, uint256 ytShares) = term.lock(
             assetIds,
             assetAmounts,
             underlyingAmount,
@@ -250,10 +289,7 @@ contract TermTestUnlock is Test {
         );
 
         // add some profit to the yearn vault
-        // this has to happen before we skip ahead in time since the mock vault pro-rates profit
-        // from the last time it was added.
         token.approve(address(yearnVault), UINT256_MAX);
-        uint256 profit = 0.5 ether;
         yearnVault.report(profit);
 
         // expire the tokens
@@ -262,20 +298,25 @@ contract TermTestUnlock is Test {
         // now unlock with only yts
         uint256 yieldTokenId = (1 << 255) + (ytBeginDate << 128) + expiration;
         assetIds.push(yieldTokenId);
-        assetAmounts.push(shares);
-
-        uint256 unlockValue = term.unlock(
+        assetAmounts.push(ytShares);
+        uint256 unlockedValue = term.unlock(
             address(user),
             assetIds,
             assetAmounts
         );
 
-        // slight rounding issue
-        assertApproxEqAbs(
-            unlockValue,
+        uint256 userBalance = token.balanceOf(address(user));
+        assertApproxEqRel(
             profit,
-            1,
-            "value not equal to underlying"
+            unlockedValue,
+            0.000_000_001 ether,
+            "profit not equal to unlockedValue"
+        );
+        assertApproxEqRel(
+            userBalance,
+            unlockedValue,
+            0.000_000_001 ether,
+            "tokens not transferred to user rel"
         );
     }
 
