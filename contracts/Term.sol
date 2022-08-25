@@ -399,7 +399,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // The implied value of term shares
         uint256 totalValue = _underlying(termShares, ShareState.Locked);
         // The interest is the value minus pt supply
-        uint256 totalInterest = totalValue - totalSupply[expiry];
+        // To protect against the edge case where there is negative interest, we need to set
+        // the interest to zero. This can happen if for some reason the underlying vault has
+        // less assets in it than when the term was created.
+        uint256 totalInterest = totalSupply[expiry] > totalValue
+            ? 0
+            : totalValue - totalSupply[expiry];
         // The shares needed to release this value at this point are calculated from the
         // implied price per share
         uint256 pricePerShare = (totalValue * one) / termShares;
@@ -419,6 +424,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     {
         // In this case we just do a proportional withdraw from the shares for this asset
         uint256 termShares = yieldTerms[UNLOCKED_YT_ID].shares;
+
         uint256 userShares = (termShares * amount) /
             totalSupply[UNLOCKED_YT_ID];
 
@@ -449,7 +455,14 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         YieldState memory yieldTerm = yieldTerms[assetId];
         uint256 termEndingValue = (uint256(yieldTerm.shares) *
             uint256(finalState.pricePerShare)) / one;
-        uint256 termEndingInterest = termEndingValue - uint256(yieldTerm.pt);
+
+        // To protect against the edge case where there is negative interest, we need to set
+        // the interest to zero. This can happen if for some reason the underlying vault has
+        // less assets in it than when the term was created.
+        uint256 termEndingInterest = yieldTerm.pt > termEndingValue
+            ? 0
+            : termEndingValue - yieldTerm.pt;
+
         // Calculate the value of this yt redemption by dividing total value by the number of YT
         uint256 totalYtSupply = totalSupply[assetId];
         uint256 userInterest = (termEndingInterest * amount) / totalYtSupply;
