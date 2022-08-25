@@ -314,13 +314,13 @@ contract TermTestUnlock is Test {
         assertApproxEqRel(
             profit,
             unlockedValue,
-            0.000_000_001 ether,
+            0.000_000_1 ether,
             "profit not equal to unlockedValue"
         );
         assertApproxEqRel(
             userBalance,
             unlockedValue,
-            0.000_000_001 ether,
+            0.000_000_1 ether,
             "tokens not transferred to user rel"
         );
     }
