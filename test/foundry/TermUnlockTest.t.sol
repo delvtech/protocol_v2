@@ -100,7 +100,12 @@ contract TermTestUnlock is Test {
 
         uint256 value = term.unlock(address(user), assetIds, assetAmounts);
 
-        assertEq(value, underlyingAmount, "value not equal amount deposited");
+        assertApproxEqAbs(
+            value,
+            underlyingAmount,
+            20,
+            "value not equal amount deposited"
+        );
     }
 
     // if the caller does not have enough unlocked assets, revert.
