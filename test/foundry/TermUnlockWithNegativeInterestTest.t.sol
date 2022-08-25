@@ -170,7 +170,6 @@ contract TermTestUnlock is Test {
         token.approve(address(term), UINT256_MAX);
 
         // do a deposit to get some unlockedAssets
-        // get some unlocked assets as well
         (, uint256 shares) = term.depositUnlocked(
             underlyingAmount,
             0,
