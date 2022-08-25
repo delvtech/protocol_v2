@@ -447,9 +447,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // To release YT we calculate the implied earning of the differential between final price per share
         // and the stored price per share at the time of YT creation.
         YieldState memory yieldTerm = yieldTerms[assetId];
-        uint256 termEndingValue = (yieldTerm.shares *
-            finalState.pricePerShare) / one;
-        uint256 termEndingInterest = termEndingValue - yieldTerm.pt;
+        uint256 termEndingValue = (uint256(yieldTerm.shares) *
+            uint256(finalState.pricePerShare)) / one;
+        uint256 termEndingInterest = termEndingValue - uint256(yieldTerm.pt);
         // Calculate the value of this yt redemption by dividing total value by the number of YT
         uint256 totalYtSupply = totalSupply[assetId];
         uint256 userInterest = (termEndingInterest * amount) / totalYtSupply;
@@ -494,7 +494,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
 
         // Now we use the price per share to calculate the shares needed to satisfy interest
-        uint256 sharesForInterest = (finalState.interest * one) /
+        uint256 sharesForInterest = (uint256(finalState.interest) * one) /
             currentPricePerShare;
 
         // The remaining shares for PT holders
@@ -539,7 +539,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         if (state.pt == 0 || state.shares == 0)
             revert ElementError.TermNotInitialized();
         // calculate the shares belonging to the user
-        uint256 userShares = (state.shares * amount) / totalSupply[assetId];
+        uint256 userShares = (uint256(state.shares) * amount) /
+            totalSupply[assetId];
         // remove shares from the yield state and the yt to burn from pt
 
         yieldTerms[assetId] = YieldState(
@@ -621,7 +622,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // of the YTs the user wants to redeem (i.e. amount) to totalYTSupply
         // for this YieldState instance.
         uint128 totalSharesRedeemable = uint128(
-            (state.shares * amount) / totalSupply[yieldTokenId]
+            (uint256(state.shares) * amount) / totalSupply[yieldTokenId]
         );
         // Update local YieldState instance with adjusted values
         state.shares -= totalSharesRedeemable;
