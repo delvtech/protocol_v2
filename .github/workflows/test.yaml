@@ -7,6 +7,23 @@ on:
   pull_request:
 
 jobs:
+  check:
+    name: CheckPRCurrent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Handle pull request
+        if: github.event_name != 'push'
+        uses: Automattic/action-pr-is-up-to-date@v2
+        with:
+          token: ${{ secrets.API_TOKEN_GITHUB }}
+          tags: latest
+
+      - name: Handle tag push
+        if: github.event_name == 'push'
+        uses: Automattic/action-pr-is-up-to-date@v2
+        with:
+          token: ${{ secrets.API_TOKEN_GITHUB }}
+          tag: latest
     unit:
       runs-on: ubuntu-latest
       steps:
