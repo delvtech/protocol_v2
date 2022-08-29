@@ -476,10 +476,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         _burn(assetId, source, amount);
         // Note we proportionally reduce the shares and pt for the term to keep the final
         // interest earned per share the same in future calculations.
-        yieldTerm.shares = uint128(
+        yieldTerm.shares -= uint128(
             (uint256(yieldTerm.shares) * amount) / totalYtSupply
         );
-        yieldTerm.pt = uint128(
+        yieldTerm.pt -= uint128(
             (uint256(yieldTerm.pt) * amount) / totalYtSupply
         );
         yieldTerms[assetId] = yieldTerm;
