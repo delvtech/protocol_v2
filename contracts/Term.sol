@@ -344,7 +344,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                     state.shares + uint128(totalShares),
                     state.pt + uint128(value - totalDiscount)
                 );
-                sharesPerExpiry[expiration] += totalShares - totalDiscount;
 
                 // Return the discount so the right number of PT are minted
                 return totalDiscount;
