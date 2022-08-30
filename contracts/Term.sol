@@ -7,6 +7,7 @@ import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
 import "./libraries/Errors.sol";
+import "hardhat/console.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
@@ -232,11 +233,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             previousId = tokenIds[i];
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
+            console.log("Release %s", i);
             (uint256 shares, ) = _releaseAsset(
                 tokenIds[i],
                 msg.sender,
                 amounts[i]
             );
+            console.log("Release %s success", i);
 
             // Record the shares which were released
             if (tokenIds[i] == UNLOCKED_YT_ID) {
@@ -252,6 +255,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // Only do the withdraw calls if there's something to withdraw
         // Note these calls will send the asset to the destination.
         if (releasedSharesLocked != 0) {
+            console.log("Withdraw %s locked", releasedSharesLocked);
             valueFromLocked = _withdraw(
                 releasedSharesLocked,
                 destination,
@@ -259,6 +263,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             );
         }
         if (releasedSharesUnlocked != 0) {
+            console.log("Withdraw %s unlocked", releasedSharesUnlocked);
             valueFromUnlocked = _withdraw(
                 releasedSharesUnlocked,
                 destination,
@@ -371,7 +376,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         FinalizedState memory finalState = finalizedTerms[expiry];
         // If the term's final interest rate has not been recorded we record it
         if (assetId != UNLOCKED_YT_ID && finalState.interest == 0) {
+            console.log("Finalize");
             finalState = _finalizeTerm(expiry);
+            console.log("Finalize Success");
         }
 
         //  Special case the unlocked share redemption
@@ -379,8 +386,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             return _releaseUnlocked(source, amount);
         } else if (isYieldToken) {
             // If the top bit is one do YT redemption
+            console.log("Release %s YT", amount);
             return _releaseYT(finalState, assetId, source, amount);
         } else {
+            console.log("Release %s PT", amount);
             return _releasePT(finalState, assetId, source, amount);
         }
     }
@@ -452,8 +461,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // To release YT we calculate the implied earning of the differential between final price per share
         // and the stored price per share at the time of YT creation.
         YieldState memory yieldTerm = yieldTerms[assetId];
+        console.log("yieldTerm.shares %s", yieldTerm.shares);
+        console.log("yieldTerm.pt %s", yieldTerm.pt);
+        console.log("finalState.pricePerShare %s", finalState.pricePerShare);
+        console.log("finalState.interest %s", finalState.interest);
         uint256 termEndingValue = (uint256(yieldTerm.shares) *
             uint256(finalState.pricePerShare)) / one;
+        console.log("termEndingValue %s", termEndingValue);
 
         // To protect against the edge case where there is negative interest, we need to set
         // the interest to zero. This can happen if for some reason the underlying vault has
@@ -461,21 +475,33 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 termEndingInterest = yieldTerm.pt > termEndingValue
             ? 0
             : termEndingValue - yieldTerm.pt;
+        console.log("termEndingInterest %s", termEndingInterest);
 
         // Calculate the value of this yt redemption by dividing total value by the number of YT
         uint256 totalYtSupply = totalSupply[assetId];
+        console.log("totalYtSupply %s", totalYtSupply);
         uint256 userInterest = (termEndingInterest * amount) / totalYtSupply;
+        console.log("userInterest %s", userInterest);
         // Now we load current share price to see how many shares the user is owed
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
+        console.log("currentPricePerShare %s", currentPricePerShare);
         uint256 userShares = (userInterest * one) / currentPricePerShare;
+        console.log("userShares %s", userShares);
         // Now we decrement the PT shares and interest outstanding
         (, , uint256 expiry) = _parseAssetId(assetId);
+        require(sharesPerExpiry[expiry] >= userShares, 'sharesPerExpiry[expiry] >= userShares');
+        console.log("sharesPerExpiry[expiry] %s", sharesPerExpiry[expiry]);
         sharesPerExpiry[expiry] -= userShares;
+        console.log("sharesPerExpiry[expiry] %s", sharesPerExpiry[expiry]);
+        require(finalizedTerms[expiry].interest >= userInterest, 'finalizedTerms[expiry].interest >= userInterest');
+        console.log("finalizedTerms[expiry].interest %s", finalizedTerms[expiry].interest);
         finalizedTerms[expiry].interest -= uint128(userInterest);
+        console.log("finalizedTerms[expiry].interest %s", finalizedTerms[expiry].interest);
         // Next burn the user's YT and update the finalized YT info
         _burn(assetId, source, amount);
         // Note we proportionally reduce the shares and pt for the term to keep the final
         // interest earned per share the same in future calculations.
+        require(amount <= totalYtSupply, 'amount <= totalYtSupply');
         yieldTerm.shares -= uint128(
             (uint256(yieldTerm.shares) * amount) / totalYtSupply
         );
@@ -510,6 +536,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             currentPricePerShare;
 
         // The remaining shares for PT holders
+        require(termShares >= sharesForInterest, 'termShares >= sharesForInterest');
         uint256 ptShares = termShares - sharesForInterest;
 
         // The user's shares are their percent of the total
@@ -518,6 +545,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
         // Burn from the user and deduct their freed shares from the total for this term
         _burn(assetId, source, amount);
+        require(termShares >= userShares, 'termShares >= userShares');
         sharesPerExpiry[assetId] = termShares - userShares;
 
         // Return the shares freed and use the price per share to get value
