@@ -310,7 +310,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 // Store the data from the first mint
                 yieldTerms[yieldTokenId].shares = uint128(totalShares);
                 yieldTerms[yieldTokenId].pt = uint128(value);
-                sharesPerExpiry[expiration] = totalShares;
+                sharesPerExpiry[expiration] += totalShares;
                 // No interest earned and no discount.
                 return 0;
             } else {
