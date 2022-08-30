@@ -298,21 +298,22 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             return value;
         } else {
             uint256 yieldTokenId = (1 << 255) + (startTime << 128) + expiration;
-            // For new YT, we split into two cases ones at this block and back dated
-            if (startTime == block.timestamp) {
+            YieldState memory state = yieldTerms[yieldTokenId];
+            // For new YT, we split into two cases one a new YT which must start at this block
+            // and not have any previous mints. And a branch which can have previous mints.
+            if (startTime == block.timestamp && state.pt == 0) {
                 // Initiate a new term
                 _mint(yieldTokenId, destination, value);
-                // Increase recorded share data
-                yieldTerms[yieldTokenId].shares += uint128(totalShares);
-                yieldTerms[yieldTokenId].pt += uint128(value);
-                sharesPerExpiry[expiration] += totalShares;
+                // Store the data from the first mint
+                yieldTerms[yieldTokenId].shares = uint128(totalShares);
+                yieldTerms[yieldTokenId].pt = uint128(value);
+                sharesPerExpiry[expiration] = totalShares;
                 // No interest earned and no discount.
                 return 0;
             } else {
                 // In this case the yield token is being backdated to match a pre-existing term
                 // We require that it already existed, or we would not be able to capture accurate
                 // interest rate data in the period
-                YieldState memory state = yieldTerms[yieldTokenId];
                 require(state.shares != 0 && state.pt != 0, "Todo nice error");
                 // We calculate the current fair value of the YT by dividing the interest
                 // earned by the number of YT. We can get the interest earned by subtracting
