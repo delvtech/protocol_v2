@@ -176,6 +176,8 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 mu = (_normalize(value)).divDown(_normalize(sharesMinted));
         // Initialize the reserves.
         _update(poolId, uint128(0), uint128(sharesMinted));
+
+        // TODO - why not check here if buffer exists by poolId?
         // Initialize the oracle if this pool needs one
         if (maxTime > 0 || maxLength > 0) {
             _initializeBuffer(poolId, maxTime, maxLength);
