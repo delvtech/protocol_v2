@@ -297,7 +297,7 @@ describe("MultiToken", async () => {
           r,
           s
         );
-      await expect(tx).to.be.revertedWith("ERC20Permit: invalid signature");
+      await expect(tx).to.be.revertedWith("InvalidSignature()");
     });
     it("Fails invalid deadline", async () => {
       const badDeadline = 0;
@@ -330,7 +330,7 @@ describe("MultiToken", async () => {
           r,
           s
         );
-      await expect(tx).to.be.revertedWith("ERC20Permit: expired deadline");
+      await expect(tx).to.be.revertedWith("ExpiredDeadline()");
     });
     it("Fails for zero address", async () => {
       const [wallet] = provider.getWallets();
@@ -362,7 +362,7 @@ describe("MultiToken", async () => {
           r,
           s
         );
-      await expect(tx).to.be.revertedWith("ERC20: invalid-address-0");
+      await expect(tx).to.be.revertedWith("RestrictedZeroAddress()");
     });
   });
 
@@ -527,7 +527,7 @@ describe("MultiToken", async () => {
           r,
           s
         );
-      await expect(tx).to.be.revertedWith("ERC20Permit: invalid signature");
+      await expect(tx).to.be.revertedWith("InvalidSignature()");
     });
   });
 });

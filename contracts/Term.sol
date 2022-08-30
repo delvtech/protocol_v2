@@ -6,6 +6,7 @@ import "./interfaces/IYieldAdapter.sol";
 import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
+import "./libraries/Errors.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
@@ -86,7 +87,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             : ytBeginDate;
 
         // Next check the validity of the requested expiry
-        require(expiration > block.timestamp, "todo nice error");
+        if (expiration <= block.timestamp) revert ElementError.TermExpired();
 
         // The yt can't start after
         // Running tally of the added value
@@ -118,7 +119,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             uint256 id = assetIds[i];
             uint256 amount = assetAmounts[i];
             // Requiring strict sorting is a cheap way to check for uniqueness
-            require(previousId < id, "Todo: Not unique or not sorted");
+            if (previousId >= id) revert ElementError.UnsortedAssetIds();
             previousId = id;
 
             // Burn the asset from the user
@@ -186,7 +187,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             // NOTE - All YT have the top bit as 1 and so are larger than any conceivable
             //        block.timestamp.
             // Todo - Make sure there's a test for the fact no YT id passes
-            require(ptExpiry < block.timestamp, "Not expired");
+            if (ptExpiry >= block.timestamp) revert ElementError.TermExpired();
 
             // Then we burn the pt from the user and release its shares
             (uint256 lockedShares, uint256 ptValue) = _releaseAsset(
@@ -225,7 +226,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // shares and value they are worth.
         for (uint256 i = 0; i < tokenIds.length; i++) {
             // Requiring strict sorting is a cheap way to check for uniqueness
-            require(previousId < tokenIds[i], "Todo: Not unique or not sorted");
+            if (previousId >= tokenIds[i])
+                revert ElementError.UnsortedAssetIds();
+
             previousId = tokenIds[i];
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
@@ -314,7 +317,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 // In this case the yield token is being backdated to match a pre-existing term
                 // We require that it already existed, or we would not be able to capture accurate
                 // interest rate data in the period
-                require(state.shares != 0 && state.pt != 0, "Todo nice error");
+                if (state.shares == 0 || state.pt == 0)
+                    revert ElementError.TermNotInitialized();
+
                 // We calculate the current fair value of the YT by dividing the interest
                 // earned by the number of YT. We can get the interest earned by subtracting
                 // PT outstanding from the share multiplied by current price per share
@@ -340,7 +345,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                     state.shares + uint128(totalShares),
                     state.pt + uint128(value - totalDiscount)
                 );
-                sharesPerExpiry[expiration] += totalShares - totalDiscount;
 
                 // Return the discount so the right number of PT are minted
                 return totalDiscount;
@@ -360,9 +364,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 amount
     ) internal returns (uint256, uint256) {
         // Note for both yt and pt the first 128 bits contain the expiry.
-        uint256 expiry = assetId & (2**(128) - 1);
+        (bool isYieldToken, , uint256 expiry) = _parseAssetId(assetId);
         // Check that the expiry has been hit
-        require(expiry <= block.timestamp || expiry == 0, "todo nice error");
+        if (expiry > block.timestamp && expiry != 0)
+            revert ElementError.TermNotExpired();
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
         // If the term's final interest rate has not been recorded we record it
@@ -373,7 +378,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         //  Special case the unlocked share redemption
         if (assetId == UNLOCKED_YT_ID) {
             return _releaseUnlocked(source, amount);
-        } else if (assetId >> 255 == 1) {
+        } else if (isYieldToken) {
             // If the top bit is one do YT redemption
             return _releaseYT(finalState, assetId, source, amount);
         } else {
@@ -394,7 +399,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // The implied value of term shares
         uint256 totalValue = _underlying(termShares, ShareState.Locked);
         // The interest is the value minus pt supply
-        uint256 totalInterest = totalValue - totalSupply[expiry];
+        // To protect against the edge case where there is negative interest, we need to set
+        // the interest to zero. This can happen if for some reason the underlying vault has
+        // less assets in it than when the term was created.
+        uint256 totalInterest = totalSupply[expiry] > totalValue
+            ? 0
+            : totalValue - totalSupply[expiry];
         // The shares needed to release this value at this point are calculated from the
         // implied price per share
         uint256 pricePerShare = (totalValue * one) / termShares;
@@ -414,6 +424,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     {
         // In this case we just do a proportional withdraw from the shares for this asset
         uint256 termShares = yieldTerms[UNLOCKED_YT_ID].shares;
+
         uint256 userShares = (termShares * amount) /
             totalSupply[UNLOCKED_YT_ID];
 
@@ -442,9 +453,16 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // To release YT we calculate the implied earning of the differential between final price per share
         // and the stored price per share at the time of YT creation.
         YieldState memory yieldTerm = yieldTerms[assetId];
-        uint256 termEndingValue = (yieldTerm.shares *
-            finalState.pricePerShare) / one;
-        uint256 termEndingInterest = termEndingValue - yieldTerm.pt;
+        uint256 termEndingValue = (uint256(yieldTerm.shares) *
+            uint256(finalState.pricePerShare)) / one;
+
+        // To protect against the edge case where there is negative interest, we need to set
+        // the interest to zero. This can happen if for some reason the underlying vault has
+        // less assets in it than when the term was created.
+        uint256 termEndingInterest = yieldTerm.pt > termEndingValue
+            ? 0
+            : termEndingValue - yieldTerm.pt;
+
         // Calculate the value of this yt redemption by dividing total value by the number of YT
         uint256 totalYtSupply = totalSupply[assetId];
         uint256 userInterest = (termEndingInterest * amount) / totalYtSupply;
@@ -452,17 +470,17 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
         uint256 userShares = (userInterest * one) / currentPricePerShare;
         // Now we decrement the PT shares and interest outstanding
-        uint256 expiry = assetId & (2**(128) - 1);
+        (, , uint256 expiry) = _parseAssetId(assetId);
         sharesPerExpiry[expiry] -= userShares;
         finalizedTerms[expiry].interest -= uint128(userInterest);
         // Next burn the user's YT and update the finalized YT info
         _burn(assetId, source, amount);
         // Note we proportionally reduce the shares and pt for the term to keep the final
         // interest earned per share the same in future calculations.
-        yieldTerm.shares = uint128(
+        yieldTerm.shares -= uint128(
             (uint256(yieldTerm.shares) * amount) / totalYtSupply
         );
-        yieldTerm.pt = uint128(
+        yieldTerm.pt -= uint128(
             (uint256(yieldTerm.pt) * amount) / totalYtSupply
         );
         yieldTerms[assetId] = yieldTerm;
@@ -489,7 +507,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
 
         // Now we use the price per share to calculate the shares needed to satisfy interest
-        uint256 sharesForInterest = (finalState.interest * one) /
+        uint256 sharesForInterest = (uint256(finalState.interest) * one) /
             currentPricePerShare;
 
         // The remaining shares for PT holders
@@ -519,22 +537,24 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         address destination,
         bool isCompound
     ) external returns (uint256) {
+        (bool isYieldToken, uint256 startDate, uint256 expiry) = _parseAssetId(
+            assetId
+        );
         // make sure asset is a YT
-        require(assetId >> 255 == 1, "asset ID is not YT");
+        if (!isYieldToken) revert ElementError.NotAYieldTokenId();
         // expiry must be greater than zero
-        uint256 expiry = assetId & (2**(128) - 1);
-        require(expiry > 0, "invalid expiry");
+        if (expiry == 0) revert ElementError.ExpirationDateMustBeNonZero();
         // start date must be greater than zero
-        uint256 startDate = ((assetId) & (2**255 - 1)) >> 128;
-        require(startDate > 0, "invalid token start date");
+        if (startDate == 0) revert ElementError.StartDateMustBeNonZero();
 
         // load the state for the term
         YieldState memory state = yieldTerms[assetId];
         // make sure a term exists for the input asset
-        // todo: is this logic good or should be &&?
-        require(state.pt != 0 || state.shares != 0, "no term for input asset");
+        if (state.pt == 0 || state.shares == 0)
+            revert ElementError.TermNotInitialized();
         // calculate the shares belonging to the user
-        uint256 userShares = (state.shares * amount) / totalSupply[assetId];
+        uint256 userShares = (uint256(state.shares) * amount) /
+            totalSupply[assetId];
         // remove shares from the yield state and the yt to burn from pt
 
         yieldTerms[assetId] = YieldState(
@@ -556,8 +576,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 block.timestamp,
                 expiry
             );
+
             // yt created at current time so discount should always be 0
-            require(discount == 0, "todo nice error");
+            if (discount != 0) revert ElementError.InvalidYieldTokenCreation();
+
             // create PT
             _mint(expiry, destination, value - amount);
         } else {
@@ -602,8 +624,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
         // The YTs and PTs must be from the same term and therefore
         // the expiration times must be equal
-        uint256 ytExpiry = yieldTokenId & (2**(128) - 1);
-        require(ytExpiry == principalTokenId, "tokens from different terms");
+        (, , uint256 ytExpiry) = _parseAssetId(yieldTokenId);
+        if (ytExpiry != principalTokenId)
+            revert ElementError.IncongruentPrincipalAndYieldTokenIds();
 
         // YTs can have different start times for a particular expiry.
         // This means that each YieldState instance is backed by
@@ -613,7 +636,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // of the YTs the user wants to redeem (i.e. amount) to totalYTSupply
         // for this YieldState instance.
         uint128 totalSharesRedeemable = uint128(
-            (state.shares * amount) / totalSupply[yieldTokenId]
+            (uint256(state.shares) * amount) / totalSupply[yieldTokenId]
         );
         // Update local YieldState instance with adjusted values
         state.shares -= totalSharesRedeemable;
@@ -629,5 +652,26 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         sharesPerExpiry[principalTokenId] -= totalSharesRedeemable;
         // withdraw shares from vault to user and return the amount of underlying withdrawn
         return _withdraw(totalSharesRedeemable, msg.sender, ShareState.Locked);
+    }
+
+    /// @notice Decodes an unknown assetId into either a YT or PT and gives the
+    ///         relevant time paramaters
+    /// @param assetId A YT or PT id
+    function _parseAssetId(uint256 assetId)
+        internal
+        view
+        returns (
+            bool isYieldToken,
+            uint256 startDate,
+            uint256 expirationDate
+        )
+    {
+        isYieldToken = assetId >> 255 == 1;
+        if (isYieldToken) {
+            startDate = ((assetId) & (2**255 - 1)) >> 128;
+            expirationDate = assetId & (2**(128) - 1);
+        } else {
+            expirationDate = assetId;
+        }
     }
 }

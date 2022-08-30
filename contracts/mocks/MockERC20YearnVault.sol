@@ -14,10 +14,6 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
     // underlying token
     ERC20Permit public token;
 
-    // variables for the profit time-lock
-    uint256 public constant DEGRADATION_COEFFICIENT = 1e18;
-    uint256 public lockedProfitDegradation;
-
     // last time someone deposited value through report()
     uint256 public lastReport;
     // the amount of tokens locked after a report()
@@ -36,7 +32,6 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
         precisionFactor = 10**(18 - decimals);
         // 6 hours in blocks
         // 6*60*60 ~= 1e6 / 46
-        lockedProfitDegradation = (DEGRADATION_COEFFICIENT * 46) / 1e6;
     }
 
     function apiVersion() external pure returns (string memory) {
@@ -55,6 +50,17 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
         // so the full deposit is locked profit.
         lockedProfit = _deposit;
         token.transferFrom(msg.sender, address(this), _deposit);
+    }
+
+    /**
+    @notice Remove tokens from the vault.
+    @param loss The amount of tokens to burn
+    */
+    function reportLoss(uint256 loss) external onlyAuthorized {
+        lastReport = block.timestamp;
+        // mock vault does not take performance or management fee
+        // so the full deposit is locked profit.
+        token.transferFrom(address(this), address(1), loss);
     }
 
     /**
@@ -169,18 +175,11 @@ contract MockERC20YearnVault is IYearnVault, Authorizable, ERC20Permit {
             return _shares;
         }
         // determine the current value of the shares
-        uint256 lockedFundsRatio = (block.timestamp - lastReport) *
-            lockedProfitDegradation;
-        uint256 freeFunds = totalAssets();
-        if (lockedFundsRatio < DEGRADATION_COEFFICIENT) {
-            freeFunds -= (lockedProfit -
-                ((precisionFactor * lockedFundsRatio * lockedProfit) /
-                    DEGRADATION_COEFFICIENT /
-                    precisionFactor));
-        }
-        return ((precisionFactor * _shares * freeFunds) /
-            totalShares /
-            precisionFactor);
+        uint256 _totalAssets = totalAssets();
+
+        return
+            (precisionFactor * _shares * _totalAssets) /
+            (totalShares * precisionFactor);
     }
 
     /**
