@@ -344,7 +344,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                     state.shares + uint128(totalShares),
                     state.pt + uint128(value - totalDiscount)
                 );
-                sharesPerExpiry[expiration] += totalShares - totalDiscount;
 
                 // Return the discount so the right number of PT are minted
                 return totalDiscount;
@@ -399,7 +398,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // The implied value of term shares
         uint256 totalValue = _underlying(termShares, ShareState.Locked);
         // The interest is the value minus pt supply
-        uint256 totalInterest = totalValue - totalSupply[expiry];
+        // To protect against the edge case where there is negative interest, we need to set
+        // the interest to zero. This can happen if for some reason the underlying vault has
+        // less assets in it than when the term was created.
+        uint256 totalInterest = totalSupply[expiry] > totalValue
+            ? 0
+            : totalValue - totalSupply[expiry];
         // The shares needed to release this value at this point are calculated from the
         // implied price per share
         uint256 pricePerShare = (totalValue * one) / termShares;
@@ -419,6 +423,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     {
         // In this case we just do a proportional withdraw from the shares for this asset
         uint256 termShares = yieldTerms[UNLOCKED_YT_ID].shares;
+
         uint256 userShares = (termShares * amount) /
             totalSupply[UNLOCKED_YT_ID];
 
@@ -447,9 +452,16 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // To release YT we calculate the implied earning of the differential between final price per share
         // and the stored price per share at the time of YT creation.
         YieldState memory yieldTerm = yieldTerms[assetId];
-        uint256 termEndingValue = (yieldTerm.shares *
-            finalState.pricePerShare) / one;
-        uint256 termEndingInterest = termEndingValue - yieldTerm.pt;
+        uint256 termEndingValue = (uint256(yieldTerm.shares) *
+            uint256(finalState.pricePerShare)) / one;
+
+        // To protect against the edge case where there is negative interest, we need to set
+        // the interest to zero. This can happen if for some reason the underlying vault has
+        // less assets in it than when the term was created.
+        uint256 termEndingInterest = yieldTerm.pt > termEndingValue
+            ? 0
+            : termEndingValue - yieldTerm.pt;
+
         // Calculate the value of this yt redemption by dividing total value by the number of YT
         uint256 totalYtSupply = totalSupply[assetId];
         uint256 userInterest = (termEndingInterest * amount) / totalYtSupply;
@@ -464,10 +476,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         _burn(assetId, source, amount);
         // Note we proportionally reduce the shares and pt for the term to keep the final
         // interest earned per share the same in future calculations.
-        yieldTerm.shares = uint128(
+        yieldTerm.shares -= uint128(
             (uint256(yieldTerm.shares) * amount) / totalYtSupply
         );
-        yieldTerm.pt = uint128(
+        yieldTerm.pt -= uint128(
             (uint256(yieldTerm.pt) * amount) / totalYtSupply
         );
         yieldTerms[assetId] = yieldTerm;
@@ -494,7 +506,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 currentPricePerShare = _underlying(one, ShareState.Locked);
 
         // Now we use the price per share to calculate the shares needed to satisfy interest
-        uint256 sharesForInterest = (finalState.interest * one) /
+        uint256 sharesForInterest = (uint256(finalState.interest) * one) /
             currentPricePerShare;
 
         // The remaining shares for PT holders
@@ -540,7 +552,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         if (state.pt == 0 || state.shares == 0)
             revert ElementError.TermNotInitialized();
         // calculate the shares belonging to the user
-        uint256 userShares = (state.shares * amount) / totalSupply[assetId];
+        uint256 userShares = (uint256(state.shares) * amount) /
+            totalSupply[assetId];
         // remove shares from the yield state and the yt to burn from pt
 
         yieldTerms[assetId] = YieldState(
@@ -622,7 +635,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // of the YTs the user wants to redeem (i.e. amount) to totalYTSupply
         // for this YieldState instance.
         uint128 totalSharesRedeemable = uint128(
-            (state.shares * amount) / totalSupply[yieldTokenId]
+            (uint256(state.shares) * amount) / totalSupply[yieldTokenId]
         );
         // Update local YieldState instance with adjusted values
         state.shares -= totalSharesRedeemable;
