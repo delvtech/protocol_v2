@@ -28,17 +28,10 @@ contract PoolTest is Test {
 
     uint32 T_STRETCH = 10245;
 
-    // MockPool public pool;
-    // MockYieldAdapter public yieldAdapter;
-    // User public user1;
-    // MockERC20Permit public usdc;
-    // address governanceContract;
-    // uint256 UNLOCKED_YT_ID;
-
     function setUp() public {
-        /// Initialise underlying token
+        /// Initialize underlying token
         USDC = new MockERC20Permit("USDC Coin", "USDC", 6);
-        /// Initialise Vault
+        /// Initialize Vault
         yUSDC = new MockERC4626(ERC20(address(USDC)));
 
         vm.label(deployer, "deployer");
@@ -189,7 +182,7 @@ contract PoolTest is Test {
         pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 5, 5);
     }
 
-    // error case - pool already intialized
+    // error case - pool already initialized
     function test__registerPoolId__pool_initialized() public {
         pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 5, 5);
 

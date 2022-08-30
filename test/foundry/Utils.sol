@@ -5,7 +5,7 @@ import { ERC4626Term } from "contracts/ERC4626Term.sol";
 
 // Simple library helper fn for making tests cleaner
 library Utils {
-    // TODO Refactor to generalised function when interfaces for variant terms become standardised
+    // TODO Refactor to generalized function when interfaces for variant terms become standardized
     function underlyingAsUnlockedShares(ERC4626Term term, uint256 underlying)
         public
         returns (uint256)
