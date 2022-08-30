@@ -2,14 +2,15 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-
 import "forge-std/console.sol";
 
-import {MockERC4626, ERC20} from "contracts/mocks/MockERC4626.sol";
-import {MockERC20Permit} from "contracts/mocks/MockERC20Permit.sol";
-import {ForwarderFactory} from "contracts/ForwarderFactory.sol";
-import {ERC4626Term, IERC4626} from "contracts/ERC4626Term.sol";
-import {Pool, ITerm, IERC20} from "contracts/Pool.sol";
+import { MockERC4626, ERC20 } from "contracts/mocks/MockERC4626.sol";
+import { MockERC20Permit } from "contracts/mocks/MockERC20Permit.sol";
+import { ForwarderFactory } from "contracts/ForwarderFactory.sol";
+import { ERC4626Term, IERC4626 } from "contracts/ERC4626Term.sol";
+import { Pool, ITerm, IERC20, FixedPointMath, ElementError } from "contracts/Pool.sol";
+
+import "./Utils.sol";
 
 contract PoolTest is Test {
     MockERC20Permit public USDC;
@@ -40,12 +41,10 @@ contract PoolTest is Test {
         /// Initialise Vault
         yUSDC = new MockERC4626(ERC20(address(USDC)));
 
-        vm.deal(deployer, 100 ether);
         vm.label(deployer, "deployer");
-        vm.deal(user, 100 ether);
         vm.label(user, "user");
 
-        vm.startPrank(deployer);
+        startHoax(deployer);
 
         /// Create term contract for vault
         ForwarderFactory forwarderFactory = new ForwarderFactory();
@@ -67,7 +66,17 @@ contract PoolTest is Test {
 
         uint256[] memory assetIds;
         uint256[] memory assetAmounts;
-        term.lock(assetIds, assetAmounts, 90_000_000e6, false, address(this), address(this), TERM_START, TERM_END);
+
+        term.lock(
+            assetIds,
+            assetAmounts,
+            90_000_000e6,
+            false,
+            address(this),
+            address(this),
+            TERM_START,
+            TERM_END
+        );
         term.depositUnlocked(90_000_000e6, 0, 0, address(this));
 
         USDC.transfer(address(yUSDC), 20_000_000e6);
@@ -82,55 +91,24 @@ contract PoolTest is Test {
         );
 
         vm.stopPrank();
-
+        startHoax(user);
         // Give the user some USDC
         USDC.mint(user, 100_000e6);
-
-        vm.startPrank(user);
         USDC.approve(address(pool), type(uint256).max);
-        vm.stopPrank();
-
-        // // Contract initialization
-        // usdc = new MockERC20Permit("USDC", "USDC", 6);
-        // governanceContract = address(
-        //     0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8
-        // );
-        // MockERC20YearnVault yearnVault = new MockERC20YearnVault(address(usdc));
-        // bytes32 linkerCodeHash = bytes32(0);
-        // address forwarderFactory = address(1);
-        // yieldAdapter = new MockYieldAdapter(
-        //     address(yearnVault),
-        //     governanceContract,
-        //     linkerCodeHash,
-        //     forwarderFactory,
-        //     usdc
-        // );
-        // uint256 tradeFee = 10;
-        // bytes32 erc20ForwarderCodeHash = bytes32(0);
-        // address erc20ForwarderFactory = address(1);
-        // pool = new MockPool(
-        //     yieldAdapter,
-        //     usdc,
-        //     tradeFee,
-        //     erc20ForwarderCodeHash,
-        //     governanceContract,
-        //     erc20ForwarderFactory
-        // );
-
-        // UNLOCKED_YT_ID = yieldAdapter.UNLOCKED_YT_ID();
-
-        // // Configure approval so that YieldAdapter(term) can transfer usdc from Pool to itself
-        // vm.prank(address(pool), address(pool));
-        // usdc.approve(address(yieldAdapter), type(uint256).max);
-
-        // // Configure user1
-        // user1 = new User();
     }
 
     function test__initialState() public {
         assertEq(yUSDC.totalSupply(), 179_950_000e6);
         assertApproxEqAbs(yUSDC.convertToShares(1e6), 0.9e6, 50);
         assertEq(USDC.balanceOf(address(term)), term.targetReserve());
+
+        (uint32 pool_tStretch, uint224 pool_mu) = pool.parameters(TERM_END);
+        assertEq(pool_tStretch, 0);
+        assertEq(pool_mu, 0);
+
+        (uint128 shares, uint128 bonds) = pool.reserves(TERM_END);
+        assertEq(shares, 0);
+        assertEq(bonds, 0);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -140,95 +118,94 @@ contract PoolTest is Test {
     ////////////////////////////////////////////////////////////////////////////
 
     // success case - no oracle initialization
-    function test__RegisterPoolId__no_oracle_init() public {
-        vm.startPrank(user);
-
-        (uint32 pool_tStretch, uint224 pool_mu) = pool.parameters(TERM_END);
-
-        assertEq(pool_tStretch, 0);
-        assertEq(pool_mu, 0);
+    function test__registerPoolId__no_oracle_init() public {
+        uint256 underlying = 10_000e6;
 
         uint256 userUnderlyingPreBalance = USDC.balanceOf(user);
         uint256 userLpPreBalance = pool.balanceOf(TERM_END, user);
 
+        (uint128 preShares, uint128 preBonds) = pool.reserves(TERM_END);
 
-        uint256 underlying = 10_000e6;
+        uint256 estMintedShares = Utils.underlyingAsUnlockedShares(
+            term,
+            underlying
+        );
+        uint256 estMu = FixedPointMath.divDown(
+            underlying * 10e12,
+            estMintedShares * 10e12
+        );
 
         uint256 sharesMinted = pool.registerPoolId(
-           TERM_END,
-           underlying,
-           T_STRETCH,
-           user,
-           0,
-           0
+            TERM_END,
+            underlying,
+            T_STRETCH,
+            user,
+            0,
+            0
         );
 
         uint256 userUnderlyingPostBalance = USDC.balanceOf(user);
         uint256 userLpPostBalance = pool.balanceOf(TERM_END, user);
 
-        uint256 userUnderlyingDiff = userUnderlyingPreBalance - userUnderlyingPostBalance;
+        uint256 userUnderlyingDiff = userUnderlyingPreBalance -
+            userUnderlyingPostBalance;
         uint256 userLpDiff = userLpPostBalance - userLpPreBalance;
 
+        // User balances should be changed as expected
         assertEq(userUnderlyingDiff, underlying);
-        assertEq(userLpDiff, 9000250076);
-        assertEq(sharesMinted, 9000250076);
+        assertEq(userLpDiff, estMintedShares);
+        assertEq(sharesMinted, estMintedShares);
 
-        (pool_tStretch, pool_mu) = pool.parameters(TERM_END);
+        // Shares should be added to the pool reserves
+        (uint128 postShares, uint128 postBonds) = pool.reserves(TERM_END);
+        assertEq(postShares - preShares, estMintedShares);
+        assertEq(preBonds, postBonds);
 
-        assertEq(pool_tStretch, T_STRETCH);
-        assertEq(pool_mu, T_STRETCH);
+        // buffer should not be initialized
+        (, , , uint16 bufferMaxLength, ) = pool.readMetadataParsed(TERM_END);
+        assertEq(bufferMaxLength, 0);
 
+        // Pool parameters should be set correctly
+        (uint32 tStretch, uint224 mu) = pool.parameters(TERM_END);
+        assertEq(tStretch, T_STRETCH);
+        assertEq(mu, estMu);
     }
 
     // success case - initialize oracle
-   //  function test__RegisterPoolId__init_oracle() public {
-   //      vm.startPrank(user);
+    function test__registerPoolId__oracle_init() public {
+        pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 5, 5);
 
-   //      uint256 userUnderlyingPreBalance = USDC.balanceOf(user);
-   //      uint256 userLpPreBalance = pool.balanceOf(TERM_END, user);
+        // buffer should be initialized
+        (, , , uint16 bufferMaxLength, ) = pool.readMetadataParsed(TERM_END);
+        assertEq(bufferMaxLength, 5);
+    }
 
-   //      uint256 underlying = 10_000e6;
-   //      uint256 sharesMinted = pool.registerPoolId(
-   //         TERM_END,
-   //         underlying,
-   //         1,
-   //         user,
-   //         0,
-   //         0
-   //      );
+    // error case - register pool past expiry
+    function test__registerPoolId__beyond_expiry() public {
+        // Fast forward to end of term + 1 second
+        vm.warp(TERM_END + 1);
+        vm.expectRevert(ElementError.TermExpired.selector);
 
-   //      uint256 userUnderlyingPostBalance = USDC.balanceOf(user);
-   //      uint256 userLpPostBalance = pool.balanceOf(TERM_END, user);
+        pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 5, 5);
+    }
 
-   //      uint256 userUnderlyingDiff = userUnderlyingPreBalance - userUnderlyingPostBalance;
-   //      uint256 userLpDiff = userLpPostBalance - userLpPreBalance;
+    // error case - pool already intialized
+    function test__registerPoolId__pool_initialized() public {
+        pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 5, 5);
 
-   //      assertEq(userUnderlyingDiff, underlying);
-   //      assertEq(userLpDiff, 9000250076);
-   //      assertEq(sharesMinted, 9000250076);
-   // }
+        vm.expectRevert(ElementError.PoolInitialized.selector);
+
+        pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 5, 5);
+    }
+
+    // error case - zero t-stretch
+    function test__registerPoolId__zero_tStretch() public {
+        vm.expectRevert(ElementError.TimeStretchMustBeNonZero.selector);
+
+        pool.registerPoolId(TERM_END, 10_000e6, 0, user, 5, 5);
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-
-    // function testGovernanceTradeFeeClaimSuccess() public {
-    //     // yieldAdapter.setBalance(UNLOCKED_YT_ID, address(pool), 150);
-    //     // yieldAdapter.setBalance(100, address(pool), 100);
-    //     // // set the fees for expiration at 100 to (150, 100)
-    //     // pool.setFees(100, 150, 100);
-    //     // // pretend to be governance
-    //     // vm.startPrank(governanceContract);
-    //     // // Call the function to claim fees
-    //     // pool.collectFees(100, address(user1));
-    //     // // Check the balances
-    //     // uint256 shareBalance = yieldAdapter.balanceOf(
-    //     //     UNLOCKED_YT_ID,
-    //     //     address(user1)
-    //     // );
-    //     // uint256 bondBalance = yieldAdapter.balanceOf(100, address(user1));
-    //     // // assert them equal
-    //     // assertEq(150, shareBalance);
-    //     // assertEq(100, bondBalance);
-    // }
 }
