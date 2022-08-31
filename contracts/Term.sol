@@ -38,6 +38,11 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // The unlocked term id is the YT id at start 0 expiration 0
     uint256 public constant UNLOCKED_YT_ID = 1 << 255;
 
+    // ------------------------------ Events ------------------------------//
+
+    /// Emitted when YTs get created
+    event YieldTokenCreated(address indexed who, uint256 id, uint256 amount);
+
     /// @notice Runs the initial deployment code
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
@@ -295,6 +300,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             // In the unlocked term all assets are held as YT with a direct conversion to shares
             // The yield source should account for any changes in value as deposit withdraw happens
             _mint(UNLOCKED_YT_ID, destination, totalShares);
+            // Emit event for YT discoverability
+            emit YieldTokenCreated(destination, UNLOCKED_YT_ID, totalShares);
             // Increment shares per start
             yieldTerms[UNLOCKED_YT_ID].shares += uint128(totalShares);
             // Return that this is a 100% discount so no PT are made
@@ -305,6 +312,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             if (startTime == block.timestamp) {
                 // Initiate a new term
                 _mint(yieldTokenId, destination, value);
+                // Emit event for YT discoverability
+                emit YieldTokenCreated(destination, yieldTokenId, value);
                 // Increase recorded share data
                 yieldTerms[yieldTokenId].shares += uint128(totalShares);
                 yieldTerms[yieldTokenId].pt += uint128(value);
@@ -333,7 +342,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                     totalSupply[yieldTokenId];
                 // Now we mint the YT for the user
                 _mint(yieldTokenId, destination, value);
-
+                // Emit event for YT discoverability
+                emit YieldTokenCreated(destination, yieldTokenId, value);
                 // Update the amount of shares for the expiry
                 sharesPerExpiry[expiration] += totalShares - totalDiscount;
 
