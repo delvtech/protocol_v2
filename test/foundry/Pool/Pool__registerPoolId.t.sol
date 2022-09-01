@@ -65,21 +65,34 @@ contract PoolTest__registerPoolId is PoolTest {
     }
 
     // initializes the oracle
-    function test__initializes_oracle() public {
-        pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 5, 5);
+    function test__oracle_initialization(uint16 maxTime, uint16 maxLength)
+        public
+    {
+        uint16 expectedMaxLength = maxLength;
 
-        // buffer should be initialized
+        if (maxLength <= 1 && !(maxLength == 0 && maxTime == 0)) {
+            vm.expectRevert(
+                ElementError.TWAROracle_IncorrectBufferLength.selector
+            );
+            expectedMaxLength = 0;
+        } else if (maxLength > maxTime) {
+            vm.expectRevert(
+                ElementError.TWAROracle_MinTimeStepMustBeNonZero.selector
+            );
+            expectedMaxLength = 0;
+        }
+
+        pool.registerPoolId(
+            TERM_END,
+            10_000e6,
+            T_STRETCH,
+            user,
+            maxTime,
+            maxLength
+        );
+
         (, , , uint16 bufferMaxLength, ) = pool.readMetadataParsed(TERM_END);
-        assertEq(bufferMaxLength, 5);
-    }
-
-    // does not initialize the oracle
-    function test__no_oracle_initialized() public {
-        pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 0, 0);
-
-        // buffer should be initialized
-        (, , , uint16 bufferMaxLength, ) = pool.readMetadataParsed(TERM_END);
-        assertEq(bufferMaxLength, 0);
+        assertEq(bufferMaxLength, expectedMaxLength);
     }
 
     // error case - register pool past expiry
