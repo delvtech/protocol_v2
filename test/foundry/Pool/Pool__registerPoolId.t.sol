@@ -14,8 +14,8 @@ import { Utils } from "../Utils.sol";
 import { PoolTest } from "./PoolUtils.sol";
 
 contract PoolTest__registerPoolId is PoolTest {
-    // success case - no oracle initialization
-    function test__no_oracle_init() public {
+    // success case - general flow
+    function test__general_flow() public {
         uint256 underlying = 10_000e6;
 
         uint256 userUnderlyingPreBalance = USDC.balanceOf(user);
@@ -37,8 +37,8 @@ contract PoolTest__registerPoolId is PoolTest {
             underlying,
             T_STRETCH,
             user,
-            0,
-            0
+            5,
+            5
         );
 
         uint256 userUnderlyingPostBalance = USDC.balanceOf(user);
@@ -58,23 +58,28 @@ contract PoolTest__registerPoolId is PoolTest {
         assertEq(postShares - preShares, estMintedShares);
         assertEq(preBonds, postBonds);
 
-        // buffer should not be initialized
-        (, , , uint16 bufferMaxLength, ) = pool.readMetadataParsed(TERM_END);
-        assertEq(bufferMaxLength, 0);
-
         // Pool parameters should be set correctly
         (uint32 tStretch, uint224 mu) = pool.parameters(TERM_END);
         assertEq(tStretch, T_STRETCH);
         assertEq(mu, estMu);
     }
 
-    // success case - initialize oracle
-    function test__oracle_init() public {
+    // initializes the oracle
+    function test__initializes_oracle() public {
         pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 5, 5);
 
         // buffer should be initialized
         (, , , uint16 bufferMaxLength, ) = pool.readMetadataParsed(TERM_END);
         assertEq(bufferMaxLength, 5);
+    }
+
+    // does not initialize the oracle
+    function test__no_oracle_initialized() public {
+        pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 0, 0);
+
+        // buffer should be initialized
+        (, , , uint16 bufferMaxLength, ) = pool.readMetadataParsed(TERM_END);
+        assertEq(bufferMaxLength, 0);
     }
 
     // error case - register pool past expiry
@@ -96,5 +101,30 @@ contract PoolTest__registerPoolId is PoolTest {
     function test__zero_tStretch() public {
         vm.expectRevert(ElementError.TimeStretchMustBeNonZero.selector);
         pool.registerPoolId(TERM_END, 10_000e6, 0, user, 5, 5);
+    }
+
+    // should emit PoolRegistered event correctly
+    event PoolRegistered(uint256 indexed poolId);
+
+    function test__emits_pool_registered_event() public {
+        vm.expectEmit(true, false, false, false);
+        emit PoolRegistered(TERM_END);
+        pool.registerPoolId(TERM_END, 10_000e6, T_STRETCH, user, 5, 5);
+    }
+
+    // should emit Sync event correctly
+    event Sync(
+        uint256 indexed poolId,
+        uint256 bondReserve,
+        uint256 shareReserve
+    );
+
+    function test__emits_sync_event() public {
+        uint256 underlying = 10_000e6;
+        uint256 shares = Utils.underlyingAsUnlockedShares(term, underlying);
+
+        vm.expectEmit(true, true, true, false);
+        emit Sync(TERM_END, underlying, 1);
+        pool.registerPoolId(TERM_END, underlying, T_STRETCH, user, 5, 5);
     }
 }
