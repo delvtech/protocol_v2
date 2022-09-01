@@ -68,7 +68,9 @@ contract TermRegistry is Authorizable {
         // add term info to term array
         terms.push(info);
 
-        // give allowances to term and pool contracts ?
+        // give allowances to  term and pool to spend underlying tokens
+        term.token().approve(termAddress, type(uint256).max);
+        term.token().approve(poolAddress, type(uint256).max);
 
         // Emit event for filtering by yield source id
         emit TermRegistered(termAddress, poolAddress, yieldSourceId);
