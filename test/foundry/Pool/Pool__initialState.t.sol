@@ -14,23 +14,51 @@ import { Utils } from "../Utils.sol";
 import { PoolTest } from "./PoolUtils.sol";
 
 contract PoolTest__initialState is PoolTest {
-    function test__initialState() public {
+    // Reserves should be empty
+    function test__reserves() public {
         (uint128 shares, uint128 bonds) = pool.reserves(TERM_END);
         assertEq(shares, 0);
         assertEq(bonds, 0);
+    }
 
-        assertEq(pool.tradeFee(), TRADE_FEE);
-        assertEq(pool.governanceFeePercent(), 0);
-        assertEq(pool.governanceContract(), governance);
-
+    // Paramaters should not be initialised
+    function test__parameters() public {
         (uint32 tStretch, uint224 mu) = pool.parameters(TERM_END);
         assertEq(tStretch, 0);
         assertEq(mu, 0);
+    }
 
+    function test__governance_settings() public {
         (uint128 feesInShares, uint128 feesInBonds) = pool.governanceFees(
             TERM_END
         );
         assertEq(feesInShares, 0);
         assertEq(feesInBonds, 0);
+
+        assertEq(pool.governanceFeePercent(), 0);
+        assertEq(pool.governanceContract(), governance);
+    }
+
+    // Trade fee should match argument in constructor
+    function test__tradeFee() public {
+        assertEq(pool.tradeFee(), TRADE_FEE);
+    }
+
+    // governance address must be authorized
+    function test__governance_is_authorized() public {
+        assertTrue(pool.authorized(governance));
+    }
+
+    // governance must be owner
+    function test__owner() public {
+        assertEq(pool.owner(), governance);
+    }
+
+    // Pool must have max approval for the underlying token
+    function test__term_is_approved() public {
+        assertEq(
+            USDC.allowance(address(pool), address(term)),
+            type(uint256).max
+        );
     }
 }
