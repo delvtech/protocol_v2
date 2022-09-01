@@ -61,4 +61,16 @@ contract PoolTest__initialState is PoolTest {
             type(uint256).max
         );
     }
+
+    // Should fail with "RestrictedZeroAddress()"
+    function testFail__non_zero_governance_address() public {
+        pool = new Pool(
+            ITerm(address(term)),
+            IERC20(address(USDC)),
+            TRADE_FEE,
+            forwarderFactory.ERC20LINK_HASH(),
+            address(0),
+            address(forwarderFactory)
+        );
+    }
 }

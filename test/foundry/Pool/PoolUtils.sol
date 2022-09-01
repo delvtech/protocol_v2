@@ -18,6 +18,8 @@ contract PoolTest is ElementTest {
     ERC4626Term public term;
     Pool public pool;
 
+    ForwarderFactory forwarderFactory;
+
     address deployer = mkAddr("deployer");
     address user = mkAddr("user");
     address governance = mkAddr("governance");
@@ -33,7 +35,7 @@ contract PoolTest is ElementTest {
         USDC = new MockERC20Permit("USDC Coin", "USDC", 6);
         yUSDC = new MockERC4626(ERC20(address(USDC)));
 
-        ForwarderFactory forwarderFactory = new ForwarderFactory();
+        forwarderFactory = new ForwarderFactory();
 
         uint256[] memory assetIds;
         uint256[] memory assetAmounts;
