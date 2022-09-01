@@ -95,6 +95,13 @@ describe("Convert YT Tests", async () => {
       await expect(tx).to.be.revertedWith("ExpirationDateMustBeNonZero()");
     });
 
+    it("fails if already expired", async () => {
+      const start = await getCurrentTimestamp(provider);
+      const id = getTokenId(start, start + 1);
+      const tx = yieldAdapter.convertYT(id, 0, signers[0].address, false);
+      await expect(tx).to.be.revertedWith("TermExpired()");
+    });
+
     it("fails invalid start date", async () => {
       const expiration =
         (await getCurrentTimestamp(provider)) + ONE_YEAR_IN_SECONDS;

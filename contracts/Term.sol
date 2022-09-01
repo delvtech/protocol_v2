@@ -555,11 +555,15 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // calculate the shares belonging to the user
         uint256 userShares = (uint256(state.shares) * amount) /
             totalSupply[assetId];
-        // remove shares from the yield state and the yt to burn from pt
+        // PT percent - The number of PT to remove from this pool to keep the accounting
+        //              correct for price per share
+        uint256 percentPt = (uint256(state.pt) * amount) / totalSupply[assetId];
 
+        // Reduce the number of shares and reduce the implied number of PT to keep the
+        // implied interest per YT the same.
         yieldTerms[assetId] = YieldState(
             state.shares - uint128(userShares),
-            state.pt - uint128(amount)
+            state.pt - uint128(percentPt)
         );
 
         // burn the yt from the user's balance
