@@ -10,70 +10,13 @@ import "./libraries/FixedPointMath.sol";
 contract TermRegistry is Authorizable {
     using FixedPointMath for uint256;
 
+    // ------------------------------ Structs ------------------------------//
+
     struct TermInfo {
-        // sstore
+        // one sstore
         address termAddress; // term contract address
         address poolAddress; // pool contract address
         uint24 yieldSourceId; // arbitrary identifier, e.g. 1 = Yearn, 2 = Compound
-        // sstore
-        uint256 expiry; // term and pool multi-token identifier
-    }
-
-    event TermRegistered(
-        address indexed term,
-        address indexed pool,
-        uint24 indexed yieldSourceId,
-        bytes32 id,
-        uint256 expiry
-    );
-
-    mapping(bytes32 => TermInfo) private _termData;
-    bytes32[] public terms;
-
-    constructor(address governance) {
-        setOwner(governance); // set owner to governance
-    }
-
-    /// @notice Adds a new or existing term to the registry
-    /// @param term Term contract
-    /// @param pool Associated pool contract
-    /// @param expiry The expiry of the term and multi-token identifier
-    /// @param yieldSourceId Arbitrary identifier, e.g. 1 = Yearn, 2 = Compound, etc.
-    /// @return id Keccak-256 hash identifier of the newly registered term
-    function registerTerm(
-        Term term,
-        Pool pool,
-        uint256 expiry,
-        uint24 yieldSourceId
-    ) public onlyAuthorized returns (bytes32) {
-        address termAddress = address(term);
-        address poolAddress = address(pool);
-        // Create hash from (termAddress, poolAddress, expiry)
-        bytes32 termId = keccak256(
-            abi.encodePacked(termAddress, poolAddress, expiry)
-        );
-
-        TermInfo memory info = TermInfo(
-            termAddress,
-            poolAddress,
-            yieldSourceId,
-            expiry
-        );
-
-        // add term info to mapping data mapping
-        _termData[termId] = info;
-        // push term id to terms array
-        terms.push(termId);
-
-        emit TermRegistered(
-            termAddress,
-            poolAddress,
-            yieldSourceId,
-            termId,
-            expiry
-        );
-
-        return (termId);
     }
 
     struct PoolConfig {
@@ -83,45 +26,97 @@ contract TermRegistry is Authorizable {
         uint256 outputAmount; // expected underlying seeder receives back, might remove this
     }
 
-    /// @notice Creates a new term and adds it to this registry
+    // ------------------------------ Events ------------------------------//
+
+    event TermRegistered(
+        address term,
+        address pool,
+        uint24 indexed yieldSourceId
+    );
+
+    TermInfo[] public terms;
+
+    constructor(address owner) {
+        setOwner(owner);
+    }
+
+    /// @notice Adds a new or existing Term to the registry
     /// @param term Term contract
     /// @param pool Associated pool contract
+    /// @param yieldSourceId Arbitrary identifier, e.g. 1 = Yearn, 2 = Compound, etc.
+    function registerTerm(
+        Term term,
+        Pool pool,
+        uint24 yieldSourceId
+    ) public onlyAuthorized {
+        // cache addresses
+        address termAddress = address(term);
+        address poolAddress = address(pool);
+
+        // configuration check
+        require(
+            address(pool.term()) == termAddress,
+            "pool's term address != term address"
+        );
+
+        TermInfo memory info = TermInfo(
+            termAddress,
+            poolAddress,
+            yieldSourceId
+        );
+
+        // add term info to term array
+        terms.push(info);
+
+        // give allowances to term and pool contracts ?
+
+        // Emit event for filtering by yield source id
+        emit TermRegistered(termAddress, poolAddress, yieldSourceId);
+    }
+
+    /// @notice Creates a new sub-term from an approved Term list
+    /// @param termIndex index of the term information in the term list
     /// @param poolConfig sub-pool configuration
     /// @param expiry The expiry of the term and multi-token identifier
-    /// @param yieldSourceId Arbitrary identifier, e.g. 1 = Yearn, 2 = Compound
     /// @param seeder The address seeding new term with underlying funds
     /// @param lockedAmount Amount of underlying tokens to mint PTs and YTs (lock)
     /// @param unlockedAmount Amount of underlying tokens to deposit into the AMM unlocked
-    /// @param ptAmount Amount of PTs to sell into the AMM to set target APY
-    /// @param outputAmount Amount of underlying tokens the seeder should receive after initializing the sub-pool
+    /// @param ptAmount Amount of PTs to sell into the AMM to set target APY.
+    ///             Use the "calculatePTsNeededForTargetAPY" helper function off-chain for ideal amount
     function createTerm(
-        Term term,
-        Pool pool,
+        uint256 termIndex,
         PoolConfig memory poolConfig,
         uint256 expiry,
-        uint24 yieldSourceId,
         address seeder,
         uint256 lockedAmount,
         uint256 unlockedAmount,
-        uint256 ptAmount,
-        uint256 outputAmount
-    ) public {
-        // safety check to ensure both term and pool have the same forwarder factory
-        require(pool.factory == term.factory, "different factories");
+        uint256 ptAmount
+    ) public returns (uint256, uint256) {
+        // check for valid term index
+        require(
+            termIndex < terms.length && termIndex >= 0,
+            "invalid term index"
+        );
 
-        // transfer the underlying token to this contract
-        // seeder must have given this contract allowance
+        // fetch term information by term index
+        // term index can be resolved off-chain
+        TermInfo memory termInfo = terms[termIndex];
+        Term term = Term(termInfo.termAddress);
+        Pool pool = Pool(termInfo.poolAddress);
+
+        // transfer token from seeder to this contract
+        // seeder must have given proper allowance before call
         term.token().transferFrom(seeder, address(this), lockedAmount);
 
-        // beautiful type inferencing skills of solidity
+        // beautiful type inferencing of solidity
         uint256[] memory emptyArray;
 
-        // create a new sub-term with given expiry
-        // YTs are sent to the seeder, PTs kept for pool initializatoin trade
-        // only supports creating a term with underlying tokens not PTs/YTs
+        // creates a new term with given expiry
+        // YTs are sent to seeder, PTs kept for pool initializatoin trade
+        // only supports creating term with underlying tokens not expired PTs/YTs
         term.lock(
-            emptyArray,
-            emptyArray,
+            emptyArray, // no expired PTs will be used to initialize term
+            emptyArray, // no expired PTs will be used to initialize term
             lockedAmount, // amount of underlying tokens to lock
             false, // no prefunding
             seeder, // YT destination
@@ -130,7 +125,7 @@ contract TermRegistry is Authorizable {
             expiry
         );
 
-        // creates a sub-pool with the given expiry and configuration
+        // creates a pool with given expiry and configuration
         pool.registerPoolId(
             expiry,
             unlockedAmount, // amount of underlying tokens to be deposited in AMM as unlocked
@@ -140,7 +135,7 @@ contract TermRegistry is Authorizable {
             poolConfig.maxLength
         );
 
-        // sell PTs into the pool to initialize the pool with a target APY
+        // sell PTs into the pool to initialize with a target APY
         pool.tradeBonds(
             expiry,
             ptAmount, // amount of PTs to sell into the pool
@@ -149,8 +144,7 @@ contract TermRegistry is Authorizable {
             false // selling PTs
         );
 
-        // register term
-        registerTerm(term, pool, expiry, yieldSourceId);
+        return (block.timestamp, expiry);
     }
 
     /// @dev formula source (https://paper.element.fi/#e-initializing-the-convergent-curve-pool-price)
@@ -174,35 +168,5 @@ contract TermRegistry is Authorizable {
         uint256 num = poolSupply.mulDown(aPow.sub(1));
         uint256 den = _one.add(aPow);
         return num.divDown(den);
-    }
-
-    /// @notice Gets all registered terms stored in this contract, including expired terms.
-    ///         Useful for getting full term information off-chain
-    /// @return array of all registered terms, including expired terms
-    function getAllTerms() external view returns (TermInfo[] memory) {
-        TermInfo[] memory allTerms = new TermInfo[](terms.length);
-
-        for (uint256 i = 0; i < terms.length; i++) {
-            TermInfo memory term = _termData[terms[i]];
-            allTerms[i] = term;
-        }
-
-        return allTerms;
-    }
-
-    /// @notice Gets all active terms stored in this contract, excluding expired terms.
-    ///         Useful for getting active term information off-chain.
-    /// @return array of all active terms, excluding expired terms.
-    function getAllActiveTerms() external view returns (TermInfo[] memory) {
-        TermInfo[] memory allActiveTerms = new TermInfo[](terms.length);
-
-        for (uint256 i = 0; i < terms.length; i++) {
-            TermInfo memory term = _termData[terms[i]];
-            if (block.timestamp < term.expiry) {
-                allActiveTerms[i] = term;
-            }
-        }
-
-        return allActiveTerms;
     }
 }
