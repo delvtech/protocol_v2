@@ -7,6 +7,7 @@ import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
 import "./libraries/Errors.sol";
+import "forge-std/console.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
@@ -544,6 +545,8 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         if (expiry == 0) revert ElementError.ExpirationDateMustBeNonZero();
         // start date must be greater than zero
         if (startDate == 0) revert ElementError.StartDateMustBeNonZero();
+        // Must not be in the same block as the start
+        if (startDate == block.timestamp) revert ElementError.InvalidStart();
         // Must not be expired
         if (expiry < block.timestamp) revert ElementError.TermExpired();
 

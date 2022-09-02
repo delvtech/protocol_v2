@@ -32,6 +32,7 @@ library ElementError {
     error IncongruentPrincipalAndYieldTokenIds();
     error VaultShareReserveTooLow();
     error NegativeInterest();
+    error InvalidStart();
 
     /// ############
     /// ### Pool ###
