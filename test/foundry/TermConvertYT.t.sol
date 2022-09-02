@@ -144,8 +144,12 @@ contract TermTest is Test {
         token.mint(address(yearnVault), 5e6);
         vm.warp(5);
 
+        uint256 sharesPerExpiryBefore = term.sharesPerExpiry(10);
         vm.prank(address(user));
         term.convertYT(_getID(1, 1, 10), 5e6, address(user), true);
+
+        assertEq(sharesPerExpiryBefore, term.sharesPerExpiry(10));
+
         uint256 ptBalance = term.balanceOf(_getID(0, 0, 10), address(user));
         // 10 from first deposit 2.5 from redeposit
         assertApproxEqAbs(ptBalance, 125e5, 1);
@@ -172,6 +176,7 @@ contract TermTest is Test {
         term.unlock(address(user), assetIds, sharesList);
 
         assertApproxEqAbs(token.balanceOf(address(user)), 15e6, 2);
+        assertEq(term.sharesPerExpiry(10), 0);
 
         assetIds.pop();
         sharesList.pop();
