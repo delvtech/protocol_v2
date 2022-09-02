@@ -14,6 +14,23 @@ import { Utils } from "../Utils.sol";
 import { PoolTest } from "./PoolUtils.sol";
 
 contract PoolTest__initialState is PoolTest {
+    function setUp() public {
+        PoolTest.Env memory env = PoolTest.Env({
+            vaultSharePrice: 0.9e6,
+            vaultShareSupply: 9_000_000e6,
+            maxReserve: 100_000e6,
+            underlyingToLock: 100_000e6,
+            underlyingToLP: 1_000_000e6,
+            termDurationPassed: 0,
+            averageYieldAcrossTerm: 0
+        });
+        initEnv(env);
+
+        vm.startPrank(user);
+        USDC.mint(user, 100_000e6);
+        USDC.approve(address(pool), type(uint256).max);
+    }
+
     // Reserves should be empty
     function test__reserves() public {
         (uint128 shares, uint128 bonds) = pool.reserves(TERM_END);

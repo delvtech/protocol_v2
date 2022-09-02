@@ -4,9 +4,6 @@ pragma solidity ^0.8.15;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
-import { MockERC4626, ERC20 } from "contracts/mocks/MockERC4626.sol";
-import { MockERC20Permit } from "contracts/mocks/MockERC20Permit.sol";
-import { ForwarderFactory } from "contracts/ForwarderFactory.sol";
 import { ERC4626Term, IERC4626 } from "contracts/ERC4626Term.sol";
 import { Pool, ITerm, IERC20, FixedPointMath, ElementError } from "contracts/Pool.sol";
 
@@ -14,6 +11,23 @@ import { Utils } from "../Utils.sol";
 import { PoolTest } from "./PoolUtils.sol";
 
 contract PoolTest__registerPoolId is PoolTest {
+    function setUp() public {
+        PoolTest.Env memory env = PoolTest.Env({
+            vaultSharePrice: 0.9e6,
+            vaultShareSupply: 9_000_000e6,
+            maxReserve: 100_000e6,
+            underlyingToLock: 100_000e6,
+            underlyingToLP: 1_000_000e6,
+            termDurationPassed: 0,
+            averageYieldAcrossTerm: 0
+        });
+        initEnv(env);
+
+        vm.startPrank(user);
+        USDC.mint(user, 100_000e6);
+        USDC.approve(address(pool), type(uint256).max);
+    }
+
     // success case - general flow
     function test__general_flow() public {
         uint256 underlying = 10_000e6;

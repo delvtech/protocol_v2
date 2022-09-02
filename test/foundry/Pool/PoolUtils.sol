@@ -2,6 +2,7 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 import { MockERC4626, ERC20 } from "contracts/mocks/MockERC4626.sol";
 import { MockERC20Permit } from "contracts/mocks/MockERC20Permit.sol";
@@ -20,32 +21,59 @@ contract PoolTest is ElementTest {
 
     ForwarderFactory forwarderFactory;
 
-    address deployer = mkAddr("deployer");
     address user = mkAddr("user");
+    address deployer = mkAddr("deployer");
     address governance = mkAddr("governance");
 
     uint256 public TERM_START = block.timestamp;
     uint256 public TERM_END = TERM_START + YEAR;
-    uint32 public T_STRETCH = 10245;
     uint256 public TRADE_FEE = 1;
 
-    function setUp() public {
+    uint32 public T_STRETCH = 10245;
+
+    struct Env {
+        // ratio of vaultShares to underlying in yield source
+        uint256 vaultSharePrice;
+        // Amount of vault shares that have been issued previously
+        uint256 vaultShareSupply;
+        // Set max reserve
+        uint256 maxReserve;
+        // Amount of underlying to lock in the term once created
+        uint256 underlyingToLock;
+        // Amount of underlying to LP in the term once created
+        uint256 underlyingToLP;
+        // Percentage amount of time passed in TERM
+        uint256 termDurationPassed;
+        // Percentage increase of vault share price across term length
+        uint256 averageYieldAcrossTerm;
+    }
+
+    function initEnv(Env memory env) public {
         vm.startPrank(deployer);
 
         USDC = new MockERC20Permit("USDC Coin", "USDC", 6);
         yUSDC = new MockERC4626(ERC20(address(USDC)));
 
-        forwarderFactory = new ForwarderFactory();
+        USDC.approve(address(yUSDC), type(uint256).max);
 
-        uint256[] memory assetIds;
-        uint256[] memory assetAmounts;
+        USDC.mint(deployer, env.vaultShareSupply);
+        yUSDC.deposit(env.vaultShareSupply, deployer);
+
+        // TODO negative interest scenario in the vault
+        USDC.mint(
+            address(yUSDC),
+            ((env.vaultShareSupply * 1e6) / env.vaultSharePrice) -
+                env.vaultShareSupply
+        );
+
+        forwarderFactory = new ForwarderFactory();
 
         term = new ERC4626Term(
             IERC4626(address(yUSDC)),
             forwarderFactory.ERC20LINK_HASH(),
             address(forwarderFactory),
-            100_000e6,
-            address(this)
+            env.maxReserve,
+            governance
         );
 
         pool = new Pool(
@@ -57,13 +85,18 @@ contract PoolTest is ElementTest {
             address(forwarderFactory)
         );
 
-        USDC.mint(deployer, 200_000_000e6);
         USDC.approve(address(term), type(uint256).max);
+        USDC.approve(address(pool), type(uint256).max);
+
+        USDC.mint(deployer, env.underlyingToLock + env.underlyingToLP);
+
+        uint256[] memory assetIds;
+        uint256[] memory assetAmounts;
 
         term.lock(
             assetIds,
             assetAmounts,
-            90_000_000e6,
+            env.underlyingToLock,
             false,
             deployer,
             deployer,
@@ -71,12 +104,52 @@ contract PoolTest is ElementTest {
             TERM_END
         );
 
-        term.depositUnlocked(90_000_000e6, 0, 0, address(this));
+        pool.registerPoolId(
+            TERM_END,
+            env.underlyingToLP,
+            T_STRETCH,
+            user,
+            5,
+            5
+        );
+
+        uint256 avgYieldAcrossDuration = (env.averageYieldAcrossTerm *
+            env.termDurationPassed) / 1e18;
+
+        console.log("avgYieldAcrossDuration: %s", avgYieldAcrossDuration);
+
+        uint256 preVaultSharePrice = yUSDC.previewRedeem(1e6);
+        uint256 priceDiff = ((preVaultSharePrice * avgYieldAcrossDuration) /
+            1e18);
+        uint256 targetPrice = preVaultSharePrice + priceDiff;
+
+        console.log("priceDiff: %s", priceDiff);
+        console.log("targetPrice: %s", targetPrice);
+
+        uint256 targetUnderlying = (yUSDC.totalSupply() * targetPrice) / 1e6;
+        uint256 interestToAccrue = targetUnderlying -
+            USDC.balanceOf(address(yUSDC));
+
+        console.log("pre USDC: %s", USDC.balanceOf(address(yUSDC)));
+        console.log("pre yUSDC: %s", yUSDC.totalSupply());
+        console.log("pre price", preVaultSharePrice);
+
+        USDC.mint(address(yUSDC), interestToAccrue);
+        uint256 postVaultSharePrice = yUSDC.previewRedeem(1e6);
+
+        console.log("post USDC: %s", USDC.balanceOf(address(yUSDC)));
+        console.log("post yUSDC: %s", yUSDC.totalSupply());
+
+        console.log("post price", postVaultSharePrice);
+
+        assertEq(targetPrice, postVaultSharePrice);
+
+        uint256 secondsPassed = ((TERM_END - block.timestamp) *
+            env.termDurationPassed) / 1e18;
+
+        vm.warp(block.timestamp + secondsPassed);
+        vm.roll(secondsPassed / 12);
 
         vm.stopPrank();
-        vm.startPrank(user);
-
-        USDC.mint(user, 100_000e6);
-        USDC.approve(address(pool), type(uint256).max);
     }
 }
