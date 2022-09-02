@@ -7,7 +7,6 @@ import "./interfaces/ITerm.sol";
 import "./interfaces/IERC20.sol";
 import "./libraries/Authorizable.sol";
 import "./libraries/Errors.sol";
-import "forge-std/console.sol";
 
 abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     // Struct to store packed yield term info, packed into one sstore
