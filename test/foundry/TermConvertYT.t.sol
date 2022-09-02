@@ -73,7 +73,7 @@ contract TermTest is Test {
         // expired
         vm.expectRevert(ElementError.TermExpired.selector);
         term.convertYT(
-            _getID(1, 10, block.timestamp - 1),
+            _getID(1, 5, block.timestamp - 1),
             0,
             address(user),
             true
@@ -125,7 +125,7 @@ contract TermTest is Test {
         term.unlock(address(user), assetIds, sharesList);
 
         assertApproxEqAbs(token.balanceOf(address(user)), 15e6, 2);
-        assertEq(term.sharesPerExpiry(10), 0);
+        assertApproxEqAbs(term.sharesPerExpiry(10), 0, 1);
 
         assetIds.pop();
         sharesList.pop();
