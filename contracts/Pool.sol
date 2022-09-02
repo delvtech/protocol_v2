@@ -74,6 +74,9 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 sharesIn
     );
 
+    /// Emitted when a new pool is registered.
+    event PoolRegistered(uint256 indexed poolId);
+
     /// @notice Initialize the contract with below params.
     /// @param _term Address of the YieldAdapter whose PTs and YTs are supported with this Pool.
     /// @param _token The ERC20 token
@@ -184,6 +187,10 @@ contract Pool is LP, Authorizable, TWAROracle {
         parameters[poolId] = SubPoolParameters(timeStretch, uint224(mu));
         // Mint LP tokens to the recipient.
         _mint(poolId, recipient, sharesMinted);
+
+        // Emit pool registered event for discoverability.
+        emit PoolRegistered(poolId);
+
         // Return the minted LP
         return (sharesMinted);
     }
