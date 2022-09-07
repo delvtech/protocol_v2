@@ -103,51 +103,41 @@ contract ExpiryRegistryTest is Test {
         // assertEq(registry.getTermsCount(), 1);
     }
 
-    // function testCreateTerm_externalSeeder() public {
-    //     // startHoax(address(expiryRegistry));
-    //     // // token.approve(term);
-    //     // token.mint(address(expiryRegistry), 200_000 * 1e18);
-    //     // ExpiryRegistry.PoolConfig memory poolConfig = ExpiryRegistry.PoolConfig(
-    //     //     10_000,
-    //     //     0,
-    //     //     0,
-    //     //     0
-    //     // );
-    //     // expiryRegistry.createTerm(
-    //     //     0,
-    //     //     poolConfig,
-    //     //     block.timestamp + 100_000,
-    //     //     address(this),
-    //     //     100_000,
-    //     //     50_000,
-    //     //     25_000
-    //     // );
-    //     // assertEq(registry.getTermsCount(), 1);
-    // }
+    function testCreateTerm_externalSeeder() public {
+        startHoax(address(expiryRegistry));
+        token.approve(address(term), type(uint256).max);
+        token.approve(address(pool), type(uint256).max);
+        term.setApprovalForAll(address(pool), true);
+        vm.stopPrank();
 
-    // function testFailRegisterTerm() public {
-    //     // User bad = new User();
-    //     // startHoax(address(bad));
-    //     // registry.registerTerm(term, pool, 1);
-    // }
+        // token.approve(term);
 
-    // function testFailRegisterTerm_poolDifferentTerm() public {
-    //     // startHoax(address(user));
-    //     // MockYieldAdapter newTerm = new MockYieldAdapter(
-    //     //     address(yearnVault),
-    //     //     governanceContract,
-    //     //     linkerCodeHash,
-    //     //     address(factory),
-    //     //     token
-    //     // );
-    //     // Pool newPool = new MockPool(
-    //     //     newTerm,
-    //     //     token,
-    //     //     tradeFee,
-    //     //     linkerCodeHash,
-    //     //     governanceContract,
-    //     //     address(factory)
-    //     // );
-    //     // registry.registerTerm(term, newPool, 1);
-    // }
+        User seeder = new User();
+        startHoax(address(seeder));
+
+        token.mint(address(seeder), 200_000 * 1e18);
+        token.approve(address(term), type(uint256).max);
+        token.approve(address(pool), type(uint256).max);
+        token.approve(address(expiryRegistry), type(uint256).max);
+        term.setApprovalForAll(address(pool), true);
+
+        ExpiryRegistry.PoolConfig memory poolConfig = ExpiryRegistry.PoolConfig(
+            10_000,
+            0,
+            0,
+            0
+        );
+
+        expiryRegistry.createTerm(
+            0,
+            poolConfig,
+            block.timestamp + 100_000,
+            address(seeder),
+            100_000 * 1e18,
+            1_000 * 1e18,
+            1_000 * 1e18
+        );
+
+        // assert that seeder account is properly accredited
+    }
 }

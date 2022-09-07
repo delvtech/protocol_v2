@@ -77,7 +77,11 @@ contract ExpiryRegistry is Authorizable {
         // transfer token from seeder to this contract
         // seeder must have given proper allowance before call
         if (seeder != address(this)) {
-            term.token().transferFrom(seeder, address(this), lockedAmount);
+            term.token().transferFrom(
+                seeder,
+                address(this),
+                lockedAmount + unlockedAmount
+            );
         }
 
         // beautiful type inferencing of solidity
