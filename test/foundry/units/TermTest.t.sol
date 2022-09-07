@@ -13,16 +13,19 @@ contract TermTest is Test, Term {
     ForwarderFactory _factory;
     IERC20 _token;
 
-    // FIXME: Comment this hack.
+    // @notice Deploys a ForwarderFactory and a ERC20 token so that we can
+    //         provide arguments to the Term constructor in this contract's
+    //         constructor.
     modifier setupDependencies() {
         _factory = new ForwarderFactory();
         _token = new MockERC20Permit("Test", "TEST", 18);
         _;
     }
 
-    // FIXME: Comment this to explain what's happening.
-    //
-    // TODO: Add the ability to specify a different amount of decimals.
+    // @notice This contract inherits from Term. This is a convenient
+    //         alternative to creating a mock Term contract that exposes all
+    //         of the internal functions as external functions that still
+    //         allows us to access the state and test the internal functions.
     constructor()
         setupDependencies
         Term(
