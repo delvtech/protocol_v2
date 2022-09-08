@@ -10,7 +10,6 @@ import "contracts/mocks/MockERC20YearnVault.sol";
 import "contracts/mocks/MockPool.sol";
 import "contracts/mocks/MockYieldAdapter.sol";
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 contract User {
     // to be able to receive funds

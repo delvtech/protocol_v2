@@ -6,7 +6,6 @@ import "./Term.sol";
 import "./TermRegistry.sol";
 import "./libraries/Authorizable.sol";
 import "./libraries/FixedPointMath.sol";
-import "forge-std/console.sol";
 
 // An extension to the TermRegistry that supports blessing particular timestamps
 contract ExpiryRegistry is Authorizable {
@@ -114,8 +113,6 @@ contract ExpiryRegistry is Authorizable {
             poolConfig.maxTime,
             poolConfig.maxLength
         );
-
-        console.logUint(term.balanceOf(expiry, seeder));
 
         // sell PTs into the pool to initialize with a target APY
         pool.tradeBonds(
