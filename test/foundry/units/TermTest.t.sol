@@ -3,77 +3,90 @@ pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
 import "contracts/ForwarderFactory.sol";
-import "contracts/Term.sol";
 import "contracts/interfaces/IERC20.sol";
+import "contracts/mocks/MockTerm.sol";
 import "contracts/mocks/MockERC20Permit.sol";
 
-contract TermTest is Test, Term {
-    // -------------------       Mock Setup      --------------------- //
-
+contract TermTest is Test {
     ForwarderFactory _factory;
-    IERC20 _token;
+    MockTerm _term;
+    MockERC20Permit _underlying;
 
-    // @notice Deploys a ForwarderFactory and a ERC20 token so that we can
-    //         provide arguments to the Term constructor in this contract's
-    //         constructor.
-    modifier setupDependencies() {
+    function setUp() public {
         _factory = new ForwarderFactory();
-        _token = new MockERC20Permit("Test", "TEST", 18);
-        _;
-    }
-
-    // @notice This contract inherits from Term. This is a convenient
-    //         alternative to creating a mock Term contract that exposes all
-    //         of the internal functions as external functions that still
-    //         allows us to access the state and test the internal functions.
-    constructor()
-        setupDependencies
-        Term(
+        _underlying = new MockERC20Permit("Test", "TEST", 18);
+        // FIXME: Consider making a user to be the owner.
+        _term = new MockTerm(
             _factory.ERC20LINK_HASH(),
             address(_factory),
-            _token,
+            IERC20(_underlying),
             address(this)
-        )
-    {}
-
-    function _convert(ShareState _state, uint256 _shares)
-        internal
-        override
-        returns (uint256)
-    {
-        // FIXME: Implement this so that it's a useful mock.
-        return 0;
+        );
     }
 
-    function _deposit(ShareState _state)
-        internal
-        override
-        returns (uint256, uint256)
-    {
-        // FIXME: Implement this so that it's a useful mock.
-        return (0, 0);
+    // ------------------- _parseAssetId unit tests ------------------ //
+
+    function encodeAssetId(
+        bool isYieldToken,
+        uint256 startDate,
+        uint256 expirationDate
+    ) internal pure returns (uint256) {
+        return
+            (uint256(isYieldToken ? 1 : 0) << 255) |
+            (startDate << 128) |
+            expirationDate;
     }
 
-    function _underlying(uint256 _shares, ShareState _state)
-        internal
-        view
-        override
-        returns (uint256)
-    {
-        // FIXME: Implement this so that it's a useful mock.
-        return 0;
+    function testParseAssetId__principalTokenId() public {
+        bool[4] memory isYieldTokenInputs = [false, false, false, false];
+        uint256[4] memory startDateInputs = [uint256(0), 0, 15, 43];
+        uint256[4] memory expirationDateInputs = [uint256(0), 12, 0, 67];
+
+        for (uint256 i = 0; i < isYieldTokenInputs.length; i++) {
+            (
+                bool isYieldToken,
+                uint256 startDate,
+                uint256 expirationDate
+            ) = _term.parseAssetIdExternal(
+                    encodeAssetId(
+                        isYieldTokenInputs[i],
+                        startDateInputs[i],
+                        expirationDateInputs[i]
+                    )
+                );
+
+            assertEq(isYieldToken, false);
+            assertEq(startDate, 0);
+            // TODO: Adding the edge case of there being a start date to the
+            // test as a sanity check.
+            assertEq(
+                expirationDate,
+                (startDateInputs[i] << 128) | expirationDateInputs[i]
+            );
+        }
     }
 
-    function _withdraw(
-        uint256 _shares,
-        address _dest,
-        ShareState _state
-    ) internal override returns (uint256) {
-        // FIXME: Implement this so that it's a useful mock.
-        return 0;
+    function testParseAssetId__yieldTokenId() public {
+        bool[4] memory isYieldTokenInputs = [true, true, true, true];
+        uint256[4] memory startDateInputs = [uint256(0), 0, 15, 43];
+        uint256[4] memory expirationDateInputs = [uint256(0), 12, 0, 67];
+
+        for (uint256 i = 0; i < isYieldTokenInputs.length; i++) {
+            (
+                bool isYieldToken,
+                uint256 startDate,
+                uint256 expirationDate
+            ) = _term.parseAssetIdExternal(
+                    encodeAssetId(
+                        isYieldTokenInputs[i],
+                        startDateInputs[i],
+                        expirationDateInputs[i]
+                    )
+                );
+
+            assertEq(isYieldToken, true);
+            assertEq(startDate, startDateInputs[i]);
+            assertEq(expirationDate, expirationDateInputs[i]);
+        }
     }
-
-    // -------------------      Foundry Setup       ------------------ //
-
-    function setUp() public {}
 }
