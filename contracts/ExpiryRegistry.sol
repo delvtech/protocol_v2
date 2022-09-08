@@ -27,7 +27,7 @@ contract ExpiryRegistry is Authorizable {
     }
 
     // termId in the TermRegistry to list of expiries
-    mapping(uint256 => Expiry[]) public expiries;
+    mapping(uint256 => Expiry[]) private _expiries;
 
     constructor(address owner, TermRegistry _registry) {
         setOwner(owner);
@@ -40,7 +40,7 @@ contract ExpiryRegistry is Authorizable {
         uint256 expiry
     ) public onlyAuthorized {
         Expiry memory e = Expiry(start, expiry);
-        expiries[termIndex].push(e);
+        _expiries[termIndex].push(e);
     }
 
     /// @notice Creates a new sub-term from an approved Term list
@@ -60,7 +60,7 @@ contract ExpiryRegistry is Authorizable {
         uint256 lockedAmount,
         uint256 unlockedAmount,
         uint256 ptAmount
-    ) public returns (uint256, uint256) {
+    ) public onlyAuthorized returns (uint256, uint256) {
         // check for valid term index
         // TermRegistry.TermInfo[] storage terms = registry.terms;
         // require(
@@ -73,6 +73,10 @@ contract ExpiryRegistry is Authorizable {
         TermRegistry.TermInfo memory termInfo = registry.getTerm(termIndex);
         Term term = Term(termInfo.termAddress);
         Pool pool = Pool(termInfo.poolAddress);
+
+        // cache token holdings
+        uint256 underlyingTotal = term.token().balanceOf(address(this));
+        uint256 ptTotal = term.balanceOf(expiry, address(this));
 
         // transfer token from seeder to this contract
         // seeder must have given proper allowance before call
@@ -122,6 +126,28 @@ contract ExpiryRegistry is Authorizable {
             false // selling PTs
         );
 
+        // return excess capital to seeder
+        if (seeder != address(this)) {
+            uint256 currentUnderlyingTotal = term.token().balanceOf(
+                address(this)
+            );
+            term.token().transferFrom(
+                address(this),
+                seeder,
+                currentUnderlyingTotal - underlyingTotal
+            );
+
+            uint256 currentPtTotal = term.balanceOf(expiry, address(this));
+            term.transferFrom(
+                expiry,
+                address(this),
+                seeder,
+                currentPtTotal - ptTotal
+            );
+        }
+
+        registerExpiry(termIndex, block.timestamp, expiry);
+
         return (block.timestamp, expiry);
     }
 
@@ -146,5 +172,17 @@ contract ExpiryRegistry is Authorizable {
         uint256 num = poolSupply.mulDown(aPow.sub(1));
         uint256 den = _one.add(aPow);
         return num.divDown(den);
+    }
+
+    function getExpiriesCount(uint256 termIndex) public view returns (uint256) {
+        return _expiries[termIndex].length;
+    }
+
+    function getExpiries(uint256 termIndex)
+        public
+        view
+        returns (Expiry[] memory)
+    {
+        return _expiries[termIndex];
     }
 }
