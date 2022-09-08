@@ -73,18 +73,27 @@ contract TermTest is Test {
     //     );
     // }
 
-    struct FailureTestCaseReleasePT {
+    struct ReleasePTTestCaseInput {
         uint256 amount;
         uint128 interest;
         uint256 sharesPerExpiry;
         uint256 underlying;
         uint256 userBalance;
         uint256 totalSupply;
+    }
+
+    struct ReleasePTFailureTestCase {
+        ReleasePTTestCaseInput input;
+        bytes expectedError;
+    }
+
+    struct ReleasePTSuccessTestCase {
+        ReleasePTTestCaseInput input;
         bytes expectedError;
     }
 
     function executeReleasePTFailureTestCases(
-        FailureTestCaseReleasePT[] memory _testCases
+        ReleasePTFailureTestCase[] memory _testCases
     ) internal {
         startHoax(user);
 
@@ -97,12 +106,19 @@ contract TermTest is Test {
             // Set up the test's state in the term contract.
             Term.FinalizedState memory finalState = Term.FinalizedState({
                 pricePerShare: 0.1 ether,
-                interest: _testCases[i].interest
+                interest: _testCases[i].input.interest
             });
-            _term.setSharesPerExpiry(assetId, _testCases[i].sharesPerExpiry);
-            _term.setUnderlyingReturnValue(_testCases[i].underlying);
-            _term.setUserBalance(assetId, user, _testCases[i].userBalance);
-            _term.setTotalSupply(assetId, _testCases[i].totalSupply);
+            _term.setSharesPerExpiry(
+                assetId,
+                _testCases[i].input.sharesPerExpiry
+            );
+            _term.setUnderlyingReturnValue(_testCases[i].input.underlying);
+            _term.setUserBalance(
+                assetId,
+                user,
+                _testCases[i].input.userBalance
+            );
+            _term.setTotalSupply(assetId, _testCases[i].input.totalSupply);
 
             // Expect an error to occur with the required bytes.
             vm.expectRevert(_testCases[i].expectedError);
@@ -112,7 +128,7 @@ contract TermTest is Test {
                 finalState,
                 assetId,
                 user,
-                _testCases[i].amount
+                _testCases[i].input.amount
             );
         }
     }
@@ -122,309 +138,688 @@ contract TermTest is Test {
     function testReleasePTExpectsRevert__zeroUnderlying() public {
         // All of these test cases should fail with a division by zero error
         // on account of the underlying being zero.
-        FailureTestCaseReleasePT[32] memory testCases = [
+        ReleasePTFailureTestCase[32] memory testCases = [
             // Choose 0 out of 5 - 1 case.
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 0,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
             // Choose 1 out of 5 - 5 cases.
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 0,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 1 ether,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 0,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 0,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 0,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
             // Choose 2 out of 5 - 10 cases
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 1 ether,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 0,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 0,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 0,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 1 ether,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 1 ether,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 1 ether,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 0,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 0,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 0,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
             // Choose 3 out of 5 - 10 cases
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 1 ether,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 1 ether,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 1 ether,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 0,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 0,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 0,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 1 ether,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 1 ether,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 1 ether,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 0,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
             // Choose 4 out of 5 - 5 cases
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 1 ether,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 0,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 1 ether,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 0,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 1 ether,
-                sharesPerExpiry: 0,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 0,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
-            FailureTestCaseReleasePT({
-                amount: 0,
-                interest: 1 ether,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             }),
             // Choose 5 out of 5 - 1 case
-            FailureTestCaseReleasePT({
-                amount: 1 ether,
-                interest: 1 ether,
-                sharesPerExpiry: 1 ether,
-                underlying: 0,
-                userBalance: 1 ether,
-                totalSupply: 1 ether,
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 0,
+                    userBalance: 1 ether,
+                    totalSupply: 1 ether
+                }),
                 expectedError: stdError.divisionError
             })
         ];
 
-        FailureTestCaseReleasePT[]
-            memory testCasesReified = new FailureTestCaseReleasePT[](32);
+        ReleasePTFailureTestCase[]
+            memory testCasesReified = new ReleasePTFailureTestCase[](32);
         for (uint256 i = 0; i < testCases.length; i++) {
             testCasesReified[i] = testCases[i];
         }
         executeReleasePTFailureTestCases(testCasesReified);
+    }
+
+    // This test runs through the full test matrix of cases in which the total
+    // supply is zero and the underlying is non-zero (we tested the matrix of
+    // the underlying being zero above). In the majority of cases, the total
+    // supply of zero causes a division error; however, in a few cases, there
+    // is an arithmetic error.
+    function testReleasePTExpectsRevert__zeroTotalSupply() public {
+        ReleasePTFailureTestCase[16] memory testCases = [
+            // Choose 0 out of 4 - 1 case
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            // Choose 1 out of 4 - 4 cases
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            // NOTE: This is an arithmetic error since the sharesPerExpiry is
+            // zero, but the user shares is non-zero since interest and
+            // underlying are non-zero.
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.arithmeticError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            // Choose 2 out of 4 - 6 cases
+            //
+            // NOTE: This is an arithmetic error since the sharesPerExpiry is
+            // zero, but the user shares is non-zero since interest and
+            // underlying are non-zero.
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.arithmeticError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            // NOTE: This is an arithmetic error since the sharesPerExpiry is
+            // zero, but the user shares is non-zero since interest and
+            // underlying are non-zero.
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.arithmeticError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            // Choose 3 out of 4 - 4 cases
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            // NOTE: This is an arithmetic error since the sharesPerExpiry is
+            // zero, but the user shares is non-zero since interest and
+            // underlying are non-zero.
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.arithmeticError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            }),
+            // Choose 4 out of 4 - 1 case
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 1 ether,
+                    totalSupply: 0
+                }),
+                expectedError: stdError.divisionError
+            })
+        ];
+
+        ReleasePTFailureTestCase[]
+            memory testCasesReified = new ReleasePTFailureTestCase[](16);
+        for (uint256 i = 0; i < testCases.length; i++) {
+            testCasesReified[i] = testCases[i];
+        }
+        executeReleasePTFailureTestCases(testCasesReified);
+    }
+
+    // FIXME:
+    function testReleasePTExpectsRevert__zeroUserSupply() public {
+        // Failure tests
+        ReleasePTFailureTestCase[5] memory testCases = [
+            // Choose 0 out of 3 - 1 case
+            // FIXME
+            // ReleasePTFailureTestCase({
+            //     amount: 0,
+            //     interest: 0,
+            //     sharesPerExpiry: 0,
+            //     underlying: 1 ether,
+            //     userBalance: 0,
+            //     totalSupply: 1 ether,
+            //     expectedError: stdError.arithmeticError
+            // }),
+            // Choose 1 out of 3 - 3 cases
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
+                expectedError: stdError.arithmeticError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 0,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
+                expectedError: stdError.arithmeticError
+            }),
+            // FIXME
+            // ReleasePTFailureTestCase({
+            //     amount: 0,
+            //     interest: 0,
+            //     sharesPerExpiry: 1 ether,
+            //     underlying: 1 ether,
+            //     userBalance: 0,
+            //     totalSupply: 1 ether,
+            //     expectedError: stdError.arithmeticError
+            // }),
+            // Choose 2 out of 3 - 3 cases
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 0,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
+                expectedError: stdError.arithmeticError
+            }),
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 0,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
+                expectedError: stdError.arithmeticError
+            }),
+            // FIXME
+            // ReleasePTFailureTestCase({
+            //     amount: 0,
+            //     interest: 1 ether,
+            //     sharesPerExpiry: 1 ether,
+            //     underlying: 1 ether,
+            //     userBalance: 0,
+            //     totalSupply: 1 ether,
+            //     expectedError: stdError.arithmeticError
+            // }),
+            // Choose 3 out of 3 - 1 case
+            ReleasePTFailureTestCase({
+                input: ReleasePTTestCaseInput({
+                    amount: 1 ether,
+                    interest: 1 ether,
+                    sharesPerExpiry: 1 ether,
+                    underlying: 1 ether,
+                    userBalance: 0,
+                    totalSupply: 1 ether
+                }),
+                expectedError: stdError.arithmeticError
+            })
+        ];
+        ReleasePTFailureTestCase[]
+            memory testCasesReified = new ReleasePTFailureTestCase[](5);
+        for (uint256 i = 0; i < testCases.length; i++) {
+            testCasesReified[i] = testCases[i];
+        }
+        executeReleasePTFailureTestCases(testCasesReified);
+
+        // Success tests
     }
 
     // ------------------- _parseAssetId unit tests ------------------ //
