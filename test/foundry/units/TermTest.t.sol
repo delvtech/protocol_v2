@@ -92,24 +92,11 @@ contract TermTest is Test {
         bytes expectedError;
     }
 
-    function getReleasePTTestCases()
-        internal
-        returns (ReleasePTTestCaseInput[] memory)
-    {
-        string memory path = "./testdata/_releasePT.json";
-        string memory json = vm.readFile(path);
-        bytes memory rawTestCases = vm.parseJson(json);
-        ReleasePTTestCaseInput[] memory testCases = abi.decode(
-            rawTestCases,
-            (ReleasePTTestCaseInput[])
-        );
-    }
-
     // FIXME: I'd prefer not to have failure and success tests, but this works
     // for now.
     function testCombinatorialReleasePTExpectsRevert() public {
         // Get the test cases.
-        string memory path = "./testdata/_releasePTFailure.json";
+        string memory path = "./testdata/_releasePT.json";
         string memory json = vm.readFile(path);
         bytes memory rawTestCases = vm.parseJson(json);
         ReleasePTFailureTestCase[] memory testCases = abi.decode(
@@ -125,6 +112,26 @@ contract TermTest is Test {
 
         for (uint256 i = 0; i < testCases.length; i++) {
             console.log("test case ", i);
+            console.log("");
+            console.log("    amount          = ", testCases[i].input.amount);
+            console.log("    interest        = ", testCases[i].input.interest);
+            console.log(
+                "    sharesPerExpiry = ",
+                testCases[i].input.sharesPerExpiry
+            );
+            console.log(
+                "    totalSupply     = ",
+                testCases[i].input.totalSupply
+            );
+            console.log(
+                "    underlying      = ",
+                testCases[i].input.underlying
+            );
+            console.log(
+                "    userBalance     = ",
+                testCases[i].input.userBalance
+            );
+            console.log("");
 
             // Set up the test's state in the term contract.
             Term.FinalizedState memory finalState = Term.FinalizedState({

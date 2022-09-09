@@ -1,0 +1,574 @@
+[
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000011",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000011",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000011",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000011",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 0,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 0,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000011",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000011",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000011",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000011",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 0,
+      "total_supply": 1000000000000000000,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 0,
+      "underlying": 1000000000000000000,
+      "user_balance": 1000000000000000000
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 0
+    }
+  },
+  {
+    "expected_error": "0x4e487b710000000000000000000000000000000000000000000000000000000000000012",
+    "input": {
+      "amount": 1000000000000000000,
+      "interest": 1000000000000000000,
+      "shares_per_expiry": 1000000000000000000,
+      "total_supply": 1000000000000000000,
+      "underlying": 0,
+      "user_balance": 1000000000000000000
+    }
+  }
+]
