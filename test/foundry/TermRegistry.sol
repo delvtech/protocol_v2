@@ -38,7 +38,6 @@ contract TermRegistryTest is Test {
         factory = new ForwarderFactory();
         token = new MockERC20Permit("Test Token", "TT", 18);
         yearnVault = new MockERC20YearnVault(address(token));
-
         term = new MockYieldAdapter(
             address(yearnVault),
             governanceContract,
@@ -46,7 +45,6 @@ contract TermRegistryTest is Test {
             address(factory),
             token
         );
-
         pool = new MockPool(
             term,
             token,
@@ -56,6 +54,7 @@ contract TermRegistryTest is Test {
             address(factory)
         );
 
+        // deploy term registry and authorize user
         startHoax(address(owner));
         registry = new TermRegistry(address(owner));
         registry.authorize(address(user));

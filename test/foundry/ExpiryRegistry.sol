@@ -17,13 +17,13 @@ contract User {
 }
 
 contract ExpiryRegistryTest is Test {
+    ExpiryRegistry public expiryRegistry;
     ForwarderFactory public factory;
     MockERC20Permit public token;
     MockERC20YearnVault public yearnVault;
     MockPool public pool;
     MockYieldAdapter public term;
     TermRegistry public registry;
-    ExpiryRegistry public expiryRegistry;
     User public owner;
     User public user;
 
@@ -42,7 +42,6 @@ contract ExpiryRegistryTest is Test {
         factory = new ForwarderFactory();
         token = new MockERC20Permit("Test Token", "TT", 18);
         yearnVault = new MockERC20YearnVault(address(token));
-
         term = new MockYieldAdapter(
             address(yearnVault),
             governanceContract,
@@ -50,7 +49,6 @@ contract ExpiryRegistryTest is Test {
             address(factory),
             token
         );
-
         pool = new MockPool(
             term,
             token,
@@ -93,7 +91,7 @@ contract ExpiryRegistryTest is Test {
     function testCreateTerm() public {
         startHoax(address(expiryRegistry));
 
-        // give expiryRegistry capital
+        // give expiryRegistry tokens
         token.mint(address(expiryRegistry), 200_000 * 1e18);
 
         // create new term with liquidity
@@ -118,13 +116,6 @@ contract ExpiryRegistryTest is Test {
     }
 
     function testCreateTerm_externalSeeder() public {
-        // give tokens approvals for expiryRegistry
-        startHoax(address(expiryRegistry));
-        token.approve(address(term), type(uint256).max);
-        token.approve(address(pool), type(uint256).max);
-        term.setApprovalForAll(address(pool), true);
-        vm.stopPrank();
-
         // create new seeder account
         User seeder = new User();
 
@@ -162,7 +153,5 @@ contract ExpiryRegistryTest is Test {
         // assert that seeder account is properly accredited for LP and any excess capital
         assertGt(pool.balanceOf(expiry, address(seeder)), 0);
         assertGt(term.balanceOf(expiry, address(seeder)), 0);
-
-        // todo check for YT accounting
     }
 }

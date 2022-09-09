@@ -25,7 +25,7 @@ contract ExpiryRegistry is Authorizable {
         uint256 outputAmount; // expected underlying seeder receives back, might remove this
     }
 
-    // termId in the TermRegistry to list of expiries
+    // termIndex in the TermRegistry to list of expiries
     mapping(uint256 => Expiry[]) private _expiries;
 
     constructor(address owner, TermRegistry _registry) {
@@ -50,7 +50,6 @@ contract ExpiryRegistry is Authorizable {
     /// @param lockedAmount Amount of underlying tokens to mint PTs and YTs (lock)
     /// @param unlockedAmount Amount of underlying tokens to deposit into the AMM unlocked
     /// @param ptAmount Amount of PTs to sell into the AMM to set target APY.
-    ///             Use the "calculatePTsNeededForTargetAPY" helper function off-chain for ideal amount
     function createTerm(
         uint256 termIndex,
         PoolConfig memory poolConfig,
@@ -60,15 +59,6 @@ contract ExpiryRegistry is Authorizable {
         uint256 unlockedAmount,
         uint256 ptAmount
     ) public onlyAuthorized returns (uint256, uint256) {
-        // check for valid term index
-        // TermRegistry.TermInfo[] storage terms = registry.terms;
-        // require(
-        //     termIndex < terms.length && termIndex >= 0,
-        //     "invalid term index"
-        // );
-
-        // fetch term information by term index
-        // term index can be resolved off-chain
         TermRegistry.TermInfo memory termInfo = registry.getTerm(termIndex);
         Term term = Term(termInfo.termAddress);
         Pool pool = Pool(termInfo.poolAddress);
@@ -148,33 +138,14 @@ contract ExpiryRegistry is Authorizable {
         return (block.timestamp, expiry);
     }
 
-    /// @dev formula source (https://paper.element.fi/#e-initializing-the-convergent-curve-pool-price)
-    /// @notice Creates a new term and adds it to this registry
-    /// @param pool Associated pool contract
-    /// @param expiry The expiry of the term and multi-token identifier
-    /// @param targetAPY APY pool should be initialized to, 18 point fixed point number
-    function calculatePTsNeededForTargetAPY(
-        Pool pool,
-        uint256 expiry,
-        uint256 targetAPY
-    ) external view returns (uint256) {
-        (uint32 timestretch, ) = pool.parameters(expiry);
-        uint256 timeRemaining = expiry - block.timestamp;
-        uint256 _one = 1e18;
-
-        uint256 poolSupply = pool.totalSupply(expiry);
-        uint256 a = _one.sub(targetAPY.mulDivDown(timeRemaining, 100e18));
-        uint256 aPowExp = uint256(timestretch).divDown(timeRemaining);
-        uint256 aPow = (_one.divDown(a)).pow(aPowExp);
-        uint256 num = poolSupply.mulDown(aPow.sub(1));
-        uint256 den = _one.add(aPow);
-        return num.divDown(den);
-    }
-
+    /// @notice Helper to get length of registered expiries array from a registered term
+    /// @param termIndex index of the term in the term registry
     function getExpiriesCount(uint256 termIndex) public view returns (uint256) {
         return _expiries[termIndex].length;
     }
 
+    /// @notice Helper to get list of registered expiries from a registered term
+    /// @param termIndex index of the term in the term registry
     function getExpiries(uint256 termIndex)
         public
         view
