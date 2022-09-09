@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "forge-std/Test.sol";
 import "forge-std/console.sol";
+import "forge-std/Test.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/interfaces/IERC20.sol";
 import "contracts/mocks/MockTerm.sol";
@@ -77,19 +77,79 @@ contract TermTest is Test {
         uint256 amount;
         uint128 interest;
         uint256 sharesPerExpiry;
+        uint256 totalSupply;
         uint256 underlying;
         uint256 userBalance;
-        uint256 totalSupply;
     }
 
     struct ReleasePTFailureTestCase {
-        ReleasePTTestCaseInput input;
         bytes expectedError;
+        ReleasePTTestCaseInput input;
     }
 
     struct ReleasePTSuccessTestCase {
         ReleasePTTestCaseInput input;
         bytes expectedError;
+    }
+
+    function getReleasePTTestCases()
+        internal
+        returns (ReleasePTTestCaseInput[] memory)
+    {
+        string memory path = "./testdata/_releasePT.json";
+        string memory json = vm.readFile(path);
+        bytes memory rawTestCases = vm.parseJson(json);
+        ReleasePTTestCaseInput[] memory testCases = abi.decode(
+            rawTestCases,
+            (ReleasePTTestCaseInput[])
+        );
+    }
+
+    // FIXME: I'd prefer not to have failure and success tests, but this works
+    // for now.
+    function testCombinatorialReleasePTExpectsRevert() public {
+        // Get the test cases.
+        string memory path = "./testdata/_releasePTFailure.json";
+        string memory json = vm.readFile(path);
+        bytes memory rawTestCases = vm.parseJson(json);
+        ReleasePTFailureTestCase[] memory testCases = abi.decode(
+            rawTestCases,
+            (ReleasePTFailureTestCase[])
+        );
+
+        // Set the address.
+        startHoax(user);
+
+        // Create an asset ID of a PT that expires at 10,000.
+        uint256 assetId = encodeAssetId(false, 0, 10_000);
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            console.log("test case ", i);
+
+            // Set up the test's state in the term contract.
+            Term.FinalizedState memory finalState = Term.FinalizedState({
+                pricePerShare: 0.1 ether,
+                interest: testCases[i].input.interest
+            });
+            _term.setSharesPerExpiry(
+                assetId,
+                testCases[i].input.sharesPerExpiry
+            );
+            _term.setUnderlyingReturnValue(testCases[i].input.underlying);
+            _term.setUserBalance(assetId, user, testCases[i].input.userBalance);
+            _term.setTotalSupply(assetId, testCases[i].input.totalSupply);
+
+            // Expect an error to occur with the required bytes.
+            vm.expectRevert(testCases[i].expectedError);
+
+            // Attempt to release the PT.
+            _term.releasePTExternal(
+                finalState,
+                assetId,
+                user,
+                testCases[i].input.amount
+            );
+        }
     }
 
     function executeReleasePTFailureTestCases(

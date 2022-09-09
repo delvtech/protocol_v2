@@ -1,0 +1,13 @@
+[
+    {
+        "expectedError": "0xdeadbeef",
+        "input": {
+            "amount": 1,
+            "interest": 2,
+            "sharesPerExpiry": 3,
+            "underlying": 4, 
+            "userBalance": 5,
+            "totalSupply": 6
+        }
+    }
+]
