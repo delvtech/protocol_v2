@@ -7,6 +7,7 @@ import "contracts/ForwarderFactory.sol";
 import "contracts/interfaces/IERC20.sol";
 import "contracts/mocks/MockTerm.sol";
 import "contracts/mocks/MockERC20Permit.sol";
+import "../Utils.sol";
 
 contract TermTest is Test {
     address public user = vm.addr(0xDEAD_BEEF);
@@ -30,75 +31,14 @@ contract TermTest is Test {
 
     // -------------------  _releasePT unit tests   ------------------ //
 
-    // FIXME: Add documentation to this structure and the test suite at large.
-    struct ReleasePTTestCase {
-        uint256 amount;
-        uint128 interest;
-        uint256 sharesPerExpiry;
-        uint256 totalSupply;
-        uint256 underlying;
-        uint256 userBalance;
-    }
-
-    function getExpectedErrorReleasePT(ReleasePTTestCase memory testCase)
-        internal
-        pure
-        returns (bytes memory)
-    {
-        if (testCase.underlying == 0) {
-            return stdError.divisionError;
-        } else if (testCase.interest != 0 && testCase.sharesPerExpiry == 0) {
-            return stdError.arithmeticError;
-        } else if (testCase.totalSupply == 0) {
-            return stdError.divisionError;
-        } else if (
-            testCase.amount > testCase.userBalance ||
-            testCase.amount > testCase.totalSupply
-        ) {
-            return stdError.arithmeticError;
-        }
-        return new bytes(0);
-    }
-
-    function validateReleasePTSuccess(
-        ReleasePTTestCase memory testCase,
-        uint256 assetId,
-        uint256 shares,
-        uint256 value
-    ) internal {
-        // Ensure that the calculated shares and value are correct.
-        uint256 expectedPTShares = testCase.sharesPerExpiry -
-            (testCase.interest * 1e18) /
-            testCase.underlying;
-        uint256 expectedShares = (expectedPTShares * testCase.amount) /
-            testCase.totalSupply;
-        uint256 expectedValue = (expectedShares * testCase.underlying) / 1e18;
-        assertEq(shares, expectedShares);
-        assertEq(value, expectedValue);
-
-        // Ensure that the state was updated correctly.
-        assertEq(
-            _term.totalSupply(assetId),
-            testCase.totalSupply - testCase.amount
-        );
-        assertEq(
-            _term.balanceOf(assetId, user),
-            testCase.userBalance - testCase.amount
-        );
-        assertEq(
-            _term.sharesPerExpiry(assetId),
-            testCase.sharesPerExpiry - expectedShares
-        );
-    }
-
     function testCombinatorialReleasePT() public {
         // Get the test cases.
-        string memory path = "./testdata/_releasePT.json";
-        string memory json = vm.readFile(path);
-        bytes memory rawTestCases = vm.parseJson(json);
-        ReleasePTTestCase[] memory testCases = abi.decode(
-            rawTestCases,
-            (ReleasePTTestCase[])
+        uint256[] memory inputs = new uint256[](3);
+        inputs[0] = 0;
+        inputs[1] = 1 ether;
+        inputs[2] = 2 ether;
+        ReleasePTTestCase[] memory testCases = convertToReleasePTTestCase(
+            Utils.generateTestingMatrix(6, inputs)
         );
 
         // Set the address.
@@ -165,6 +105,89 @@ contract TermTest is Test {
                 validateReleasePTSuccess(testCases[i], assetId, shares, value);
             }
         }
+    }
+
+    // FIXME: Add documentation to this structure and the test suite at large.
+    struct ReleasePTTestCase {
+        uint256 amount;
+        uint128 interest;
+        uint256 sharesPerExpiry;
+        uint256 totalSupply;
+        uint256 underlying;
+        uint256 userBalance;
+    }
+
+    function convertToReleasePTTestCase(uint256[][] memory rawTestCases)
+        internal
+        pure
+        returns (ReleasePTTestCase[] memory testCases)
+    {
+        testCases = new ReleasePTTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            require(
+                rawTestCases[i].length == 6,
+                "Raw test case must have length of 6."
+            );
+            testCases[i] = ReleasePTTestCase({
+                amount: rawTestCases[i][0],
+                interest: uint128(rawTestCases[i][1]),
+                sharesPerExpiry: rawTestCases[i][2],
+                totalSupply: rawTestCases[i][3],
+                underlying: rawTestCases[i][4],
+                userBalance: rawTestCases[i][5]
+            });
+        }
+    }
+
+    function getExpectedErrorReleasePT(ReleasePTTestCase memory testCase)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        if (testCase.underlying == 0) {
+            return stdError.divisionError;
+        } else if (testCase.interest != 0 && testCase.sharesPerExpiry == 0) {
+            return stdError.arithmeticError;
+        } else if (testCase.totalSupply == 0) {
+            return stdError.divisionError;
+        } else if (
+            testCase.amount > testCase.userBalance ||
+            testCase.amount > testCase.totalSupply
+        ) {
+            return stdError.arithmeticError;
+        }
+        return new bytes(0);
+    }
+
+    function validateReleasePTSuccess(
+        ReleasePTTestCase memory testCase,
+        uint256 assetId,
+        uint256 shares,
+        uint256 value
+    ) internal {
+        // Ensure that the calculated shares and value are correct.
+        uint256 expectedPTShares = testCase.sharesPerExpiry -
+            (testCase.interest * 1e18) /
+            testCase.underlying;
+        uint256 expectedShares = (expectedPTShares * testCase.amount) /
+            testCase.totalSupply;
+        uint256 expectedValue = (expectedShares * testCase.underlying) / 1e18;
+        assertEq(shares, expectedShares);
+        assertEq(value, expectedValue);
+
+        // Ensure that the state was updated correctly.
+        assertEq(
+            _term.totalSupply(assetId),
+            testCase.totalSupply - testCase.amount
+        );
+        assertEq(
+            _term.balanceOf(assetId, user),
+            testCase.userBalance - testCase.amount
+        );
+        assertEq(
+            _term.sharesPerExpiry(assetId),
+            testCase.sharesPerExpiry - expectedShares
+        );
     }
 
     // ------------------- _parseAssetId unit tests ------------------ //

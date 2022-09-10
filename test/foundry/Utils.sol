@@ -29,4 +29,23 @@ library Utils {
                 : ((underlying * term.totalSupply(term.UNLOCKED_YT_ID())) /
                     impliedUnderlyingReserve);
     }
+
+    // FIXME: Document and/or test this
+    function generateTestingMatrix(uint256 rows, uint256[] memory inputs)
+        internal
+        pure
+        returns (uint256[][] memory result)
+    {
+        result = new uint256[][](inputs.length**rows);
+        for (uint256 i = 0; i < result.length; i++) {
+            result[i] = new uint256[](rows);
+            for (uint256 j = 0; j < rows; j++) {
+                result[i][j] = inputs[
+                    (i / (result.length / (inputs.length**(j + 1)))) %
+                        inputs.length
+                ];
+            }
+        }
+        return result;
+    }
 }
