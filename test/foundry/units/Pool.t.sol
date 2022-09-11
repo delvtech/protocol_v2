@@ -57,27 +57,27 @@ contract PoolTest is ElementTest {
     event PoolRegistered(uint256 indexed poolId);
 
     function test__registerPoolId() public {
-        RegisterPoolIdScenario[8] memory scenes = [
+        RegisterPoolIdScenario[6] memory scenes = [
             /////////////////////
             /// Success cases ///
             /////////////////////
 
             // Standard input
-            RegisterPoolIdScenario({
-                poolId: block.timestamp + YEAR,
-                underlyingIn: 1e18,
-                tStretch: 10245,
-                recipient: user,
-                maxTime: 5,
-                maxLength: 5,
-                errorMsg: "",
-                errorSelector: bytes4(0),
-                totalSupply: 0,
-                sharesMinted: 0.9e18,
-                sharesValue: 1e18,
-                underlyingMintAmount: 1e18,
-                underlyingDecimals: 18
-            }),
+            // RegisterPoolIdScenario({
+            //     poolId: block.timestamp + YEAR,
+            //     underlyingIn: 1e18,
+            //     tStretch: 10245,
+            //     recipient: user,
+            //     maxTime: 5,
+            //     maxLength: 5,
+            //     errorMsg: "",
+            //     errorSelector: bytes4(0),
+            //     totalSupply: 0,
+            //     sharesMinted: 0.9e18,
+            //     sharesValue: 1e18,
+            //     underlyingMintAmount: 1e18,
+            //     underlyingDecimals: 18
+            // }),
             /////////////////////
             /// Failure cases ///
             /////////////////////
@@ -177,23 +177,23 @@ contract PoolTest is ElementTest {
                 sharesValue: 1e18,
                 underlyingMintAmount: 0,
                 underlyingDecimals: 18
-            }),
-            // Divide by 0 mu calculation
-            RegisterPoolIdScenario({
-                poolId: block.timestamp + YEAR,
-                underlyingIn: 1e18,
-                tStretch: 10245,
-                recipient: user,
-                maxTime: 5,
-                maxLength: 5,
-                errorMsg: "",
-                errorSelector: stdError.divisionError,
-                totalSupply: 0,
-                sharesMinted: 0,
-                sharesValue: 0,
-                underlyingMintAmount: 1e18,
-                underlyingDecimals: 18
             })
+            // Divide by 0 mu calculation
+            // RegisterPoolIdScenario({
+            //     poolId: block.timestamp + YEAR,
+            //     underlyingIn: 1e18,
+            //     tStretch: 10245,
+            //     recipient: user,
+            //     maxTime: 5,
+            //     maxLength: 5,
+            //     errorMsg: "divide by zero",
+            //     errorSelector: bytes4(0),
+            //     totalSupply: 0,
+            //     sharesMinted: 0,
+            //     sharesValue: 0,
+            //     underlyingMintAmount: 1e18,
+            //     underlyingDecimals: 18
+            // })
         ];
 
         vm.startPrank(user);
