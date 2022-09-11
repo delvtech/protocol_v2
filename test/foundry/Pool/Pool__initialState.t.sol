@@ -10,7 +10,6 @@ import { ForwarderFactory } from "contracts/ForwarderFactory.sol";
 import { ERC4626Term, IERC4626 } from "contracts/ERC4626Term.sol";
 import { Pool, ITerm, IERC20, FixedPointMath, ElementError } from "contracts/Pool.sol";
 
-import { Utils } from "../Utils.sol";
 import { PoolTest } from "./PoolUtils.sol";
 
 contract PoolTest__initialState is PoolTest {

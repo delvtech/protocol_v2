@@ -29,4 +29,12 @@ contract MockPool is Pool {
     ) external {
         governanceFees[poolId] = CollectedFees(feeShares, feeBond);
     }
+
+    function setTotalSupply(uint256 _poolId, uint256 _amount) external {
+        totalSupply[_poolId] = _amount;
+    }
+
+    function normalize(uint256 input) external returns (uint256) {
+        return _normalize(input);
+    }
 }

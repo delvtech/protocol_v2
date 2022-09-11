@@ -11,13 +11,22 @@ contract MockTerm is Term {
         address _owner
     ) Term(_linkerCodeHash, _factory, _token, _owner) {}
 
+    uint256 convertVal;
+    uint256 depositVal1;
+    uint256 depositVal2;
+    uint256 underlyingVal;
+    uint256 withdrawVal;
+
     function _convert(ShareState _state, uint256 _shares)
         internal
         override
         returns (uint256)
     {
-        // FIXME: Implement this so that it's a useful mock.
-        return 0;
+        return convertVal;
+    }
+
+    function setConvertReturnValue(uint256 val) external {
+        convertVal = val;
     }
 
     function _deposit(ShareState _state)
@@ -25,8 +34,12 @@ contract MockTerm is Term {
         override
         returns (uint256, uint256)
     {
-        // FIXME: Implement this so that it's a useful mock.
-        return (0, 0);
+        return (depositVal1, depositVal2);
+    }
+
+    function setDepositReturnValues(uint256 val1, uint256 val2) external {
+        depositVal1 = val1;
+        depositVal2 = val2;
     }
 
     function _underlying(uint256 _shares, ShareState _state)
@@ -35,8 +48,11 @@ contract MockTerm is Term {
         override
         returns (uint256)
     {
-        // FIXME: Implement this so that it's a useful mock.
-        return 0;
+        return underlyingVal;
+    }
+
+    function setUnderlyingReturnValue(uint256 val) external {
+        underlyingVal = val;
     }
 
     function _withdraw(
@@ -44,8 +60,11 @@ contract MockTerm is Term {
         address _dest,
         ShareState _state
     ) internal override returns (uint256) {
-        // FIXME: Implement this so that it's a useful mock.
-        return 0;
+        return withdrawVal;
+    }
+
+    function setWithdrawReturnValue(uint256 val) external {
+        withdrawVal = val;
     }
 
     function parseAssetIdExternal(uint256 _assetId)
