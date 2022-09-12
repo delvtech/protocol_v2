@@ -16,18 +16,15 @@ contract ElementTest is Test {
 }
 
 library Utils {
-    // TODO Refactor to generalized function when interfaces for variant terms become standardized
-    function underlyingAsUnlockedShares(ERC4626Term term, uint256 underlying)
-        public
-        returns (uint256)
-    {
-        (, , , uint256 impliedUnderlyingReserve) = term.reserveDetails();
-
+    function encodeAssetId(
+        bool isYieldToken,
+        uint256 startDate,
+        uint256 expirationDate
+    ) internal pure returns (uint256) {
         return
-            impliedUnderlyingReserve == 0
-                ? underlying
-                : ((underlying * term.totalSupply(term.UNLOCKED_YT_ID())) /
-                    impliedUnderlyingReserve);
+            (uint256(isYieldToken ? 1 : 0) << 255) |
+            (startDate << 128) |
+            expirationDate;
     }
 
     // @notice Generates a matrix of all of the different combinations of
@@ -81,5 +78,19 @@ library Utils {
             }
         }
         return result;
+    }
+
+    // TODO Refactor to generalized function when interfaces for variant terms become standardized
+    function underlyingAsUnlockedShares(ERC4626Term term, uint256 underlying)
+        public
+        returns (uint256)
+    {
+        (, , , uint256 impliedUnderlyingReserve) = term.reserveDetails();
+
+        return
+            impliedUnderlyingReserve == 0
+                ? underlying
+                : ((underlying * term.totalSupply(term.UNLOCKED_YT_ID())) /
+                    impliedUnderlyingReserve);
     }
 }
