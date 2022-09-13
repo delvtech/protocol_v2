@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "forge-std/console2.sol";
+import "forge-std/console.sol";
+import "forge-std/Test.sol";
 
 import {ForwarderFactory} from "contracts/ForwarderFactory.sol";
 import {MockERC20Permit} from "contracts/mocks/MockERC20Permit.sol";
@@ -26,11 +27,13 @@ contract PoolTest is ElementTest {
     address governance = _mkAddr("governance");
 
     uint256 TRADE_FEE = 1;
+    uint256 TERM_END;
 
     function setUp() public {
         factory = new ForwarderFactory();
         vm.warp(2000);
         vm.roll(2);
+        TERM_END = block.timestamp + YEAR;
     }
 
     // ------------------- constructor unit tests ------------------ //
@@ -56,32 +59,56 @@ contract PoolTest is ElementTest {
 
     event PoolRegistered(uint256 indexed poolId);
 
-    function test__registerPoolId() public {
-        RegisterPoolIdScenario[6] memory scenes = [
-            /////////////////////
-            /// Success cases ///
-            /////////////////////
+    function test__registerPoolId__successCases(
+        uint256 poolId,
+        uint256 underlyingIn,
+        uint32 tStretch,
+        address recipient,
+        uint16 maxTime,
+        uint16 maxLength,
+        uint256 sharesMinted,
+        uint256 sharesValue,
+        uint8 underlyingDecimals
+    )
+        public
+    {
+        vm.assume(poolId > block.timestamp && poolId != TERM_END + 1);
+        vm.assume(underlyingIn > 0 && underlyingIn <= (type(uint256).max - 1e18));
+        vm.assume(tStretch > 0);
+        vm.assume(maxLength > 1);
+        vm.assume(maxTime >= maxLength);
+        vm.assume(underlyingDecimals > 0 && underlyingDecimals <= 18);
 
-            // Standard input
-            // RegisterPoolIdScenario({
-            //     poolId: block.timestamp + YEAR,
-            //     underlyingIn: 1e18,
-            //     tStretch: 10245,
-            //     recipient: user,
-            //     maxTime: 5,
-            //     maxLength: 5,
-            //     errorMsg: "",
-            //     errorSelector: bytes4(0),
-            //     totalSupply: 0,
-            //     sharesMinted: 0.9e18,
-            //     sharesValue: 1e18,
-            //     underlyingMintAmount: 1e18,
-            //     underlyingDecimals: 18
-            // }),
-            /////////////////////
-            /// Failure cases ///
-            /////////////////////
+        uint256 sharesMintedUpperBound =
+            type(uint256).max / (underlyingDecimals == 18 ? 1e18 : 10 ** (18 - underlyingDecimals));
+        uint256 sharesValueUpperBound = sharesMintedUpperBound / 1e18;
+        vm.assume(sharesMinted > 0 && sharesMinted <= sharesMintedUpperBound);
+        vm.assume(sharesValue <= sharesValueUpperBound);
 
+        RegisterPoolIdScenario memory scene = RegisterPoolIdScenario(
+            poolId,
+            underlyingIn,
+            tStretch,
+            recipient,
+            maxTime,
+            maxLength,
+            "",
+            bytes4(0),
+            0,
+            sharesMinted,
+            sharesValue,
+            underlyingIn,
+            underlyingDecimals
+        );
+
+        vm.startPrank(user);
+        setupRegisterPoolIdScenario(scene);
+        validateRegisterPoolIdSuccessCase(scene);
+        vm.stopPrank();
+    }
+
+    function test__registerPoolId__failureCases() public {
+        RegisterPoolIdScenario[14] memory scenes = [
             // Term expired - pool id == block.timestamp
             RegisterPoolIdScenario({
                 poolId: block.timestamp,
@@ -116,7 +143,7 @@ contract PoolTest is ElementTest {
             }),
             // Pool already initialized
             RegisterPoolIdScenario({
-                poolId: block.timestamp + YEAR,
+                poolId: TERM_END,
                 underlyingIn: 1e18,
                 tStretch: 10245,
                 recipient: user,
@@ -132,7 +159,7 @@ contract PoolTest is ElementTest {
             }),
             // 0 Tstretch
             RegisterPoolIdScenario({
-                poolId: block.timestamp + YEAR,
+                poolId: TERM_END,
                 underlyingIn: 1e18,
                 tStretch: 0,
                 recipient: user,
@@ -148,7 +175,7 @@ contract PoolTest is ElementTest {
             }),
             // 0 underlying in
             RegisterPoolIdScenario({
-                poolId: block.timestamp + YEAR,
+                poolId: TERM_END,
                 underlyingIn: 0,
                 tStretch: 10245,
                 recipient: user,
@@ -164,7 +191,7 @@ contract PoolTest is ElementTest {
             }),
             // not enough funds for transfer from
             RegisterPoolIdScenario({
-                poolId: block.timestamp + YEAR,
+                poolId: TERM_END,
                 underlyingIn: 1e18,
                 tStretch: 10245,
                 recipient: user,
@@ -177,39 +204,161 @@ contract PoolTest is ElementTest {
                 sharesValue: 1e18,
                 underlyingMintAmount: 0,
                 underlyingDecimals: 18
+            }),
+            // 0 sharesMinted return from deposit causes divide by 0
+            RegisterPoolIdScenario({
+                poolId: TERM_END,
+                underlyingIn: 1e18,
+                tStretch: 10245,
+                recipient: user,
+                maxTime: 5,
+                maxLength: 5,
+                errorMsg: "EvmError: Revert", // FixedPointMath does assembly division
+                errorSelector: bytes4(0),
+                totalSupply: 0,
+                sharesMinted: 0,
+                sharesValue: 0,
+                underlyingMintAmount: 1e18,
+                underlyingDecimals: 18
+            }),
+            // 0 maxLength initializeBuffer error
+            RegisterPoolIdScenario({
+                poolId: TERM_END,
+                underlyingIn: 1e18,
+                tStretch: 10245,
+                recipient: user,
+                maxTime: 1,
+                maxLength: 0,
+                errorMsg: "",
+                errorSelector: ElementError.TWAROracle_IncorrectBufferLength.selector,
+                totalSupply: 0,
+                sharesMinted: 0.9e18,
+                sharesValue: 1e18,
+                underlyingMintAmount: 1e18,
+                underlyingDecimals: 18
+            }),
+            // 1 maxLength initializeBuffer error
+            RegisterPoolIdScenario({
+                poolId: TERM_END,
+                underlyingIn: 1e18,
+                tStretch: 10245,
+                recipient: user,
+                maxTime: 1,
+                maxLength: 1,
+                errorMsg: "",
+                errorSelector: ElementError.TWAROracle_IncorrectBufferLength.selector,
+                totalSupply: 0,
+                sharesMinted: 0.9e18,
+                sharesValue: 1e18,
+                underlyingMintAmount: 1e18,
+                underlyingDecimals: 18
+            }),
+            // Min timestep error
+            RegisterPoolIdScenario({
+                poolId: TERM_END,
+                underlyingIn: 1e18,
+                tStretch: 10245,
+                recipient: user,
+                maxTime: 0,
+                maxLength: 2,
+                errorMsg: "",
+                errorSelector: ElementError.TWAROracle_MinTimeStepMustBeNonZero.selector,
+                totalSupply: 0,
+                sharesMinted: 0.9e18,
+                sharesValue: 1e18,
+                underlyingMintAmount: 1e18,
+                underlyingDecimals: 18
+            }),
+            // already initialized buffer
+            RegisterPoolIdScenario({
+                poolId: TERM_END + 1,
+                underlyingIn: 1e18,
+                tStretch: 10245,
+                recipient: user,
+                maxTime: 5,
+                maxLength: 5,
+                errorMsg: "",
+                errorSelector: ElementError.TWAROracle_BufferAlreadyInitialized.selector,
+                totalSupply: 0,
+                sharesMinted: 0.9e18,
+                sharesValue: 1e18,
+                underlyingMintAmount: 1e18,
+                underlyingDecimals: 18
+            }),
+            // sharesMinted upperBound mu calc normalize overflow
+            RegisterPoolIdScenario({
+                poolId: TERM_END,
+                underlyingIn: 1e12,
+                tStretch: 10245,
+                recipient: user,
+                maxTime: 5,
+                maxLength: 5,
+                errorMsg: string(stdError.arithmeticError),
+                errorSelector: bytes4(0),
+                totalSupply: 0,
+                sharesMinted: (type(uint256).max / 1e12) + 1,
+                sharesValue: 1e12,
+                underlyingMintAmount: 1e18,
+                underlyingDecimals: 6
+            }),
+            // sharesValue upperBound mu calc normalize overflow
+            RegisterPoolIdScenario({
+                poolId: TERM_END,
+                underlyingIn: 1e12,
+                tStretch: 10245,
+                recipient: user,
+                maxTime: 5,
+                maxLength: 5,
+                errorMsg: string(stdError.arithmeticError),
+                errorSelector: bytes4(0),
+                totalSupply: 0,
+                sharesMinted: 1e12,
+                sharesValue: (type(uint256).max / 1e12) + 1,
+                underlyingMintAmount: 1e18,
+                underlyingDecimals: 6
+            }),
+            // sharesValue upperBound mu calc fixedPointMath scaled assembly division overflow
+            RegisterPoolIdScenario({
+                poolId: TERM_END,
+                underlyingIn: 1e12,
+                tStretch: 10245,
+                recipient: user,
+                maxTime: 5,
+                maxLength: 5,
+                errorMsg: "EvmError: Revert",
+                errorSelector: bytes4(0),
+                totalSupply: 0,
+                sharesMinted: 1e12,
+                sharesValue: ((type(uint256).max / 1e12) / 1e18) + 1,
+                underlyingMintAmount: 1e18,
+                underlyingDecimals: 6
             })
-            // Divide by 0 mu calculation
-            // RegisterPoolIdScenario({
-            //     poolId: block.timestamp + YEAR,
-            //     underlyingIn: 1e18,
-            //     tStretch: 10245,
-            //     recipient: user,
-            //     maxTime: 5,
-            //     maxLength: 5,
-            //     errorMsg: "divide by zero",
-            //     errorSelector: bytes4(0),
-            //     totalSupply: 0,
-            //     sharesMinted: 0,
-            //     sharesValue: 0,
-            //     underlyingMintAmount: 1e18,
-            //     underlyingDecimals: 18
-            // })
         ];
 
         vm.startPrank(user);
 
         for (uint256 i = 0; i < scenes.length; i++) {
-            console2.log("Pool.registerPoolId() Scenario #%s", i);
-
+            console.log("Pool.registerPoolId() Fail Scenario #%s", i);
             RegisterPoolIdScenario memory scene = scenes[i];
-            underlying = new MockERC20Permit("Test", "TEST", scene.underlyingDecimals);
-            term = new MockTerm(
+            setupRegisterPoolIdScenario(scene);
+
+            _expectRevert(scene.errorMsg, scene.errorSelector);
+            pool.registerPoolId(
+                scene.poolId, scene.underlyingIn, scene.tStretch, scene.recipient, scene.maxTime, scene.maxLength
+            );
+        }
+        vm.stopPrank();
+    }
+
+    function setupRegisterPoolIdScenario(RegisterPoolIdScenario memory scene) internal {
+        underlying = new MockERC20Permit("Test", "TEST", scene.underlyingDecimals);
+        term = new MockTerm(
                 factory.ERC20LINK_HASH(),
                 address(factory),
                 IERC20(underlying),
                 governance
             );
-            pool = new MockPool(
+        pool = new MockPool(
                 ITerm(address(term)),
                 IERC20(address(underlying)),
                 TRADE_FEE,
@@ -218,24 +367,23 @@ contract PoolTest is ElementTest {
                 address(factory)
             );
 
-            underlying.approve(address(pool), type(uint256).max);
-            underlying.mint(user, scene.underlyingMintAmount);
-            pool.setTotalSupply(scene.poolId, scene.totalSupply);
-            term.setDepositReturnValues(scene.sharesMinted, scene.sharesValue);
+        underlying.approve(address(pool), type(uint256).max);
+        underlying.mint(user, 1e18);
 
-            if (shouldExpectFailCase(scene.errorMsg, scene.errorSelector)) {
-                pool.registerPoolId(
-                    scene.poolId, scene.underlyingIn, scene.tStretch, scene.recipient, scene.maxTime, scene.maxLength
-                );
-            } else {
-                validateRegisterPoolIdSuccessCase(scene);
-            }
-        }
-        vm.stopPrank();
+        term.setDepositReturnValues(0.9e18, 1e18);
+        pool.registerPoolId(TERM_END + 1, 1e18, 10245, user, 5, 5);
+
+        underlying.mint(user, scene.underlyingMintAmount);
+        pool.setTotalSupply(scene.poolId, scene.totalSupply);
+
+        term.setDepositReturnValues(scene.sharesMinted, scene.sharesValue);
     }
 
     function validateRegisterPoolIdSuccessCase(RegisterPoolIdScenario memory scene) internal {
         uint256 userUnderlyingBalance = underlying.balanceOf(user);
+        uint256 userLpBalanceBefore = pool.balanceOf(scene.poolId, scene.recipient);
+        uint256 poolTotalSupplyBefore = pool.totalSupply(scene.poolId);
+        uint256 unlockedYTOnPoolBalanceBefore = term.balanceOf(term.UNLOCKED_YT_ID(), address(pool));
 
         vm.expectEmit(true, false, false, false);
         emit PoolRegistered(scene.poolId);
@@ -267,15 +415,23 @@ contract PoolTest is ElementTest {
         assertEq(tStretch, scene.tStretch, "tStretch parameter should match input");
         assertEq(mu, derivedMu, "mu paramater should be derived correctly");
 
+        uint256 poolTotalSupplyAfter = pool.totalSupply(scene.poolId);
         assertEq(
-            pool.totalSupply(scene.poolId),
+            poolTotalSupplyAfter - poolTotalSupplyBefore,
             scene.totalSupply + scene.sharesMinted,
             "should create sharesMinted amount of LP tokens"
         );
+
+        uint256 userLpBalanceAfter = pool.balanceOf(scene.poolId, scene.recipient);
         assertEq(
-            pool.balanceOf(scene.poolId, scene.recipient),
+            userLpBalanceAfter - userLpBalanceBefore, scene.sharesMinted, "LP tokens should be minted to the recipient"
+        );
+
+        uint256 unlockedYTOnPoolBalanceAfter = term.balanceOf(term.UNLOCKED_YT_ID(), address(pool));
+        assertEq(
+            unlockedYTOnPoolBalanceAfter - unlockedYTOnPoolBalanceBefore,
             scene.sharesMinted,
-            "LP tokens should be minted to the recipient"
+            "Unlocked shares should be minted to the pool"
         );
 
         assertEq(mintedLpTokens, scene.sharesMinted, "output value should equal minted shares");

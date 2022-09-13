@@ -23,7 +23,7 @@ contract MockTerm is Term {
 
     function setDepositReturnValues(uint256 _left, uint256 _right) external {
         depositLeftReturnValue = _left;
-        depositRightReturnValue = _left;
+        depositRightReturnValue = _right;
     }
 
     function setWithdrawReturnValue(uint256 _value) external {

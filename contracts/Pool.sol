@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
+import "forge-std/console.sol";
+
 import "./LP.sol";
 import "./libraries/FixedPointMath.sol";
 import "./libraries/YieldSpaceMath.sol";
@@ -676,10 +678,10 @@ contract Pool is LP, Authorizable, TWAROracle {
 
     function _normalize(uint256 input) internal view returns (uint256) {
         if (decimals < 18) {
-            unchecked {
+            // unchecked { NOTE Removing unchecked for more robust bound checks
                 uint256 adjustFactor = 10**(18 - decimals);
                 return input * adjustFactor;
-            }
+            // }
         } else {
             return input;
         }
@@ -687,10 +689,10 @@ contract Pool is LP, Authorizable, TWAROracle {
 
     function _denormalize(uint256 input) internal view returns (uint256) {
         if (decimals < 18) {
-            unchecked {
+            // unchecked {
                 uint256 adjustFactor = 10**(18 - decimals);
                 return input / adjustFactor;
-            }
+            // }
         } else {
             return input;
         }

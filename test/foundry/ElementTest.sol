@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.15;
 
-import {Test, stdError} from "forge-std/Test.sol";
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 import {ERC4626Term} from "contracts/ERC4626Term.sol";
 
@@ -25,7 +26,7 @@ contract ElementTest is Test {
     }
 
     function isMessageError(string memory message) internal returns (bool) {
-        if (keccak256(abi.encodePacked(message)) != keccak256(abi.encodePacked(""))) {
+        if (keccak256(abi.encodePacked(bytes(message))) != keccak256(abi.encodePacked(""))) {
             return true;
         }
         return false;
@@ -39,15 +40,14 @@ contract ElementTest is Test {
     }
 
     // abstracts error validation for unit testing
-    function shouldExpectFailCase(string memory message, bytes4 selector) internal returns (bool) {
-        if (isMessageError(message)) {
+    function _expectRevert(string memory message, bytes4 selector) internal returns (bool) {
+        // generic error
+        if (keccak256(abi.encodePacked(message)) == keccak256(abi.encodePacked("EvmError: Revert"))) {
+            vm.expectRevert();
+        } else if (isMessageError(message)) {
             vm.expectRevert(bytes(message));
-            return true;
-        }
-        if (isSelectorError(selector)) {
+        } else if (isSelectorError(selector)) {
             vm.expectRevert(selector);
-            return true;
         }
-        return false;
     }
 }
