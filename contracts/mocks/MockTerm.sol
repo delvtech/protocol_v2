@@ -34,6 +34,13 @@ contract MockTerm is Term {
         underlyingReturnValue = _value;
     }
 
+    function setFinalizedState(
+        uint256 assetId,
+        FinalizedState memory finalState
+    ) external {
+        finalizedTerms[assetId] = finalState;
+    }
+
     function setSharesPerExpiry(uint256 assetId, uint256 shares) external {
         sharesPerExpiry[assetId] = shares;
     }
@@ -48,6 +55,12 @@ contract MockTerm is Term {
         uint256 amount
     ) external {
         balanceOf[assetId][user] = amount;
+    }
+
+    function setYieldState(uint256 assetId, YieldState memory yieldState)
+        external
+    {
+        yieldTerms[assetId] = yieldState;
     }
 
     function _convert(ShareState _state, uint256 _shares)
@@ -81,6 +94,15 @@ contract MockTerm is Term {
         ShareState _state
     ) internal override returns (uint256) {
         return withdrawReturnValue;
+    }
+
+    function releaseYTExternal(
+        FinalizedState memory finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) external returns (uint256, uint256) {
+        return _releaseYT(finalState, assetId, source, amount);
     }
 
     function releasePTExternal(

@@ -18,5 +18,7 @@ optimizer_runs = 7500
 # Whether or not to use the Yul intermediate representation compilation pipeline
 via_ir = true
 remappings = ['forge-std=lib/forge-std/src', '@openzeppelin/=lib/openzeppelin-contracts', '@compoundV3/=lib/comet']
+# gas limit - max u64
+gas_limit = "18446744073709551615"
 
 # For more config options see: https://book.getfoundry.sh/reference/config.html
