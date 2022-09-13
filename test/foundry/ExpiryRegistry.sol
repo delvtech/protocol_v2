@@ -98,7 +98,6 @@ contract ExpiryRegistryTest is Test {
         ExpiryRegistry.PoolConfig memory poolConfig = ExpiryRegistry.PoolConfig(
             10_000,
             0,
-            0,
             0
         );
         expiryRegistry.createTerm(
@@ -108,7 +107,8 @@ contract ExpiryRegistryTest is Test {
             address(expiryRegistry),
             100_000 * 1e18,
             1_000 * 1e18,
-            1_000 * 1e18
+            1_000 * 1e18,
+            0
         );
 
         // assert expiries have been registered
@@ -134,7 +134,6 @@ contract ExpiryRegistryTest is Test {
         ExpiryRegistry.PoolConfig memory poolConfig = ExpiryRegistry.PoolConfig(
             10_000,
             0,
-            0,
             0
         );
         expiryRegistry.createTerm(
@@ -144,7 +143,8 @@ contract ExpiryRegistryTest is Test {
             address(seeder),
             100_000 * 1e18,
             1_000 * 1e18,
-            1_000 * 1e18
+            1_000 * 1e18,
+            0
         );
 
         // assert expiries have been registered

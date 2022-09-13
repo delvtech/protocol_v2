@@ -5,7 +5,8 @@ import "./Pool.sol";
 import "./Term.sol";
 import "./libraries/Authorizable.sol";
 
-// Registry and Factory contract to store and create terms
+// Term Registry for Element V2 Protocol
+// Stores address information for registred Term and Pool contracts
 contract TermRegistry is Authorizable {
     struct TermInfo {
         address termAddress; // term contract address
@@ -25,9 +26,9 @@ contract TermRegistry is Authorizable {
         setOwner(owner);
     }
 
-    /// @notice Adds a new or existing Term to the registry
+    /// @notice Registers a new Term <> Pool combination
     /// @param term Term contract
-    /// @param pool Associated pool contract
+    /// @param pool Associated Pool contract
     /// @param yieldSourceId Arbitrary identifier, e.g. 1 = Yearn, 2 = Compound, etc.
     function registerTerm(
         Term term,
@@ -50,18 +51,21 @@ contract TermRegistry is Authorizable {
             yieldSourceId
         );
 
-        // add term info to term array
+        // add term info to term list
         _terms.push(info);
 
-        // Emit event for filtering by yield source id
+        // Emit event for off-chain discoverability
         emit TermRegistered(termAddress, poolAddress, yieldSourceId);
     }
 
+    /// @notice Helper function for fetching length of terms list
     function getTermsCount() public view returns (uint256) {
         return _terms.length;
     }
 
-    function getTerm(uint256 index) public view returns (TermInfo memory) {
+    /// @notice Helper function for element of terms list
+    /// @param index of the term list
+    function getTermInfo(uint256 index) public view returns (TermInfo memory) {
         return _terms[index];
     }
 }

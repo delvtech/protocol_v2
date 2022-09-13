@@ -7,10 +7,9 @@ import "./TermRegistry.sol";
 import "./libraries/Authorizable.sol";
 import "./libraries/FixedPointMath.sol";
 
-// An extension to the TermRegistry that supports blessing particular timestamps
+// Expiry Registry for Element V2 Protocol
+// Extends a Term Registry contract by adding support for registering particular expiries
 contract ExpiryRegistry is Authorizable {
-    using FixedPointMath for uint256;
-
     TermRegistry public immutable registry;
 
     struct Expiry {
@@ -22,8 +21,13 @@ contract ExpiryRegistry is Authorizable {
         uint32 timestretch; // timestretch for pool
         uint16 maxTime; // orcale params
         uint16 maxLength; // orcale params
-        uint256 outputAmount; // expected underlying seeder receives back, might remove this
     }
+
+    event ExpiryRegistered(
+        uint256 start,
+        uint256 end,
+        uint256 indexed termIndex
+    );
 
     // termIndex in the TermRegistry to list of expiries
     mapping(uint256 => Expiry[]) private _expiries;
@@ -39,17 +43,22 @@ contract ExpiryRegistry is Authorizable {
         uint256 expiry
     ) public onlyAuthorized {
         Expiry memory e = Expiry(start, expiry);
+        // add expiry to list
         _expiries[termIndex].push(e);
+
+        // Emit event for off-chain discoverability
+        emit ExpiryRegistered(start, expiry, termIndex);
     }
 
-    /// @notice Creates a new sub-term from an approved Term list
-    /// @param termIndex index of the term information in the term list
-    /// @param poolConfig sub-pool configuration
-    /// @param expiry The expiry of the term and multi-token identifier
-    /// @param seeder The address seeding new term with underlying funds
-    /// @param lockedAmount Amount of underlying tokens to mint PTs and YTs (lock)
-    /// @param unlockedAmount Amount of underlying tokens to deposit into the AMM unlocked
+    /// @notice Creates a new term from an approved Term list.
+    /// @param termIndex index of the term information in the term list.
+    /// @param poolConfig sub-pool configuration.
+    /// @param expiry The expiry of the term and multi-token identifier.
+    /// @param seeder The address seeding new term with underlying funds.
+    /// @param lockedAmount Amount of underlying tokens to mint PTs and YTs (lock).
+    /// @param unlockedAmount Amount of underlying tokens to deposit into the AMM unlocked.
     /// @param ptAmount Amount of PTs to sell into the AMM to set target APY.
+    /// @param outputAmount Min amount of underlying tokens the seeder should recieve in the trade.
     function createTerm(
         uint256 termIndex,
         PoolConfig memory poolConfig,
@@ -57,9 +66,10 @@ contract ExpiryRegistry is Authorizable {
         address seeder,
         uint256 lockedAmount,
         uint256 unlockedAmount,
-        uint256 ptAmount
+        uint256 ptAmount,
+        uint256 outputAmount
     ) public onlyAuthorized returns (uint256, uint256) {
-        TermRegistry.TermInfo memory termInfo = registry.getTerm(termIndex);
+        TermRegistry.TermInfo memory termInfo = registry.getTermInfo(termIndex);
         Term term = Term(termInfo.termAddress);
         Pool pool = Pool(termInfo.poolAddress);
 
@@ -68,7 +78,7 @@ contract ExpiryRegistry is Authorizable {
         uint256 ptTotal = term.balanceOf(expiry, address(this));
 
         // transfer token from seeder to this contract
-        // seeder must have given proper allowance before call
+        // seeder must have given proper approval before call
         if (seeder != address(this)) {
             term.token().transferFrom(
                 seeder,
@@ -108,7 +118,7 @@ contract ExpiryRegistry is Authorizable {
         pool.tradeBonds(
             expiry,
             ptAmount, // amount of PTs to sell into the pool
-            poolConfig.outputAmount, // min amount of underlying tokens seeder should recieve
+            outputAmount, // min amount of underlying tokens seeder should recieve
             seeder, // resulting underlying is accredited to seeder
             false // selling PTs
         );
@@ -138,13 +148,13 @@ contract ExpiryRegistry is Authorizable {
         return (block.timestamp, expiry);
     }
 
-    /// @notice Helper to get length of registered expiries array from a registered term
+    /// @notice Helper function to get length of registered expiries array from a valid Term
     /// @param termIndex index of the term in the term registry
     function getExpiriesCount(uint256 termIndex) public view returns (uint256) {
         return _expiries[termIndex].length;
     }
 
-    /// @notice Helper to get list of registered expiries from a registered term
+    /// @notice Helper to get list of registered expiries from a valid Term
     /// @param termIndex index of the term in the term registry
     function getExpiries(uint256 termIndex)
         public
