@@ -7,7 +7,7 @@ import "contracts/ForwarderFactory.sol";
 import "contracts/interfaces/IERC20.sol";
 import "contracts/mocks/MockTerm.sol";
 import "contracts/mocks/MockERC20Permit.sol";
-import "../Utils.sol";
+import "test/foundry/Utils.sol";
 
 contract TermTest is Test {
     address public user = vm.addr(0xDEAD_BEEF);
