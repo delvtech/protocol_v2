@@ -8,7 +8,7 @@ contract MockTerm is Term {
     uint256 depositLeftReturnValue;
     uint256 depositRightReturnValue;
     uint256 withdrawReturnValue;
-    uint256 underlyingReturnValue;
+    uint256 currentPricePerShare;
 
     constructor(
         bytes32 _linkerCodeHash,
@@ -30,8 +30,9 @@ contract MockTerm is Term {
         withdrawReturnValue = _value;
     }
 
-    function setUnderlyingReturnValue(uint256 _value) external {
-        underlyingReturnValue = _value;
+    // TODO: We may ultimately want to set this value for locked and unlocked.
+    function setCurrentPricePerShare(uint256 _value) external {
+        currentPricePerShare = _value;
     }
 
     function setFinalizedState(
@@ -85,7 +86,7 @@ contract MockTerm is Term {
         override
         returns (uint256)
     {
-        return underlyingReturnValue;
+        return (currentPricePerShare * _shares) / one;
     }
 
     function _withdraw(
@@ -94,6 +95,15 @@ contract MockTerm is Term {
         ShareState _state
     ) internal override returns (uint256) {
         return withdrawReturnValue;
+    }
+
+    function releasePTExternal(
+        FinalizedState memory finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) external returns (uint256, uint256) {
+        return _releasePT(finalState, assetId, source, amount);
     }
 
     function releaseYTExternal(
@@ -105,13 +115,11 @@ contract MockTerm is Term {
         return _releaseYT(finalState, assetId, source, amount);
     }
 
-    function releasePTExternal(
-        FinalizedState memory finalState,
-        uint256 assetId,
-        address source,
-        uint256 amount
-    ) external returns (uint256, uint256) {
-        return _releasePT(finalState, assetId, source, amount);
+    function releaseUnlockedExternal(address source, uint256 amount)
+        external
+        returns (uint256, uint256)
+    {
+        return _releaseUnlocked(source, amount);
     }
 
     function parseAssetIdExternal(uint256 _assetId)
