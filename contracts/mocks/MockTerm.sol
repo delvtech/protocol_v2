@@ -97,13 +97,18 @@ contract MockTerm is Term {
         return withdrawReturnValue;
     }
 
-    function releasePTExternal(
-        FinalizedState memory finalState,
-        uint256 assetId,
-        address source,
-        uint256 amount
-    ) external returns (uint256, uint256) {
-        return _releasePT(finalState, assetId, source, amount);
+    function finalizeTermExternal(uint256 expiry)
+        external
+        returns (FinalizedState memory)
+    {
+        return _finalizeTerm(expiry);
+    }
+
+    function releaseUnlockedExternal(address source, uint256 amount)
+        external
+        returns (uint256, uint256)
+    {
+        return _releaseUnlocked(source, amount);
     }
 
     function releaseYTExternal(
@@ -115,11 +120,13 @@ contract MockTerm is Term {
         return _releaseYT(finalState, assetId, source, amount);
     }
 
-    function releaseUnlockedExternal(address source, uint256 amount)
-        external
-        returns (uint256, uint256)
-    {
-        return _releaseUnlocked(source, amount);
+    function releasePTExternal(
+        FinalizedState memory finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) external returns (uint256, uint256) {
+        return _releasePT(finalState, assetId, source, amount);
     }
 
     function parseAssetIdExternal(uint256 _assetId)
