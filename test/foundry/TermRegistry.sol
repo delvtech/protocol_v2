@@ -67,12 +67,14 @@ contract TermRegistryTest is Test {
         assertEq(registry.getTermsCount(), 1);
     }
 
+    // test expected to fail when caller is not authorized
     function testFailRegisterTerm() public {
         User bad = new User();
         startHoax(address(bad));
         registry.registerTerm(term, pool, 1);
     }
 
+    // test expected to fail when the term in the pool contract differs from the term being registered
     function testFailRegisterTerm_poolDifferentTerm() public {
         startHoax(address(user));
         MockYieldAdapter newTerm = new MockYieldAdapter(

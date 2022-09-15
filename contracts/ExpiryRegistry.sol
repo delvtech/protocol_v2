@@ -18,7 +18,7 @@ contract ExpiryRegistry is Authorizable {
     }
 
     struct PoolConfig {
-        uint32 timestretch; // timestretch for pool
+        uint32 timeStretch; // timeStretch for pool
         uint16 maxTime; // orcale params
         uint16 maxLength; // orcale params
     }
@@ -37,17 +37,21 @@ contract ExpiryRegistry is Authorizable {
         registry = _registry;
     }
 
+    /// @notice Adds a new Expiry into our registry
+    /// @param termIndex index of the term information in the term list.
+    /// @param start term start timestamp.
+    /// @param end term end timestamp.
     function registerExpiry(
         uint256 termIndex,
         uint256 start,
-        uint256 expiry
+        uint256 end
     ) public onlyAuthorized {
-        Expiry memory e = Expiry(start, expiry);
+        Expiry memory expiry = Expiry(start, end);
         // add expiry to list
-        _expiries[termIndex].push(e);
+        _expiries[termIndex].push(expiry);
 
         // Emit event for off-chain discoverability
-        emit ExpiryRegistered(start, expiry, termIndex);
+        emit ExpiryRegistered(start, end, termIndex);
     }
 
     /// @notice Creates a new term from an approved Term list.
@@ -59,6 +63,7 @@ contract ExpiryRegistry is Authorizable {
     /// @param unlockedAmount Amount of underlying tokens to deposit into the AMM unlocked.
     /// @param ptAmount Amount of PTs to sell into the AMM to set target APY.
     /// @param outputAmount Min amount of underlying tokens the seeder should recieve in the trade.
+    /// @return timestamp tuple representing the start and end time for the new term.
     function createTerm(
         uint256 termIndex,
         PoolConfig memory poolConfig,
@@ -108,7 +113,7 @@ contract ExpiryRegistry is Authorizable {
         pool.registerPoolId(
             expiry,
             unlockedAmount, // amount of underlying tokens to be deposited in AMM as unlocked
-            poolConfig.timestretch,
+            poolConfig.timeStretch,
             seeder, // LP token destination
             poolConfig.maxTime,
             poolConfig.maxLength
