@@ -560,13 +560,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             totalSupply[assetId];
         // PT percent - The number of PT to remove from this pool to keep the accounting
         //              correct for price per share
-        uint256 percentPt = (uint256(state.pt) * amount) / totalSupply[assetId];
+        uint256 userPt = (uint256(state.pt) * amount) / totalSupply[assetId];
 
         // Reduce the number of shares and reduce the implied number of PT to keep the
         // implied interest per YT the same.
         yieldTerms[assetId] = YieldState(
             state.shares - uint128(userShares),
-            state.pt - uint128(percentPt)
+            state.pt - uint128(userPt)
         );
 
         // burn the yt from the user's balance
@@ -575,7 +575,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // Load the value of the shares in terms of underlying
         uint256 value = _underlying(userShares, ShareState.Locked);
 
-        // If the shares have lost value we don't alow this function
+        // If the shares have lost value we don't allow this function
         if (value < amount) revert ElementError.NegativeInterest();
 
         if (isCompound) {
