@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/interfaces/IERC20.sol";
 import "contracts/mocks/MockTerm.sol";
 import "contracts/mocks/MockERC20Permit.sol";
-import "../Utils.sol";
+import "test/Utils.sol";
 
 contract TermTest is Test {
     address public user = vm.addr(0xDEAD_BEEF);
