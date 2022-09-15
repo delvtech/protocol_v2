@@ -4,19 +4,23 @@ pragma solidity 0.8.15;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
-import {ERC4626Term} from "contracts/ERC4626Term.sol";
+import { ERC4626Term } from "contracts/ERC4626Term.sol";
 
 contract ElementTest is Test {
     uint256 public constant YEAR = (365 * 24 * 60 * 60);
 
     // TODO Refactor to generalized function when interfaces for variant terms become standardized
-    function _underlyingAsUnlockedShares(ERC4626Term term, uint256 underlying) internal returns (uint256) {
-        (,,, uint256 impliedUnderlyingReserve) = term.reserveDetails();
+    function getUnlockedShareValueOfUnderlying(
+        ERC4626Term term,
+        uint256 underlying
+    ) internal returns (uint256) {
+        (, , , uint256 impliedUnderlyingReserve) = term.reserveDetails();
 
         return
             impliedUnderlyingReserve == 0
-            ? underlying
-            : ((underlying * term.totalSupply(term.UNLOCKED_YT_ID())) / impliedUnderlyingReserve);
+                ? underlying
+                : ((underlying * term.totalSupply(term.UNLOCKED_YT_ID())) /
+                    impliedUnderlyingReserve);
     }
 
     // Helper function to create a random address seeded by a string value, also
@@ -28,7 +32,10 @@ contract ElementTest is Test {
     }
 
     function isMessageError(string memory message) internal returns (bool) {
-        if (keccak256(abi.encodePacked(bytes(message))) != keccak256(abi.encodePacked(""))) {
+        if (
+            keccak256(abi.encodePacked(bytes(message))) !=
+            keccak256(abi.encodePacked(""))
+        ) {
             return true;
         }
         return false;
@@ -42,9 +49,15 @@ contract ElementTest is Test {
     }
 
     // abstracts error validation for unit testing
-    function expectRevert(string memory message, bytes4 selector) public returns (bool) {
+    function expectRevert(string memory message, bytes4 selector)
+        public
+        returns (bool)
+    {
         // generic error
-        if (keccak256(abi.encodePacked(message)) == keccak256(abi.encodePacked("EvmError: Revert"))) {
+        if (
+            keccak256(abi.encodePacked(message)) ==
+            keccak256(abi.encodePacked("EvmError: Revert"))
+        ) {
             vm.expectRevert();
         } else if (isMessageError(message)) {
             vm.expectRevert(bytes(message));

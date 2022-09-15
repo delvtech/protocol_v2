@@ -4,18 +4,18 @@ pragma solidity ^0.8.15;
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
 
-import {ForwarderFactory} from "contracts/ForwarderFactory.sol";
-import {MockERC20Permit} from "contracts/mocks/MockERC20Permit.sol";
-import {MockTerm} from "contracts/mocks/MockTerm.sol";
-import {MockPool} from "contracts/mocks/MockPool.sol";
+import { ForwarderFactory } from "contracts/ForwarderFactory.sol";
+import { MockERC20Permit } from "contracts/mocks/MockERC20Permit.sol";
+import { MockTerm } from "contracts/mocks/MockTerm.sol";
+import { MockPool } from "contracts/mocks/MockPool.sol";
 
-import {IERC20} from "contracts/interfaces/IERC20.sol";
-import {ITerm} from "contracts/interfaces/ITerm.sol";
+import { IERC20 } from "contracts/interfaces/IERC20.sol";
+import { ITerm } from "contracts/interfaces/ITerm.sol";
 
-import {FixedPointMath} from "contracts/libraries/FixedPointMath.sol";
-import {ElementError} from "contracts/libraries/Errors.sol";
+import { FixedPointMath } from "contracts/libraries/FixedPointMath.sol";
+import { ElementError } from "contracts/libraries/Errors.sol";
 
-import {ElementTest} from "test/ElementTest.sol";
+import { ElementTest } from "test/ElementTest.sol";
 
 contract PoolTest is ElementTest {
     ForwarderFactory factory;
@@ -68,9 +68,7 @@ contract PoolTest is ElementTest {
         uint16 maxLength,
         uint256 sharesMinted,
         uint8 underlyingDecimals
-    )
-        public
-    {
+    ) public {
         vm.assume(poolId > block.timestamp && poolId != TERM_END + 1);
         // 1 billion assumed max underlying
         vm.assume(underlyingIn > 0 && underlyingIn <= 1_000_000_000e18);
@@ -227,7 +225,9 @@ contract PoolTest is ElementTest {
                 maxTime: 1,
                 maxLength: 0,
                 errorMsg: "",
-                errorSelector: ElementError.TWAROracle_IncorrectBufferLength.selector,
+                errorSelector: ElementError
+                    .TWAROracle_IncorrectBufferLength
+                    .selector,
                 totalSupply: 0,
                 sharesMinted: 0.9e18,
                 sharesValue: 1e18,
@@ -243,7 +243,9 @@ contract PoolTest is ElementTest {
                 maxTime: 1,
                 maxLength: 1,
                 errorMsg: "",
-                errorSelector: ElementError.TWAROracle_IncorrectBufferLength.selector,
+                errorSelector: ElementError
+                    .TWAROracle_IncorrectBufferLength
+                    .selector,
                 totalSupply: 0,
                 sharesMinted: 0.9e18,
                 sharesValue: 1e18,
@@ -259,7 +261,9 @@ contract PoolTest is ElementTest {
                 maxTime: 0,
                 maxLength: 2,
                 errorMsg: "",
-                errorSelector: ElementError.TWAROracle_MinTimeStepMustBeNonZero.selector,
+                errorSelector: ElementError
+                    .TWAROracle_MinTimeStepMustBeNonZero
+                    .selector,
                 totalSupply: 0,
                 sharesMinted: 0.9e18,
                 sharesValue: 1e18,
@@ -275,7 +279,9 @@ contract PoolTest is ElementTest {
                 maxTime: 5,
                 maxLength: 5,
                 errorMsg: "",
-                errorSelector: ElementError.TWAROracle_BufferAlreadyInitialized.selector,
+                errorSelector: ElementError
+                    .TWAROracle_BufferAlreadyInitialized
+                    .selector,
                 totalSupply: 0,
                 sharesMinted: 0.9e18,
                 sharesValue: 1e18,
@@ -309,28 +315,39 @@ contract PoolTest is ElementTest {
 
             expectRevert(scene.errorMsg, scene.errorSelector);
             pool.registerPoolId(
-                scene.poolId, scene.underlyingIn, scene.tStretch, scene.recipient, scene.maxTime, scene.maxLength
+                scene.poolId,
+                scene.underlyingIn,
+                scene.tStretch,
+                scene.recipient,
+                scene.maxTime,
+                scene.maxLength
             );
         }
         vm.stopPrank();
     }
 
-    function setupRegisterPoolIdScenario(RegisterPoolIdScenario memory scene) internal {
-        underlying = new MockERC20Permit("Test", "TEST", scene.underlyingDecimals);
+    function setupRegisterPoolIdScenario(RegisterPoolIdScenario memory scene)
+        internal
+    {
+        underlying = new MockERC20Permit(
+            "Test",
+            "TEST",
+            scene.underlyingDecimals
+        );
         term = new MockTerm(
-                factory.ERC20LINK_HASH(),
-                address(factory),
-                IERC20(underlying),
-                governance
-            );
+            factory.ERC20LINK_HASH(),
+            address(factory),
+            IERC20(underlying),
+            governance
+        );
         pool = new MockPool(
-                ITerm(address(term)),
-                IERC20(address(underlying)),
-                TRADE_FEE,
-                factory.ERC20LINK_HASH(),
-                governance,
-                address(factory)
-            );
+            ITerm(address(term)),
+            IERC20(address(underlying)),
+            TRADE_FEE,
+            factory.ERC20LINK_HASH(),
+            governance,
+            address(factory)
+        );
 
         underlying.approve(address(pool), type(uint256).max);
         underlying.mint(user, 1e18);
@@ -344,17 +361,30 @@ contract PoolTest is ElementTest {
         term.setDepositReturnValues(scene.sharesMinted, scene.sharesValue);
     }
 
-    function validateRegisterPoolIdSuccessCase(RegisterPoolIdScenario memory scene) internal {
+    function validateRegisterPoolIdSuccessCase(
+        RegisterPoolIdScenario memory scene
+    ) internal {
         uint256 userUnderlyingBalance = underlying.balanceOf(user);
-        uint256 userLpBalanceBefore = pool.balanceOf(scene.poolId, scene.recipient);
+        uint256 userLpBalanceBefore = pool.balanceOf(
+            scene.poolId,
+            scene.recipient
+        );
         uint256 poolTotalSupplyBefore = pool.totalSupply(scene.poolId);
-        uint256 unlockedYTOnPoolBalanceBefore = term.balanceOf(term.UNLOCKED_YT_ID(), address(pool));
+        uint256 unlockedYTOnPoolBalanceBefore = term.balanceOf(
+            term.UNLOCKED_YT_ID(),
+            address(pool)
+        );
 
         vm.expectEmit(true, false, false, false);
         emit PoolRegistered(scene.poolId);
 
         uint256 mintedLpTokens = pool.registerPoolId(
-            scene.poolId, scene.underlyingIn, scene.tStretch, scene.recipient, scene.maxTime, scene.maxLength
+            scene.poolId,
+            scene.underlyingIn,
+            scene.tStretch,
+            scene.recipient,
+            scene.maxTime,
+            scene.maxLength
         );
 
         assertEq(
@@ -364,20 +394,36 @@ contract PoolTest is ElementTest {
         );
 
         (uint128 shares, uint128 bonds) = pool.reserves(scene.poolId);
-        assertEq(shares, uint128(scene.sharesMinted), "reserve shares should equal minted shares");
+        assertEq(
+            shares,
+            uint128(scene.sharesMinted),
+            "reserve shares should equal minted shares"
+        );
         assertEq(bonds, 0, "reserve bonds should be 0");
 
-        (,,, uint16 bufferMaxLength,) = pool.readMetadataParsed(scene.poolId);
+        (, , , uint16 bufferMaxLength, ) = pool.readMetadataParsed(
+            scene.poolId
+        );
         if (scene.maxTime > 0 || scene.maxLength > 0) {
-            assertEq(bufferMaxLength, scene.maxLength, "Oracle should be initialized");
+            assertEq(
+                bufferMaxLength,
+                scene.maxLength,
+                "Oracle should be initialized"
+            );
         } else {
             assertEq(bufferMaxLength, 0, "Oracle should not be initialized");
         }
 
-        uint256 derivedMu =
-            FixedPointMath.divDown(pool.normalize(scene.sharesValue), pool.normalize(scene.sharesMinted));
+        uint256 derivedMu = FixedPointMath.divDown(
+            pool.normalize(scene.sharesValue),
+            pool.normalize(scene.sharesMinted)
+        );
         (uint32 tStretch, uint224 mu) = pool.parameters(scene.poolId);
-        assertEq(tStretch, scene.tStretch, "tStretch parameter should match input");
+        assertEq(
+            tStretch,
+            scene.tStretch,
+            "tStretch parameter should match input"
+        );
         assertEq(mu, derivedMu, "mu paramater should be derived correctly");
 
         uint256 poolTotalSupplyAfter = pool.totalSupply(scene.poolId);
@@ -387,18 +433,30 @@ contract PoolTest is ElementTest {
             "should create sharesMinted amount of LP tokens"
         );
 
-        uint256 userLpBalanceAfter = pool.balanceOf(scene.poolId, scene.recipient);
+        uint256 userLpBalanceAfter = pool.balanceOf(
+            scene.poolId,
+            scene.recipient
+        );
         assertEq(
-            userLpBalanceAfter - userLpBalanceBefore, scene.sharesMinted, "LP tokens should be minted to the recipient"
+            userLpBalanceAfter - userLpBalanceBefore,
+            scene.sharesMinted,
+            "LP tokens should be minted to the recipient"
         );
 
-        uint256 unlockedYTOnPoolBalanceAfter = term.balanceOf(term.UNLOCKED_YT_ID(), address(pool));
+        uint256 unlockedYTOnPoolBalanceAfter = term.balanceOf(
+            term.UNLOCKED_YT_ID(),
+            address(pool)
+        );
         assertEq(
             unlockedYTOnPoolBalanceAfter - unlockedYTOnPoolBalanceBefore,
             scene.sharesMinted,
             "Unlocked shares should be minted to the pool"
         );
 
-        assertEq(mintedLpTokens, scene.sharesMinted, "output value should equal minted shares");
+        assertEq(
+            mintedLpTokens,
+            scene.sharesMinted,
+            "output value should equal minted shares"
+        );
     }
 }

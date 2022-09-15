@@ -22,7 +22,7 @@ contract PoolTest__registerPoolId is PoolTest {
 
         (uint128 preShares, uint128 preBonds) = pool.reserves(TERM_END);
 
-        uint256 estMintedShares = _underlyingAsUnlockedShares(
+        uint256 estMintedShares = getUnlockedShareValueOfUnderlying(
             term,
             underlying
         );
@@ -133,7 +133,7 @@ contract PoolTest__registerPoolId is PoolTest {
 
     function test__emits_sync_event() public {
         uint256 underlying = 10_000e6;
-        uint256 shares = _underlyingAsUnlockedShares(term, underlying);
+        uint256 shares = getUnlockedShareValueOfUnderlying(term, underlying);
 
         vm.expectEmit(true, true, true, false);
         emit Sync(TERM_END, underlying, 1);
