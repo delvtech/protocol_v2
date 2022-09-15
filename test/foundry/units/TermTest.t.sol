@@ -27,22 +27,6 @@ contract TermTest is Test {
         );
     }
 
-    // FIXME: Remove this.
-
-    function testGenerateTestMatrix() public {
-        uint256[] memory inputs = new uint256[](3);
-        inputs[0] = 0;
-        inputs[1] = 1;
-        inputs[2] = 2;
-        uint256[][] memory testMatrix = Utils.generateTestingMatrix(4, inputs);
-
-        console.log("[");
-        for (uint256 i = 0; i < testMatrix.length; i++) {
-            console.log("    ", testMatrix[i][1]);
-        }
-        console.log("]");
-    }
-
     // -------------------  _releasePT unit tests   ------------------ //
 
     function testCombinatorialReleasePT() public {
@@ -60,7 +44,7 @@ contract TermTest is Test {
         startHoax(user);
 
         // Create an asset ID of a PT that expires at 10,000.
-        uint256 assetId = encodeAssetId(false, 0, 10_000);
+        uint256 assetId = Utils.encodeAssetId(false, 0, 10_000);
 
         for (uint256 i = 0; i < testCases.length; i++) {
             // Set up the test's state in the term contract.
@@ -249,17 +233,6 @@ contract TermTest is Test {
 
     // ------------------- _parseAssetId unit tests ------------------ //
 
-    function encodeAssetId(
-        bool isYieldToken,
-        uint256 startDate,
-        uint256 expirationDate
-    ) internal pure returns (uint256) {
-        return
-            (uint256(isYieldToken ? 1 : 0) << 255) |
-            (startDate << 128) |
-            expirationDate;
-    }
-
     function testParseAssetId__principalTokenId() public {
         bool[4] memory isYieldTokenInputs = [false, false, false, false];
         uint256[4] memory startDateInputs = [uint256(0), 0, 15, 43];
@@ -271,7 +244,7 @@ contract TermTest is Test {
                 uint256 startDate,
                 uint256 expirationDate
             ) = _term.parseAssetIdExternal(
-                    encodeAssetId(
+                    Utils.encodeAssetId(
                         isYieldTokenInputs[i],
                         startDateInputs[i],
                         expirationDateInputs[i]
@@ -300,7 +273,7 @@ contract TermTest is Test {
                 uint256 startDate,
                 uint256 expirationDate
             ) = _term.parseAssetIdExternal(
-                    encodeAssetId(
+                    Utils.encodeAssetId(
                         isYieldTokenInputs[i],
                         startDateInputs[i],
                         expirationDateInputs[i]

@@ -4,6 +4,17 @@ pragma solidity 0.8.15;
 import { ERC4626Term } from "contracts/ERC4626Term.sol";
 
 library Utils {
+    function encodeAssetId(
+        bool isYieldToken,
+        uint256 startDate,
+        uint256 expirationDate
+    ) internal pure returns (uint256) {
+        return
+            (uint256(isYieldToken ? 1 : 0) << 255) |
+            (startDate << 128) |
+            expirationDate;
+    }
+
     // @notice Generates a matrix of all of the different combinations of
     //         inputs for a given number of rows.
     // @dev In order to generate the full testing matrix, we need to generate

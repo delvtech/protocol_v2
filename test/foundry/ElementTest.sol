@@ -2,26 +2,11 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 import { ERC4626Term } from "contracts/ERC4626Term.sol";
 
 contract ElementTest is Test {
     uint256 public constant YEAR = (365 * 24 * 60 * 60);
-
-    // TODO Refactor to generalized function when interfaces for variant terms become standardized
-    function getUnlockedShareValueOfUnderlying(
-        ERC4626Term term,
-        uint256 underlying
-    ) internal returns (uint256) {
-        (, , , uint256 impliedUnderlyingReserve) = term.reserveDetails();
-
-        return
-            impliedUnderlyingReserve == 0
-                ? underlying
-                : ((underlying * term.totalSupply(term.UNLOCKED_YT_ID())) /
-                    impliedUnderlyingReserve);
-    }
 
     // Helper function to create a random address seeded by a string value, also
     // deals and labels the address for easier debugging
