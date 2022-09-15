@@ -15,7 +15,7 @@ import {ITerm} from "contracts/interfaces/ITerm.sol";
 import {FixedPointMath} from "contracts/libraries/FixedPointMath.sol";
 import {ElementError} from "contracts/libraries/Errors.sol";
 
-import {ElementTest} from "../ElementTest.sol";
+import {ElementTest} from "test/ElementTest.sol";
 
 contract PoolTest is ElementTest {
     ForwarderFactory factory;
@@ -23,8 +23,8 @@ contract PoolTest is ElementTest {
     MockTerm term;
     MockPool pool;
 
-    address user = _mkAddr("user");
-    address governance = _mkAddr("governance");
+    address user = makeAddress("user");
+    address governance = makeAddress("governance");
 
     uint256 TRADE_FEE = 1;
     uint256 TERM_END;
@@ -67,23 +67,20 @@ contract PoolTest is ElementTest {
         uint16 maxTime,
         uint16 maxLength,
         uint256 sharesMinted,
-        uint256 sharesValue,
         uint8 underlyingDecimals
     )
         public
     {
         vm.assume(poolId > block.timestamp && poolId != TERM_END + 1);
-        vm.assume(underlyingIn > 0 && underlyingIn <= (type(uint256).max - 1e18));
+        // 1 billion assumed max underlying
+        vm.assume(underlyingIn > 0 && underlyingIn <= 1_000_000_000e18);
         vm.assume(tStretch > 0);
         vm.assume(maxLength > 1);
         vm.assume(maxTime >= maxLength);
         vm.assume(underlyingDecimals > 0 && underlyingDecimals <= 18);
 
-        uint256 sharesMintedUpperBound =
-            type(uint256).max / (underlyingDecimals == 18 ? 1e18 : 10 ** (18 - underlyingDecimals));
-        uint256 sharesValueUpperBound = sharesMintedUpperBound / 1e18;
-        vm.assume(sharesMinted > 0 && sharesMinted <= sharesMintedUpperBound);
-        vm.assume(sharesValue <= sharesValueUpperBound);
+        // sharesMinted are expected to always be <= underlyingIn
+        vm.assume(sharesMinted > 0 && sharesMinted <= underlyingIn);
 
         RegisterPoolIdScenario memory scene = RegisterPoolIdScenario(
             poolId,
@@ -96,7 +93,7 @@ contract PoolTest is ElementTest {
             bytes4(0),
             0,
             sharesMinted,
-            sharesValue,
+            underlyingIn,
             underlyingIn,
             underlyingDecimals
         );
@@ -108,7 +105,7 @@ contract PoolTest is ElementTest {
     }
 
     function test__registerPoolId__failureCases() public {
-        RegisterPoolIdScenario[14] memory scenes = [
+        RegisterPoolIdScenario[12] memory scenes = [
             // Term expired - pool id == block.timestamp
             RegisterPoolIdScenario({
                 poolId: block.timestamp,
@@ -285,38 +282,6 @@ contract PoolTest is ElementTest {
                 underlyingMintAmount: 1e18,
                 underlyingDecimals: 18
             }),
-            // sharesMinted upperBound mu calc normalize overflow
-            RegisterPoolIdScenario({
-                poolId: TERM_END,
-                underlyingIn: 1e12,
-                tStretch: 10245,
-                recipient: user,
-                maxTime: 5,
-                maxLength: 5,
-                errorMsg: string(stdError.arithmeticError),
-                errorSelector: bytes4(0),
-                totalSupply: 0,
-                sharesMinted: (type(uint256).max / 1e12) + 1,
-                sharesValue: 1e12,
-                underlyingMintAmount: 1e18,
-                underlyingDecimals: 6
-            }),
-            // sharesValue upperBound mu calc normalize overflow
-            RegisterPoolIdScenario({
-                poolId: TERM_END,
-                underlyingIn: 1e12,
-                tStretch: 10245,
-                recipient: user,
-                maxTime: 5,
-                maxLength: 5,
-                errorMsg: string(stdError.arithmeticError),
-                errorSelector: bytes4(0),
-                totalSupply: 0,
-                sharesMinted: 1e12,
-                sharesValue: (type(uint256).max / 1e12) + 1,
-                underlyingMintAmount: 1e18,
-                underlyingDecimals: 6
-            }),
             // sharesValue upperBound mu calc fixedPointMath scaled assembly division overflow
             RegisterPoolIdScenario({
                 poolId: TERM_END,
@@ -342,7 +307,7 @@ contract PoolTest is ElementTest {
             RegisterPoolIdScenario memory scene = scenes[i];
             setupRegisterPoolIdScenario(scene);
 
-            _expectRevert(scene.errorMsg, scene.errorSelector);
+            expectRevert(scene.errorMsg, scene.errorSelector);
             pool.registerPoolId(
                 scene.poolId, scene.underlyingIn, scene.tStretch, scene.recipient, scene.maxTime, scene.maxLength
             );

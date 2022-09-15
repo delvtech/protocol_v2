@@ -19,7 +19,9 @@ contract ElementTest is Test {
             : ((underlying * term.totalSupply(term.UNLOCKED_YT_ID())) / impliedUnderlyingReserve);
     }
 
-    function _mkAddr(string memory name) internal returns (address addr) {
+    // Helper function to create a random address seeded by a string value, also
+    // deals and labels the address for easier debugging
+    function makeAddress(string memory name) public returns (address addr) {
         addr = vm.addr(uint256(keccak256(abi.encodePacked(name))));
         vm.deal(addr, 100 ether);
         vm.label(addr, name);
@@ -40,7 +42,7 @@ contract ElementTest is Test {
     }
 
     // abstracts error validation for unit testing
-    function _expectRevert(string memory message, bytes4 selector) internal returns (bool) {
+    function expectRevert(string memory message, bytes4 selector) public returns (bool) {
         // generic error
         if (keccak256(abi.encodePacked(message)) == keccak256(abi.encodePacked("EvmError: Revert"))) {
             vm.expectRevert();

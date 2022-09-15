@@ -10,7 +10,7 @@ import { ERC4626Term, IERC4626 } from "contracts/ERC4626Term.sol";
 import { Pool, ITerm, IERC20 } from "contracts/Pool.sol";
 import { ForwarderFactory } from "contracts/ForwarderFactory.sol";
 
-import { ElementTest } from "../ElementTest.sol";
+import { ElementTest } from "test/ElementTest.sol";
 
 contract PoolTest is ElementTest {
     MockERC20Permit public USDC;
@@ -20,9 +20,9 @@ contract PoolTest is ElementTest {
 
     ForwarderFactory forwarderFactory;
 
-    address deployer = _mkAddr("deployer");
-    address user = _mkAddr("user");
-    address governance = _mkAddr("governance");
+    address deployer = makeAddress("deployer");
+    address user = makeAddress("user");
+    address governance = makeAddress("governance");
 
     uint256 public TERM_START = block.timestamp;
     uint256 public TERM_END = TERM_START + YEAR;

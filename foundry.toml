@@ -17,6 +17,6 @@ optimizer = true
 optimizer_runs = 7500
 # Whether or not to use the Yul intermediate representation compilation pipeline
 via_ir = true
-remappings = ['forge-std=lib/forge-std/src', '@openzeppelin/=lib/openzeppelin-contracts', '@compoundV3/=lib/comet']
+remappings = ['forge-std=lib/forge-std/src', '@openzeppelin/=lib/openzeppelin-contracts', '@compoundV3/=lib/comet', 'test/=test/foundry']
 
 # For more config options see: https://book.getfoundry.sh/reference/config.html

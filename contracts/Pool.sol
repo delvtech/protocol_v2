@@ -178,6 +178,7 @@ contract Pool is LP, Authorizable, TWAROracle {
             address(this)
         );
         // We want to store the mu as an 18 point fraction
+        // NOTE Overflow if `_normalize(value)` > uint256.max / 1e18
         uint256 mu = (_normalize(value)).divDown(_normalize(sharesMinted));
         // Initialize the reserves.
         _update(poolId, uint128(0), uint128(sharesMinted));
@@ -676,12 +677,14 @@ contract Pool is LP, Authorizable, TWAROracle {
         return _denormalize(result);
     }
 
+    // Overflow case here where decimals < 18 and input >=
+    // (uint256.max / 10**(18 - decimals)) + 1
     function _normalize(uint256 input) internal view returns (uint256) {
         if (decimals < 18) {
-            // unchecked { NOTE Removing unchecked for more robust bound checks
+            unchecked {
                 uint256 adjustFactor = 10**(18 - decimals);
                 return input * adjustFactor;
-            // }
+            }
         } else {
             return input;
         }
@@ -689,10 +692,10 @@ contract Pool is LP, Authorizable, TWAROracle {
 
     function _denormalize(uint256 input) internal view returns (uint256) {
         if (decimals < 18) {
-            // unchecked {
+            unchecked {
                 uint256 adjustFactor = 10**(18 - decimals);
                 return input / adjustFactor;
-            // }
+            }
         } else {
             return input;
         }
