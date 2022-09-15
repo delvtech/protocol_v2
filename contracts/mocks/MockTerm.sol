@@ -97,18 +97,73 @@ contract MockTerm is Term {
         return withdrawReturnValue;
     }
 
+    // ---------------------- function overrides --------------------- //
+
+    event ReleasePT(
+        FinalizedState finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    );
+    event ReleaseYT(
+        FinalizedState finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    );
+    event ReleaseUnlocked(address source, uint256 amount);
+
+    function _releaseUnlocked(address source, uint256 amount)
+        internal
+        override
+        returns (uint256, uint256)
+    {
+        emit ReleaseUnlocked(source, amount);
+        return (0, 0);
+    }
+
+    function _releaseYT(
+        FinalizedState memory finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) internal override returns (uint256, uint256) {
+        emit ReleaseYT(finalState, assetId, source, amount);
+        return (0, 0);
+    }
+
+    function _releasePT(
+        FinalizedState memory finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) internal override returns (uint256, uint256) {
+        emit ReleasePT(finalState, assetId, source, amount);
+        return (0, 0);
+    }
+
+    // ---------------------- function mocks ---------------------- //
+
+    function releaseAssetExternal(
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) external returns (uint256, uint256) {
+        return super._releaseAsset(assetId, source, amount);
+    }
+
     function finalizeTermExternal(uint256 expiry)
         external
         returns (FinalizedState memory)
     {
-        return _finalizeTerm(expiry);
+        return super._finalizeTerm(expiry);
     }
 
     function releaseUnlockedExternal(address source, uint256 amount)
         external
         returns (uint256, uint256)
     {
-        return _releaseUnlocked(source, amount);
+        return super._releaseUnlocked(source, amount);
     }
 
     function releaseYTExternal(
@@ -117,7 +172,7 @@ contract MockTerm is Term {
         address source,
         uint256 amount
     ) external returns (uint256, uint256) {
-        return _releaseYT(finalState, assetId, source, amount);
+        return super._releaseYT(finalState, assetId, source, amount);
     }
 
     function releasePTExternal(
@@ -126,7 +181,7 @@ contract MockTerm is Term {
         address source,
         uint256 amount
     ) external returns (uint256, uint256) {
-        return _releasePT(finalState, assetId, source, amount);
+        return super._releasePT(finalState, assetId, source, amount);
     }
 
     function parseAssetIdExternal(uint256 _assetId)

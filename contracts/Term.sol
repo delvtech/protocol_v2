@@ -392,6 +392,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     /// @return finalState The finalized term state for this expiry.
     function _finalizeTerm(uint256 expiry)
         internal
+        virtual
         returns (FinalizedState memory finalState)
     {
         // All shares corresponding to PT and YT expiring now
@@ -420,6 +421,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     /// @return returns the shares unlocked and the amount they are worth
     function _releaseUnlocked(address source, uint256 amount)
         internal
+        virtual
         returns (uint256, uint256)
     {
         // In this case we just do a proportional withdraw from the shares for this asset
@@ -449,7 +451,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 assetId,
         address source,
         uint256 amount
-    ) internal returns (uint256, uint256) {
+    ) internal virtual returns (uint256, uint256) {
         // To release YT we calculate the implied earning of the differential between final price per share
         // and the stored price per share at the time of YT creation.
         YieldState memory yieldTerm = yieldTerms[assetId];
@@ -498,7 +500,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 assetId,
         address source,
         uint256 amount
-    ) internal returns (uint256, uint256) {
+    ) internal virtual returns (uint256, uint256) {
         // We release the PT by deducting the shares needed to pay interest obligations
         // then distributing the remaining shares pro-rata [meaning PT earn interest after expiry]
 

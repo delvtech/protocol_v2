@@ -28,6 +28,110 @@ contract TermTest is Test {
         );
     }
 
+    // -------------------  _releaseAsset unit tests   ------------------ //
+
+    // FIXME
+    //
+    // 1. This is a good opportunity to start stubbing out the functions that
+    //    are called by this function.
+    function testCombinatorialReleaseAsset() public {
+        uint256[] memory inputs = new uint256[](0);
+        // FIXME
+        ReleaseAssetTestCase[] memory testCases = convertToReleaseAssetTestCase(
+            Utils.generateTestingMatrix(0, inputs)
+        );
+
+        // Set the address.
+        startHoax(user);
+
+        // We pick a fixed expiry since it wouldn't effect the testing to
+        // simulate different values for the parameter.
+        uint256 expiry = 10_000;
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            // Set up the test state.
+            // FIXME
+
+            bytes memory expectedError = getExpectedErrorReleaseAsset(
+                testCases[i]
+            );
+            if (expectedError.length > 0) {
+                // FIXME
+                // try _term.releaseAssetExternal(expiry) {
+                //     logTestCaseFinalizeTerm("failure case", testCases[i]);
+                //     revert("succeeded unexpectedly");
+                // } catch (bytes memory error) {
+                //     if (
+                //         keccak256(abi.encodePacked(error)) !=
+                //         keccak256(abi.encodePacked(expectedError))
+                //     ) {
+                //         logTestCaseFinalizeTerm("failure case", testCases[i]);
+                //         assertEq(error, expectedError);
+                //     }
+                // }
+            } else {
+                // try _term.releaseAssetExternal(expiry) returns (
+                //     uint256 shares, uint256 value
+                // ) {
+                //     validateReleaseAssetSuccess(
+                //         testCases[i]
+                //     );
+                // } catch (bytes memory error) {
+                //     logTestCaseReleaseAsset("success case", testCases[i]);
+                //     revert("failed unexpectedly");
+                // }
+            }
+        }
+    }
+
+    struct ReleaseAssetTestCase {
+        // FIXME
+        uint256 dummy;
+    }
+
+    function convertToReleaseAssetTestCase(uint256[][] memory rawTestMatrix)
+        internal
+        pure
+        returns (ReleaseAssetTestCase[] memory)
+    {
+        ReleaseAssetTestCase[] memory result = new ReleaseAssetTestCase[](
+            rawTestMatrix.length
+        );
+        for (uint256 i = 0; i < rawTestMatrix.length; i++) {
+            require(
+                rawTestMatrix[i].length == 3,
+                "Raw test case must have length of 3."
+            );
+            // FIXME
+        }
+        return result;
+    }
+
+    function getExpectedErrorReleaseAsset(ReleaseAssetTestCase memory testCase)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // FIXME
+        return new bytes(0);
+    }
+
+    function validateReleaseAssetSuccess(FinalizeTermTestCase memory testCase)
+        internal
+    {
+        // FIXME
+    }
+
+    function logTestCaseReleaseAsset(
+        string memory prelude,
+        ReleaseAssetTestCase memory testCase
+    ) internal view {
+        console.log(prelude);
+        console.log("");
+        // FIXME
+        console.log("");
+    }
+
     // -------------------  _finalizeTerm unit tests   ------------------ //
 
     function testCombinatorialFinalizeTerm() public {
