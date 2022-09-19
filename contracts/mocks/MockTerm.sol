@@ -99,6 +99,7 @@ contract MockTerm is Term {
 
     // ---------------------- function overrides --------------------- //
 
+    event FinalizeTerm(uint256 expiry);
     event ReleasePT(
         FinalizedState finalState,
         uint256 assetId,
@@ -113,13 +114,22 @@ contract MockTerm is Term {
     );
     event ReleaseUnlocked(address source, uint256 amount);
 
+    function _finalizeTerm(uint256 expiry)
+        internal
+        override
+        returns (FinalizedState memory finalState)
+    {
+        emit FinalizeTerm(expiry);
+        return FinalizedState({ pricePerShare: 1, interest: 2 });
+    }
+
     function _releaseUnlocked(address source, uint256 amount)
         internal
         override
         returns (uint256, uint256)
     {
         emit ReleaseUnlocked(source, amount);
-        return (0, 0);
+        return (1, 2);
     }
 
     function _releaseYT(
@@ -129,7 +139,7 @@ contract MockTerm is Term {
         uint256 amount
     ) internal override returns (uint256, uint256) {
         emit ReleaseYT(finalState, assetId, source, amount);
-        return (0, 0);
+        return (1, 2);
     }
 
     function _releasePT(
@@ -139,7 +149,7 @@ contract MockTerm is Term {
         uint256 amount
     ) internal override returns (uint256, uint256) {
         emit ReleasePT(finalState, assetId, source, amount);
-        return (0, 0);
+        return (1, 2);
     }
 
     // ---------------------- function mocks ---------------------- //
