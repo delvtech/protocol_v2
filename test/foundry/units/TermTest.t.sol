@@ -62,71 +62,44 @@ contract TermTest is Test {
                 testCases[i]
             );
             if (expectedError.length > 0) {
-                console.log("failure test case ");
-                console.log("");
-                console.log("    amount               = ", testCases[i].amount);
-                console.log(
-                    "    interest             = ",
-                    testCases[i].interest
-                );
-                console.log(
-                    "    sharesPerExpiry      = ",
-                    testCases[i].sharesPerExpiry
-                );
-                console.log(
-                    "    totalSupply          = ",
-                    testCases[i].totalSupply
-                );
-                console.log(
-                    "    currentPricePerShare = ",
-                    testCases[i].currentPricePerShare
-                );
-                console.log(
-                    "    userBalance          = ",
-                    testCases[i].userBalance
-                );
-                console.log("");
-
-                vm.expectRevert(expectedError);
-                _term.releasePTExternal(
-                    finalState,
-                    assetId,
-                    user,
-                    testCases[i].amount
-                );
+                try
+                    _term.releasePTExternal(
+                        finalState,
+                        assetId,
+                        user,
+                        testCases[i].amount
+                    )
+                {
+                    logReleasePTTestCase("failure case", testCases[i]);
+                    revert("succeeds unexpectedly");
+                } catch (bytes memory error) {
+                    if (
+                        keccak256(abi.encodePacked(error)) !=
+                        keccak256(abi.encodePacked(expectedError))
+                    ) {
+                        logReleasePTTestCase("failure case", testCases[i]);
+                        assertEq(error, expectedError);
+                    }
+                }
             } else {
-                console.log("success test case ");
-                console.log("");
-                console.log("    amount               = ", testCases[i].amount);
-                console.log(
-                    "    interest             = ",
-                    testCases[i].interest
-                );
-                console.log(
-                    "    sharesPerExpiry      = ",
-                    testCases[i].sharesPerExpiry
-                );
-                console.log(
-                    "    totalSupply          = ",
-                    testCases[i].totalSupply
-                );
-                console.log(
-                    "    currentPricePerShare = ",
-                    testCases[i].currentPricePerShare
-                );
-                console.log(
-                    "    userBalance          = ",
-                    testCases[i].userBalance
-                );
-                console.log("");
-
-                (uint256 shares, uint256 value) = _term.releasePTExternal(
-                    finalState,
-                    assetId,
-                    user,
-                    testCases[i].amount
-                );
-                validateReleasePTSuccess(testCases[i], assetId, shares, value);
+                try
+                    _term.releasePTExternal(
+                        finalState,
+                        assetId,
+                        user,
+                        testCases[i].amount
+                    )
+                returns (uint256 shares, uint256 value) {
+                    validateReleasePTSuccess(
+                        testCases[i],
+                        assetId,
+                        shares,
+                        value
+                    );
+                } catch (bytes memory error) {
+                    logReleasePTTestCase("success case", testCases[i]);
+                    revert("fails unexpectedly");
+                }
             }
         }
     }
@@ -214,22 +187,63 @@ contract TermTest is Test {
             testCase.totalSupply;
         uint256 expectedValue = (expectedShares *
             testCase.currentPricePerShare) / 1e18;
-        assertEq(shares, expectedShares);
-        assertEq(value, expectedValue);
+        if (shares != expectedShares) {
+            logReleasePTTestCase("success case", testCase);
+            assertEq(shares, expectedShares);
+        }
+        if (value != expectedValue) {
+            logReleasePTTestCase("success case", testCase);
+            assertEq(value, expectedValue);
+        }
 
         // Ensure that the state was updated correctly.
-        assertEq(
-            _term.totalSupply(assetId),
-            testCase.totalSupply - testCase.amount
-        );
-        assertEq(
-            _term.balanceOf(assetId, user),
+        if (
+            _term.totalSupply(assetId) != testCase.totalSupply - testCase.amount
+        ) {
+            logReleasePTTestCase("success case", testCase);
+            assertEq(
+                _term.totalSupply(assetId),
+                testCase.totalSupply - testCase.amount
+            );
+        }
+        if (
+            _term.balanceOf(assetId, user) !=
             testCase.userBalance - testCase.amount
-        );
-        assertEq(
-            _term.sharesPerExpiry(assetId),
+        ) {
+            logReleasePTTestCase("success case", testCase);
+            assertEq(
+                _term.balanceOf(assetId, user),
+                testCase.userBalance - testCase.amount
+            );
+        }
+        if (
+            _term.sharesPerExpiry(assetId) !=
             testCase.sharesPerExpiry - expectedShares
+        ) {
+            logReleasePTTestCase("success case", testCase);
+            assertEq(
+                _term.sharesPerExpiry(assetId),
+                testCase.sharesPerExpiry - expectedShares
+            );
+        }
+    }
+
+    function logReleasePTTestCase(
+        string memory prelude,
+        ReleasePTTestCase memory testCase
+    ) internal view {
+        console.log(prelude);
+        console.log("");
+        console.log("    amount               = ", testCase.amount);
+        console.log("    interest             = ", testCase.interest);
+        console.log("    sharesPerExpiry      = ", testCase.sharesPerExpiry);
+        console.log("    totalSupply          = ", testCase.totalSupply);
+        console.log(
+            "    currentPricePerShare = ",
+            testCase.currentPricePerShare
         );
+        console.log("    userBalance          = ", testCase.userBalance);
+        console.log("");
     }
 
     // ------------------- _parseAssetId unit tests ------------------ //
