@@ -16,6 +16,7 @@ import { FixedPointMath } from "contracts/libraries/FixedPointMath.sol";
 import { ElementError } from "contracts/libraries/Errors.sol";
 
 import { ElementTest } from "test/ElementTest.sol";
+import { Utils } from "test/Utils.sol";
 
 contract PoolTest is ElementTest {
     ForwarderFactory factory;

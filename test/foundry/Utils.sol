@@ -37,9 +37,11 @@ library Utils {
         returns (uint256[][] memory result)
     {
         // Ensure that the input values are unique.
-        uint256 lastInput = inputs[0];
         for (uint256 i = 1; i < inputs.length; i++) {
-            require(lastInput < inputs[i], "utils: test inputs aren't sorted.");
+            require(
+                inputs[i - 1] < inputs[i],
+                "utils: test inputs aren't sorted."
+            );
         }
 
         // Generate the full testing matrix.
