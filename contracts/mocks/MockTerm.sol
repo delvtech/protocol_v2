@@ -35,7 +35,7 @@ contract MockTerm is Term {
         override
         returns (uint256)
     {
-        return convertReturnValue;
+        return _convertReturnValue;
     }
 
     // ####################
@@ -90,7 +90,7 @@ contract MockTerm is Term {
         override
         returns (uint256)
     {
-        return underlyingReturnValue;
+        return _underlyingReturnValue;
     }
 
     // ###########################
@@ -144,8 +144,8 @@ contract MockTerm is Term {
             destination
         );
         return (
-            depositUnlockedLeftReturnValue,
-            depositUnlockedRightReturnValue
+            _depositUnlockedLeftReturnValue,
+            _depositUnlockedRightReturnValue
         );
     }
 
