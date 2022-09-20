@@ -25,7 +25,7 @@ contract CompoundV3Term is Term {
 
     /// @notice Associates the Compound contract to the protocol and sets
     ///         reserve limits
-    /// @param _yieldSource Address of the Compoundv3 implementation
+    /// @param _yieldSource Address of the Compound V3 implementation
     /// @param _linkerCodeHash The hash of the erc20 linker contract deploy code
     /// @param _factory The factory which is used to deploy the linking contracts
     /// @param _maxReserve Upper bound of underlying which can be held in the
@@ -218,7 +218,7 @@ contract CompoundV3Term is Term {
         returns (uint256 underlying)
     {
         /// Calculates how much `underlying` the `_shares` are worth
-        uint256 underlying = yieldSharesAsUnderlying(_shares);
+        underlying = yieldSharesAsUnderlying(_shares);
 
         /// Withdraw `underlying` from Compound
         yieldSource.withdrawTo(_dest, address(token), underlying);
@@ -311,22 +311,22 @@ contract CompoundV3Term is Term {
                     0
                 );
             } else {
-                /// Internalised representation for shares of this contract's deposits
+                /// Internalized representation for shares of this contract's deposits
                 /// to Compound and the interest accrued to them
-                uint256 underlyingAsYieldShares = (yieldSharesIssued *
+                uint256 _underlyingAsYieldShares = (yieldSharesIssued *
                     underlying) / accruedUnderlying;
 
                 /// Withdraws `underlying`
                 yieldSource.withdrawTo(_dest, address(token), underlying);
 
                 /// Account for yieldShares being redeemed
-                yieldSharesIssued -= underlyingAsYieldShares;
+                yieldSharesIssued -= _underlyingAsYieldShares;
 
                 /// The `underlyingReserve` is unchanged. Deducts `yieldShares`
                 /// redeemed by the withdrawal from the `vaultShareReserve`
                 _setReserves(
                     underlyingReserve_,
-                    yieldShareReserve_ - underlyingAsYieldShares
+                    yieldShareReserve_ - _underlyingAsYieldShares
                 );
             }
         }
