@@ -15,11 +15,11 @@ contract CompoundV3Term is Term {
     /// Accumulates the inferred amount of invested shares of underlying by this contract
     uint256 public yieldSharesIssued;
 
-    /// See ERC4626.sol
-    uint128 private _underlyingReserve;
-    uint128 private _yieldShareReserve;
+    /// See ERC4626Term.sol
+    uint128 internal _underlyingReserve;
+    uint128 internal _yieldShareReserve;
 
-    /// See ERC4626.sol
+    /// See ERC4626Term.sol
     uint256 public immutable maxReserve;
     uint256 public immutable targetReserve;
 
