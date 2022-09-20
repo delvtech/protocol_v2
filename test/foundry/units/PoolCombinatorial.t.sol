@@ -182,6 +182,13 @@ contract PoolTest is ElementTest {
             );
         }
 
+        // Will fail as underlyinIn is mapped to sharesValue which in the mu
+        // calculation will do a scaled division and will overflow in conditions
+        // where the normalized value is an exceptionally high value
+        if (testCase.underlyingIn > (type(uint256).max / 1e18)) {
+            return (true, EMPTY_REVERT);
+        }
+
         // assembly division by zero in fixed point math
         if (testCase.sharesMinted == 0) {
             return (true, EMPTY_REVERT);
@@ -209,21 +216,6 @@ contract PoolTest is ElementTest {
             );
         }
 
-        // if (testCase.sharesMinted > type(uint128).max) {
-        //     return bytes("OVERFLOW");
-        // }
-
-        // if (testCase.maxLength <= 1 && testCase.maxTime > 0) {
-        //     vm.expectRevert(
-        //         ElementError.TWAROracle_IncorrectBufferLength.selector
-        //     );
-        //     return true;
-        // }
-
-        // if (testCase.sharesMinted == 0) {
-        //     vm.expectRevert(); // FixedPointMath assembly division error
-        //     return true;
-        // }
         return (false, new bytes(0));
     }
 
@@ -231,23 +223,6 @@ contract PoolTest is ElementTest {
         RegisterPoolIdTestCase memory testCase,
         uint256 mintedLpTokens
     ) internal {
-        // uint256 userUnderlyingBalance = underlying.balanceOf(user);
-        // uint256 userLpBalanceBefore = pool.balanceOf(testCase.poolId, user);
-        // uint256 poolTotalSupplyBefore = pool.totalSupply(testCase.poolId);
-        // uint256 unlockedYTOnPoolBalanceBefore = term.balanceOf(
-        //     term.UNLOCKED_YT_ID(),
-        //     address(pool)
-        // );
-
-        // uint256 mintedLpTokens = pool.registerPoolId(
-        //     testCase.poolId,
-        //     testCase.underlyingIn,
-        //     testCase.tStretch,
-        //     user,
-        //     testCase.maxTime,
-        //     testCase.maxLength
-        // );
-
         assertEq(
             underlying.balanceOf(user),
             0,
@@ -348,27 +323,9 @@ contract PoolTest is ElementTest {
                 "Raw test case must have length of 7"
             );
 
-            // Error cases for poolId
-            // 1. poolId == block.timestamp
-            // 2. poolId < block.timestamp
-            // All other cases should be specified by TERM_END
-            uint256 _poolId = rawTestCases[i][0] == 0
-                ? 0
-                : rawTestCases[i][0] == 1e18
+            uint256 _poolId = rawTestCases[i][0] == 1e18
                 ? block.timestamp
                 : rawTestCases[i][0];
-
-            // Failing case input for maxTime is only 0 so conforming to 5 for
-            // all other cases
-            uint16 _maxTime = rawTestCases[i][3] == 0 ? 0 : 5;
-
-            // Failing case input for maxLength is 0 or 1 so conforming to those
-            // where input is 0 or TERM_END and then 5 in all other cases
-            uint16 _maxLength = rawTestCases[i][4] == 0
-                ? 0
-                : rawTestCases[i][4] == TERM_END
-                ? 1
-                : 5;
 
             testCases[i] = RegisterPoolIdTestCase({
                 poolId: _poolId,
@@ -388,7 +345,7 @@ contract PoolTest is ElementTest {
         RegisterPoolIdTestCase memory testCase
     ) internal {
         console2.log("    Pool.registerPoolId Test #%s :: %s", index, prelude);
-        console2.log("    -------------------------------    ");
+        console2.log("    -----------------------------------------------    ");
         console2.log("    poolId           = ", testCase.poolId);
         console2.log("    underlyingIn     = ", testCase.underlyingIn);
         console2.log("    tStretch         = ", testCase.tStretch);
