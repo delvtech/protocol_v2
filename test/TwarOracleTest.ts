@@ -214,15 +214,10 @@ describe("TWAR Oracle", function () {
   it("buffer should wrap when adding items", async () => {
     // max length is 5, so the buffer should wrap back to the beginning
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
-    await advanceTimeOnly(provider, 1);
     await oracleContract.updateBuffer(BUFFER_ID, 1);
 
     const metadata = await oracleContract.readMetadataParsed(BUFFER_ID);

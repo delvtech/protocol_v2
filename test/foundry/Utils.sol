@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.15;
 
-import { ERC4626Term } from "contracts/ERC4626Term.sol";
-
 library Utils {
     function eq(bytes memory b1, bytes memory b2) public returns (bool) {
         return
@@ -42,11 +40,9 @@ library Utils {
         returns (uint256[][] memory result)
     {
         // Ensure that the input values are unique.
+        uint256 lastInput = inputs[0];
         for (uint256 i = 1; i < inputs.length; i++) {
-            require(
-                inputs[i - 1] < inputs[i],
-                "utils: test inputs aren't sorted."
-            );
+            require(lastInput < inputs[i], "utils: test inputs aren't sorted.");
         }
 
         // Generate the full testing matrix.

@@ -16,12 +16,12 @@ contract TWAROracle {
     /// set to the value passed in, minTimeStep and timeStamp are set to values for the current block.
     /// 0 when the first item is added.
     /// @param bufferId The ID of the buffer to initialize.
-    /// @param maxTime The maximum time in seconds the buffer will provide history for.  This cannot
-    /// be unset.
+    /// @param minTime The minimum amount of time in seconds the buffer will provide history for.
+    /// This cannot be unset.
     /// @param maxLength The maximum number of items in the buffer.  This cannot be unset.
     function _initializeBuffer(
         uint256 bufferId,
-        uint16 maxTime,
+        uint16 minTime,
         uint16 maxLength
     ) internal virtual {
         // maxLength of zero indicates a buffer has not been initialized.  Upper value for
@@ -34,7 +34,7 @@ contract TWAROracle {
             revert ElementError.TWAROracle_BufferAlreadyInitialized();
 
         // The minimum time required to pass before an update will be made to a buffer.
-        uint32 minTimeStep = uint32(maxTime) / uint32(maxLength);
+        uint32 minTimeStep = uint32(minTime) / uint32(maxLength);
         // This is more of a sanity check.  Note that minimum time steps that are less time than a
         // block can lead to dangerous side effects.
         if (minTimeStep == 0)
