@@ -118,7 +118,7 @@ contract PoolTest is ElementTest {
                     )
                 returns (uint256 mintedLpTokens) {
                     _validateRegisterPoolIdSuccess(testCase, mintedLpTokens);
-                } catch (bytes memory err) {
+                } catch {
                     _logRegisterPoolIdTestCase(
                         "Expected passing test, fails",
                         i,
@@ -130,9 +130,14 @@ contract PoolTest is ElementTest {
         }
     }
 
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
     function _registerExpectedRegisterPoolIdEvents(
         RegisterPoolIdTestCase memory testCase
     ) internal {
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(user, address(pool), testCase.underlyingIn);
+
         vm.expectEmit(true, true, true, true);
         emit MockTermCall.DepositUnlocked(
             testCase.underlyingIn,
@@ -147,7 +152,7 @@ contract PoolTest is ElementTest {
 
     function _getExpectedRegisterPoolIdError(
         RegisterPoolIdTestCase memory testCase
-    ) internal returns (bool testCaseIsError, bytes memory reason) {
+    ) internal view returns (bool testCaseIsError, bytes memory reason) {
         // where the input poolId is less than mined block timestamp
         if (testCase.poolId <= block.timestamp) {
             return (
@@ -262,7 +267,6 @@ contract PoolTest is ElementTest {
         );
         assertEq(mu, derivedMu, "mu paramater should be derived correctly");
 
-        uint256 poolTotalSupplyAfter = pool.totalSupply(testCase.poolId);
         assertEq(
             pool.totalSupply(testCase.poolId),
             testCase.totalSupply + testCase.sharesMinted,
@@ -343,7 +347,7 @@ contract PoolTest is ElementTest {
         string memory prelude,
         uint256 index,
         RegisterPoolIdTestCase memory testCase
-    ) internal {
+    ) internal view {
         console2.log("    Pool.registerPoolId Test #%s :: %s", index, prelude);
         console2.log("    -----------------------------------------------    ");
         console2.log("    poolId           = ", testCase.poolId);

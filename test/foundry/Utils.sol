@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 library Utils {
-    function eq(bytes memory b1, bytes memory b2) public returns (bool) {
+    function eq(bytes memory b1, bytes memory b2) public pure returns (bool) {
         return
             keccak256(abi.encodePacked(b1)) == keccak256(abi.encodePacked(b2));
     }

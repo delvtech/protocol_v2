@@ -96,7 +96,7 @@ contract TermTest is Test {
                         shares,
                         value
                     );
-                } catch (bytes memory error) {
+                } catch {
                     logReleasePTTestCase("success case", testCases[i]);
                     revert("fails unexpectedly");
                 }

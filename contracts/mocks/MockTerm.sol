@@ -61,6 +61,7 @@ contract MockTerm is Term {
 
     function _convert(ShareState _state, uint256 _shares)
         internal
+        view
         override
         returns (uint256)
     {
@@ -97,6 +98,7 @@ contract MockTerm is Term {
 
     function _deposit(ShareState _state)
         internal
+        view
         override
         returns (uint256, uint256)
     {
@@ -116,7 +118,7 @@ contract MockTerm is Term {
         uint256 _shares,
         address _dest,
         ShareState _state
-    ) internal override returns (uint256) {
+    ) internal view override returns (uint256) {
         return withdrawReturnValue;
     }
 
