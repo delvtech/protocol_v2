@@ -19,4 +19,5 @@ optimizer_runs = 7500
 via_ir = true
 remappings = ['forge-std=lib/forge-std/src', '@openzeppelin/=lib/openzeppelin-contracts', '@compoundV3/=lib/comet', 'test/=test/foundry']
 
+gas_limit = "18446744073709551615"
 # For more config options see: https://book.getfoundry.sh/reference/config.html

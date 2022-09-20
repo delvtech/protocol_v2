@@ -4,6 +4,11 @@ pragma solidity 0.8.15;
 import { ERC4626Term } from "contracts/ERC4626Term.sol";
 
 library Utils {
+    function eq(bytes memory b1, bytes memory b2) public returns (bool) {
+        return
+            keccak256(abi.encodePacked(b1)) == keccak256(abi.encodePacked(b2));
+    }
+
     function encodeAssetId(
         bool isYieldToken,
         uint256 startDate,

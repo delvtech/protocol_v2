@@ -3,6 +3,10 @@ pragma solidity ^0.8.15;
 
 import "../Pool.sol";
 
+library MockPoolCall {
+    event PoolRegistered(uint256 indexed poolId);
+}
+
 contract MockPool is Pool {
     constructor(
         ITerm _term,

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "forge-std/console.sol";
+import "forge-std/console2.sol";
 import "forge-std/Test.sol";
 
 import { ForwarderFactory } from "contracts/ForwarderFactory.sol";
 import { MockERC20Permit } from "contracts/mocks/MockERC20Permit.sol";
-import { MockTerm } from "contracts/mocks/MockTerm.sol";
-import { MockPool } from "contracts/mocks/MockPool.sol";
+import { MockTerm, MockTermCall } from "contracts/mocks/MockTerm.sol";
+import { MockPool, MockPoolCall } from "contracts/mocks/MockPool.sol";
 
 import { IERC20 } from "contracts/interfaces/IERC20.sol";
 import { ITerm } from "contracts/interfaces/ITerm.sol";
@@ -42,8 +42,6 @@ contract PoolTest is ElementTest {
     // ------------------- symbol unit tests ------------------ //
     // ------------------- registerPoolId unit tests ------------------ //
 
-    event PoolRegistered(uint256 indexed poolId);
-
     struct RegisterPoolIdTestCase {
         // args
         uint256 poolId;
@@ -54,110 +52,205 @@ contract PoolTest is ElementTest {
         // state vars
         uint256 totalSupply;
         uint256 sharesMinted;
-        uint256 userBalance;
+        //uint256 userBalance;
     }
 
     function testRegisterPoolId() public {
         startHoax(user);
 
-        uint256[] memory inputs = new uint256[](3);
+        uint256[] memory inputs = new uint256[](4);
         inputs[0] = 0; // 0 case
-        inputs[1] = 1; // 1 maxLength initialize buffer error
-        inputs[2] = TERM_END; // for fail case of prev term
-        //inputs[3] = 1e18; // general amount
-        //inputs[4] = (type(uint256).max / 1e18) + 1; // scaled div overflow in mu calc
+        inputs[1] = TERM_END; //
+        inputs[2] = 1e18; // general amount
+        inputs[3] = (type(uint256).max / 1e18) + 1; // scaled div overflow in mu calc
 
         RegisterPoolIdTestCase[]
-            memory testCases = _generateRegisterPoolIdTestCase(
-                Utils.generateTestingMatrix(8, inputs)
+            memory testCases = _convertRegisterPoolIdTestCase(
+                Utils.generateTestingMatrix(7, inputs)
             );
 
         for (uint256 i = 0; i < testCases.length; i++) {
             RegisterPoolIdTestCase memory testCase = testCases[i];
             _setupRegisterPoolIdTestCase(testCase);
+            (
+                bool testCaseIsError,
+                bytes memory expectedError
+            ) = _getExpectedRegisterPoolIdError(testCase);
 
-            if (_validateRegisterPoolIdError(testCase)) {
-                _logRegisterPoolIdTestCase(i, "error case", testCase);
-                pool.registerPoolId(
-                    testCase.poolId,
-                    testCase.underlyingIn,
-                    testCase.tStretch,
-                    user,
-                    testCase.maxTime,
-                    testCase.maxLength
-                );
+            if (testCaseIsError) {
+                try
+                    pool.registerPoolId(
+                        testCase.poolId,
+                        testCase.underlyingIn,
+                        testCase.tStretch,
+                        user,
+                        testCase.maxTime,
+                        testCase.maxLength
+                    )
+                {
+                    _logRegisterPoolIdTestCase(
+                        "Expected fail, test case passes",
+                        i,
+                        testCase
+                    );
+                    revert TestFail();
+                } catch (bytes memory err) {
+                    assertEq(err, expectedError);
+                    if (!Utils.eq(err, expectedError)) {
+                        _logRegisterPoolIdTestCase(
+                            "Expected different failure reason",
+                            i,
+                            testCase
+                        );
+                        revert TestFail();
+                    }
+                }
             } else {
-                _logRegisterPoolIdTestCase(i, "success case", testCase);
-                _validateRegisterPoolIdSuccess(testCase);
+                _registerExpectedRegisterPoolIdEvents(testCase);
+                try
+                    pool.registerPoolId(
+                        testCase.poolId,
+                        testCase.underlyingIn,
+                        testCase.tStretch,
+                        user,
+                        testCase.maxTime,
+                        testCase.maxLength
+                    )
+                returns (uint256 mintedLpTokens) {
+                    _validateRegisterPoolIdSuccess(testCase, mintedLpTokens);
+                } catch (bytes memory err) {
+                    _logRegisterPoolIdTestCase(
+                        "Expected passing test, fails",
+                        i,
+                        testCase
+                    );
+                    revert TestFail();
+                }
             }
         }
     }
 
-    function _validateRegisterPoolIdError(
-        RegisterPoolIdTestCase memory testCase
-    ) internal returns (bool) {
-        // where the input poolId is less than mined block timestamp
-        if (testCase.poolId <= block.timestamp) {
-            vm.expectRevert(ElementError.TermExpired.selector);
-            return true;
-        }
-
-        // setup phase defines existing term at this ID
-        if (testCase.poolId == TERM_END) {
-            vm.expectRevert(ElementError.PoolInitialized.selector);
-            return true;
-        }
-
-        if (testCase.tStretch == 0) {
-            vm.expectRevert(ElementError.PoolInitialized.selector);
-            return true;
-        }
-
-        if (testCase.underlyingIn == 0) {
-            vm.expectRevert(ElementError.UnderlyingInMustBeNonZero.selector);
-            return true;
-        }
-
-        if (testCase.maxLength <= 1 && testCase.maxTime > 0) {
-            vm.expectRevert(
-                ElementError.TWAROracle_IncorrectBufferLength.selector
-            );
-            return true;
-        }
-
-        if (testCase.sharesMinted == 0) {
-            vm.expectRevert(); // FixedPointMath assembly division error
-            return true;
-        }
-        return false;
-    }
-
-    function _validateRegisterPoolIdSuccess(
+    function _registerExpectedRegisterPoolIdEvents(
         RegisterPoolIdTestCase memory testCase
     ) internal {
-        uint256 userUnderlyingBalance = underlying.balanceOf(user);
-        uint256 userLpBalanceBefore = pool.balanceOf(testCase.poolId, user);
-        uint256 poolTotalSupplyBefore = pool.totalSupply(testCase.poolId);
-        uint256 unlockedYTOnPoolBalanceBefore = term.balanceOf(
-            term.UNLOCKED_YT_ID(),
+        vm.expectEmit(true, true, true, true);
+        emit MockTermCall.DepositUnlocked(
+            testCase.underlyingIn,
+            0,
+            0,
             address(pool)
         );
 
         vm.expectEmit(true, false, false, false);
-        emit PoolRegistered(testCase.poolId);
+        emit MockPoolCall.PoolRegistered(testCase.poolId);
+    }
 
-        uint256 mintedLpTokens = pool.registerPoolId(
-            testCase.poolId,
-            testCase.underlyingIn,
-            testCase.tStretch,
-            user,
-            testCase.maxTime,
-            testCase.maxLength
-        );
+    function _getExpectedRegisterPoolIdError(
+        RegisterPoolIdTestCase memory testCase
+    ) internal returns (bool testCaseIsError, bytes memory reason) {
+        // where the input poolId is less than mined block timestamp
+        if (testCase.poolId <= block.timestamp) {
+            return (
+                true,
+                abi.encodeWithSelector(ElementError.TermExpired.selector)
+            );
+        }
+
+        // setup phase defines existing term at this ID
+        if (testCase.totalSupply > 0) {
+            return (
+                true,
+                abi.encodeWithSelector(ElementError.PoolInitialized.selector)
+            );
+        }
+
+        if (testCase.tStretch == 0) {
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError.TimeStretchMustBeNonZero.selector
+                )
+            );
+        }
+
+        if (testCase.underlyingIn == 0) {
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError.UnderlyingInMustBeNonZero.selector
+                )
+            );
+        }
+
+        // assembly division by zero in fixed point math
+        if (testCase.sharesMinted == 0) {
+            return (true, EMPTY_REVERT);
+        }
+
+        // NOTE Should this error case be reachable?
+        if (
+            (testCase.maxLength > 1 && testCase.maxTime == 0) ||
+            testCase.maxTime < testCase.maxLength
+        ) {
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError.TWAROracle_MinTimeStepMustBeNonZero.selector
+                )
+            );
+        }
+
+        if (testCase.maxLength <= 1 && testCase.maxTime > 0) {
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError.TWAROracle_IncorrectBufferLength.selector
+                )
+            );
+        }
+
+        // if (testCase.sharesMinted > type(uint128).max) {
+        //     return bytes("OVERFLOW");
+        // }
+
+        // if (testCase.maxLength <= 1 && testCase.maxTime > 0) {
+        //     vm.expectRevert(
+        //         ElementError.TWAROracle_IncorrectBufferLength.selector
+        //     );
+        //     return true;
+        // }
+
+        // if (testCase.sharesMinted == 0) {
+        //     vm.expectRevert(); // FixedPointMath assembly division error
+        //     return true;
+        // }
+        return (false, new bytes(0));
+    }
+
+    function _validateRegisterPoolIdSuccess(
+        RegisterPoolIdTestCase memory testCase,
+        uint256 mintedLpTokens
+    ) internal {
+        // uint256 userUnderlyingBalance = underlying.balanceOf(user);
+        // uint256 userLpBalanceBefore = pool.balanceOf(testCase.poolId, user);
+        // uint256 poolTotalSupplyBefore = pool.totalSupply(testCase.poolId);
+        // uint256 unlockedYTOnPoolBalanceBefore = term.balanceOf(
+        //     term.UNLOCKED_YT_ID(),
+        //     address(pool)
+        // );
+
+        // uint256 mintedLpTokens = pool.registerPoolId(
+        //     testCase.poolId,
+        //     testCase.underlyingIn,
+        //     testCase.tStretch,
+        //     user,
+        //     testCase.maxTime,
+        //     testCase.maxLength
+        // );
 
         assertEq(
             underlying.balanceOf(user),
-            userUnderlyingBalance - testCase.underlyingIn,
+            0,
             "user underlying balance should decrease by amount of underlyingIn"
         );
 
@@ -182,8 +275,6 @@ contract PoolTest is ElementTest {
             assertEq(bufferMaxLength, 0, "Oracle should not be initialized");
         }
 
-        // As of writing we only test 18 point considering an underlying token
-        // of 18 decimals
         uint256 derivedMu = FixedPointMath.divDown(
             testCase.underlyingIn,
             testCase.sharesMinted
@@ -198,26 +289,15 @@ contract PoolTest is ElementTest {
 
         uint256 poolTotalSupplyAfter = pool.totalSupply(testCase.poolId);
         assertEq(
-            poolTotalSupplyAfter - poolTotalSupplyBefore,
+            pool.totalSupply(testCase.poolId),
             testCase.totalSupply + testCase.sharesMinted,
             "should create sharesMinted amount of LP tokens"
         );
 
-        uint256 userLpBalanceAfter = pool.balanceOf(testCase.poolId, user);
         assertEq(
-            userLpBalanceAfter - userLpBalanceBefore,
+            pool.balanceOf(testCase.poolId, user),
             testCase.sharesMinted,
-            "LP tokens should be minted to the recipient"
-        );
-
-        uint256 unlockedYTOnPoolBalanceAfter = term.balanceOf(
-            term.UNLOCKED_YT_ID(),
-            address(pool)
-        );
-        assertEq(
-            unlockedYTOnPoolBalanceAfter - unlockedYTOnPoolBalanceBefore,
-            testCase.sharesMinted,
-            "Unlocked shares should be minted to the pool"
+            "LP tokens should be minted to the user"
         );
 
         assertEq(
@@ -247,63 +327,75 @@ contract PoolTest is ElementTest {
         );
 
         underlying.approve(address(pool), type(uint256).max);
-
-        // register previous pool
-        underlying.mint(user, 1e18);
-        term.setDepositReturnValues(0.9e18, 1e18);
-        pool.registerPoolId(TERM_END, 1e18, 10245, user, 5, 5);
-
-        underlying.mint(user, testCase.userBalance);
+        underlying.mint(user, testCase.underlyingIn);
         pool.setTotalSupply(testCase.poolId, testCase.totalSupply);
 
-        term.setDepositReturnValues(
-            testCase.sharesMinted,
-            testCase.underlyingIn
+        term.setDepositUnlockedReturnValues(
+            testCase.underlyingIn,
+            testCase.sharesMinted
         );
     }
 
-    function _generateRegisterPoolIdTestCase(uint256[][] memory rawTestCases)
+    function _convertRegisterPoolIdTestCase(uint256[][] memory rawTestCases)
         internal
-        pure
+        view
         returns (RegisterPoolIdTestCase[] memory testCases)
     {
         testCases = new RegisterPoolIdTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
             require(
-                rawTestCases[i].length == 8,
-                "Raw test case must have length of 8."
+                rawTestCases[i].length == 7,
+                "Raw test case must have length of 7"
             );
+
+            // Error cases for poolId
+            // 1. poolId == block.timestamp
+            // 2. poolId < block.timestamp
+            // All other cases should be specified by TERM_END
+            uint256 _poolId = rawTestCases[i][0] == 0
+                ? 0
+                : rawTestCases[i][0] == 1e18
+                ? block.timestamp
+                : rawTestCases[i][0];
+
+            // Failing case input for maxTime is only 0 so conforming to 5 for
+            // all other cases
+            uint16 _maxTime = rawTestCases[i][3] == 0 ? 0 : 5;
+
+            // Failing case input for maxLength is 0 or 1 so conforming to those
+            // where input is 0 or TERM_END and then 5 in all other cases
+            uint16 _maxLength = rawTestCases[i][4] == 0
+                ? 0
+                : rawTestCases[i][4] == TERM_END
+                ? 1
+                : 5;
+
             testCases[i] = RegisterPoolIdTestCase({
-                poolId: rawTestCases[i][0],
+                poolId: _poolId,
                 underlyingIn: rawTestCases[i][1],
                 tStretch: uint32(rawTestCases[i][2]),
-                maxTime: uint16(rawTestCases[i][3]) == type(uint16).max
-                    ? 5
-                    : uint16(rawTestCases[i][3]),
-                maxLength: uint16(rawTestCases[i][4]) == type(uint16).max
-                    ? 5
-                    : uint16(rawTestCases[i][4]),
+                maxTime: uint16(rawTestCases[i][3]),
+                maxLength: uint16(rawTestCases[i][4]),
                 totalSupply: rawTestCases[i][5],
-                sharesMinted: rawTestCases[i][6],
-                userBalance: rawTestCases[i][7]
+                sharesMinted: rawTestCases[i][6]
             });
         }
     }
 
     function _logRegisterPoolIdTestCase(
-        uint256 index,
         string memory prelude,
+        uint256 index,
         RegisterPoolIdTestCase memory testCase
     ) internal {
-        console.log("    Pool.registerPoolId Test # %s :: %s", index, prelude);
-        console.log("    -------------------------------    ");
-        console.log("    poolId           = ", testCase.poolId);
-        console.log("    underlyingIn     = ", testCase.underlyingIn);
-        console.log("    tStretch         = ", testCase.tStretch);
-        console.log("    maxTime          = ", testCase.maxTime);
-        console.log("    maxLength        = ", testCase.maxLength);
-        console.log("    totalSupply      = ", testCase.totalSupply);
-        console.log("    sharesMinted     = ", testCase.sharesMinted);
-        console.log("");
+        console2.log("    Pool.registerPoolId Test #%s :: %s", index, prelude);
+        console2.log("    -------------------------------    ");
+        console2.log("    poolId           = ", testCase.poolId);
+        console2.log("    underlyingIn     = ", testCase.underlyingIn);
+        console2.log("    tStretch         = ", testCase.tStretch);
+        console2.log("    maxTime          = ", testCase.maxTime);
+        console2.log("    maxLength        = ", testCase.maxLength);
+        console2.log("    totalSupply      = ", testCase.totalSupply);
+        console2.log("    sharesMinted     = ", testCase.sharesMinted);
+        console2.log("");
     }
 }

@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "../Term.sol";
+import { Term, IERC20 } from "contracts/Term.sol";
+
+library MockTermCall {
+    event DepositUnlocked(
+        uint256 underlyingAmount,
+        uint256 ptAmount,
+        uint256 ptExpiry,
+        address destination
+    );
+}
 
 contract MockTerm is Term {
     uint256 convertReturnValue;
@@ -56,6 +65,34 @@ contract MockTerm is Term {
         returns (uint256)
     {
         return convertReturnValue;
+    }
+
+    uint256 depositUnlockedLeftReturnValue;
+    uint256 depositUnlockedRightReturnValue;
+
+    function setDepositUnlockedReturnValues(uint256 _left, uint256 _right)
+        external
+    {
+        depositUnlockedLeftReturnValue = _left;
+        depositUnlockedRightReturnValue = _right;
+    }
+
+    function depositUnlocked(
+        uint256 underlyingAmount,
+        uint256 ptAmount,
+        uint256 ptExpiry,
+        address destination
+    ) external override returns (uint256, uint256) {
+        emit MockTermCall.DepositUnlocked(
+            underlyingAmount,
+            ptAmount,
+            ptExpiry,
+            destination
+        );
+        return (
+            depositUnlockedLeftReturnValue,
+            depositUnlockedRightReturnValue
+        );
     }
 
     function _deposit(ShareState _state)
