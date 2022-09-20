@@ -13,12 +13,6 @@ library MockTermCall {
 }
 
 contract MockTerm is Term {
-    uint256 convertReturnValue;
-    uint256 depositLeftReturnValue;
-    uint256 depositRightReturnValue;
-    uint256 withdrawReturnValue;
-    uint256 underlyingReturnValue;
-
     constructor(
         bytes32 _linkerCodeHash,
         address _factory,
@@ -26,37 +20,13 @@ contract MockTerm is Term {
         address _owner
     ) Term(_linkerCodeHash, _factory, _token, _owner) {}
 
+    // ####################
+    // ###   _convert   ###
+    // ####################
+    uint256 _convertReturnValue;
+
     function setConvertReturnValue(uint256 _value) external {
-        convertReturnValue = _value;
-    }
-
-    function setDepositReturnValues(uint256 _left, uint256 _right) external {
-        depositLeftReturnValue = _left;
-        depositRightReturnValue = _right;
-    }
-
-    function setWithdrawReturnValue(uint256 _value) external {
-        withdrawReturnValue = _value;
-    }
-
-    function setUnderlyingReturnValue(uint256 _value) external {
-        underlyingReturnValue = _value;
-    }
-
-    function setSharesPerExpiry(uint256 assetId, uint256 shares) external {
-        sharesPerExpiry[assetId] = shares;
-    }
-
-    function setTotalSupply(uint256 assetId, uint256 amount) external {
-        totalSupply[assetId] = amount;
-    }
-
-    function setUserBalance(
-        uint256 assetId,
-        address user,
-        uint256 amount
-    ) external {
-        balanceOf[assetId][user] = amount;
+        _convertReturnValue = _value;
     }
 
     function _convert(ShareState _state, uint256 _shares)
@@ -68,14 +38,97 @@ contract MockTerm is Term {
         return convertReturnValue;
     }
 
-    uint256 depositUnlockedLeftReturnValue;
-    uint256 depositUnlockedRightReturnValue;
+    // ####################
+    // ###   _deposit   ###
+    // ####################
+    uint256 _depositLeftReturnValue;
+    uint256 _depositRightReturnValue;
+
+    function setDepositReturnValues(uint256 _left, uint256 _right) external {
+        _depositLeftReturnValue = _left;
+        _depositRightReturnValue = _right;
+    }
+
+    function _deposit(ShareState _state)
+        internal
+        view
+        override
+        returns (uint256, uint256)
+    {
+        return (_depositLeftReturnValue, _depositRightReturnValue);
+    }
+
+    // #####################
+    // ###   _withdraw   ###
+    // #####################
+    uint256 _withdrawReturnValue;
+
+    function setWithdrawReturnValue(uint256 _value) external {
+        _withdrawReturnValue = _value;
+    }
+
+    function _withdraw(
+        uint256 _shares,
+        address _dest,
+        ShareState _state
+    ) internal view override returns (uint256) {
+        return _withdrawReturnValue;
+    }
+
+    // #######################
+    // ###   _underlying   ###
+    // #######################
+    uint256 _underlyingReturnValue;
+
+    function setUnderlyingReturnValue(uint256 _value) external {
+        _underlyingReturnValue = _value;
+    }
+
+    function _underlying(uint256 _shares, ShareState _state)
+        internal
+        view
+        override
+        returns (uint256)
+    {
+        return underlyingReturnValue;
+    }
+
+    // ###########################
+    // ###   sharesPerExpiry   ###
+    // ###########################
+    function setSharesPerExpiry(uint256 assetId, uint256 shares) external {
+        sharesPerExpiry[assetId] = shares;
+    }
+
+    // #######################
+    // ###   totalSupply   ###
+    // #######################
+    function setTotalSupply(uint256 assetId, uint256 amount) external {
+        totalSupply[assetId] = amount;
+    }
+
+    // #####################
+    // ###   balanceOf   ###
+    // #####################
+    function setUserBalance(
+        uint256 assetId,
+        address user,
+        uint256 amount
+    ) external {
+        balanceOf[assetId][user] = amount;
+    }
+
+    // ###########################
+    // ###   depositUnlocked   ###
+    // ###########################
+    uint256 _depositUnlockedLeftReturnValue;
+    uint256 _depositUnlockedRightReturnValue;
 
     function setDepositUnlockedReturnValues(uint256 _left, uint256 _right)
         external
     {
-        depositUnlockedLeftReturnValue = _left;
-        depositUnlockedRightReturnValue = _right;
+        _depositUnlockedLeftReturnValue = _left;
+        _depositUnlockedRightReturnValue = _right;
     }
 
     function depositUnlocked(
@@ -96,32 +149,9 @@ contract MockTerm is Term {
         );
     }
 
-    function _deposit(ShareState _state)
-        internal
-        view
-        override
-        returns (uint256, uint256)
-    {
-        return (depositLeftReturnValue, depositRightReturnValue);
-    }
-
-    function _underlying(uint256 _shares, ShareState _state)
-        internal
-        view
-        override
-        returns (uint256)
-    {
-        return underlyingReturnValue;
-    }
-
-    function _withdraw(
-        uint256 _shares,
-        address _dest,
-        ShareState _state
-    ) internal view override returns (uint256) {
-        return withdrawReturnValue;
-    }
-
+    // ######################
+    // ###   _releasePT   ###
+    // ######################
     function releasePTExternal(
         FinalizedState memory finalState,
         uint256 assetId,
@@ -131,6 +161,9 @@ contract MockTerm is Term {
         return _releasePT(finalState, assetId, source, amount);
     }
 
+    // #########################
+    // ###   _parseAssetId   ###
+    // #########################
     function parseAssetIdExternal(uint256 _assetId)
         external
         view
