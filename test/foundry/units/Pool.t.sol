@@ -52,23 +52,67 @@ contract PoolTest is ElementTest {
         // state vars
         uint256 totalSupply;
         uint256 sharesMinted;
-        //uint256 userBalance;
+        uint256 sharesValue;
+        uint256 userBalance;
     }
 
     function testRegisterPoolId() public {
         startHoax(user);
 
-        uint256[] memory inputs = new uint256[](4);
-        inputs[0] = 0; // 0 case
-        inputs[1] = TERM_END; //
-        inputs[2] = 1e18; // general amount
-        inputs[3] = (type(uint256).max / 1e18) + 1; // scaled div overflow in mu calc
+        uint256[][] memory inputs = new uint256[][](9);
+        // poolId
+        inputs[0] = new uint256[](3);
+        inputs[0][0] = 0;
+        inputs[0][1] = block.timestamp;
+        inputs[0][2] = TERM_END;
+
+        // underlyingIn
+        inputs[1] = new uint256[](2);
+        inputs[1][0] = 0;
+        inputs[1][1] = 1 ether;
+
+        // tStretch
+        inputs[2] = new uint256[](2);
+        inputs[2][0] = 0;
+        inputs[2][1] = 10245;
+
+        // maxTime
+        inputs[3] = new uint256[](3);
+        inputs[3][0] = 0;
+        inputs[3][1] = 1;
+        inputs[3][2] = 5;
+
+        // maxLength
+        inputs[4] = new uint256[](3);
+        inputs[4][0] = 0;
+        inputs[4][1] = 1;
+        inputs[4][2] = 5;
+
+        // totalSupply
+        inputs[5] = new uint256[](2);
+        inputs[5][0] = 0;
+        inputs[5][1] = 1 ether;
+
+        // sharesMinted
+        inputs[6] = new uint256[](2);
+        inputs[6][0] = 0;
+        inputs[6][1] = 1 ether;
+
+        // sharesValue
+        inputs[7] = new uint256[](3);
+        inputs[7][0] = 0;
+        inputs[7][1] = 1 ether;
+        inputs[7][2] = (type(uint256).max / 1e18) + 1;
+
+        // userBalance
+        inputs[8] = new uint256[](2);
+        inputs[8][0] = 0;
+        inputs[8][1] = 1 ether;
 
         RegisterPoolIdTestCase[]
             memory testCases = _convertRegisterPoolIdTestCase(
-                Utils.generateTestingMatrix(7, inputs)
+                Utils.generateTestingMatrix2(inputs)
             );
-
         for (uint256 i = 0; i < testCases.length; i++) {
             RegisterPoolIdTestCase memory testCase = testCases[i];
             _setupRegisterPoolIdTestCase(testCase);
@@ -94,11 +138,21 @@ contract PoolTest is ElementTest {
                         testCase
                     );
                     revert TestFail();
+                } catch Error(string memory err) {
+                    assertEq(err, string(expectedError));
+                    if (!Utils.eq(bytes(err), expectedError)) {
+                        _logRegisterPoolIdTestCase(
+                            "Expected different failure reason (string)",
+                            i,
+                            testCase
+                        );
+                        revert TestFail();
+                    }
                 } catch (bytes memory err) {
                     assertEq(err, expectedError);
                     if (!Utils.eq(err, expectedError)) {
                         _logRegisterPoolIdTestCase(
-                            "Expected different failure reason",
+                            "Expected different failure reason (bytes)",
                             i,
                             testCase
                         );
@@ -127,6 +181,28 @@ contract PoolTest is ElementTest {
                     revert TestFail();
                 }
             }
+        }
+        console.log("###    %s combinations passing    ###", testCases.length);
+    }
+
+    function _convertRegisterPoolIdTestCase(uint256[][] memory rawTestCases)
+        internal
+        view
+        returns (RegisterPoolIdTestCase[] memory testCases)
+    {
+        testCases = new RegisterPoolIdTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            testCases[i] = RegisterPoolIdTestCase({
+                poolId: rawTestCases[i][0],
+                underlyingIn: rawTestCases[i][1],
+                tStretch: uint32(rawTestCases[i][2]),
+                maxTime: uint16(rawTestCases[i][3]),
+                maxLength: uint16(rawTestCases[i][4]),
+                totalSupply: rawTestCases[i][5],
+                sharesMinted: rawTestCases[i][6],
+                sharesValue: rawTestCases[i][7],
+                userBalance: rawTestCases[i][8]
+            });
         }
     }
 
@@ -161,8 +237,8 @@ contract PoolTest is ElementTest {
             );
         }
 
-        // setup phase defines existing term at this ID
-        if (testCase.totalSupply > 0) {
+        // implies that we have registered a pool previously
+        if (testCase.totalSupply > 0 || testCase.poolId == TERM_END + 1) {
             return (
                 true,
                 abi.encodeWithSelector(ElementError.PoolInitialized.selector)
@@ -187,16 +263,32 @@ contract PoolTest is ElementTest {
             );
         }
 
+        if (testCase.userBalance < testCase.underlyingIn) {
+            return (true, bytes("ERC20: insufficient-balance"));
+        }
+
         // Will fail as underlyinIn is mapped to sharesValue which in the mu
         // calculation will do a scaled division and will overflow in conditions
         // where the normalized value is an exceptionally high value
-        if (testCase.underlyingIn > (type(uint256).max / 1e18)) {
+        if (testCase.sharesValue > (type(uint256).max / 1e18)) {
             return (true, EMPTY_REVERT);
         }
 
         // assembly division by zero in fixed point math
         if (testCase.sharesMinted == 0) {
             return (true, EMPTY_REVERT);
+        }
+
+        if (
+            (testCase.maxLength == 0 && testCase.maxTime > 0) ||
+            (testCase.maxLength == 1)
+        ) {
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError.TWAROracle_IncorrectBufferLength.selector
+                )
+            );
         }
 
         // NOTE Should this error case be reachable?
@@ -208,15 +300,6 @@ contract PoolTest is ElementTest {
                 true,
                 abi.encodeWithSelector(
                     ElementError.TWAROracle_MinTimeStepMustBeNonZero.selector
-                )
-            );
-        }
-
-        if (testCase.maxLength <= 1 && testCase.maxTime > 0) {
-            return (
-                true,
-                abi.encodeWithSelector(
-                    ElementError.TWAROracle_IncorrectBufferLength.selector
                 )
             );
         }
@@ -256,7 +339,7 @@ contract PoolTest is ElementTest {
         }
 
         uint256 derivedMu = FixedPointMath.divDown(
-            testCase.underlyingIn,
+            testCase.sharesValue,
             testCase.sharesMinted
         );
         (uint32 tStretch, uint224 mu) = pool.parameters(testCase.poolId);
@@ -272,6 +355,10 @@ contract PoolTest is ElementTest {
             testCase.totalSupply + testCase.sharesMinted,
             "should create sharesMinted amount of LP tokens"
         );
+
+        if (pool.balanceOf(testCase.poolId, user) != testCase.sharesMinted) {
+            _logRegisterPoolIdTestCase("", 1, testCase);
+        }
 
         assertEq(
             pool.balanceOf(testCase.poolId, user),
@@ -306,41 +393,14 @@ contract PoolTest is ElementTest {
         );
 
         underlying.approve(address(pool), type(uint256).max);
-        underlying.mint(user, testCase.underlyingIn);
+
+        underlying.mint(user, testCase.userBalance);
         pool.setTotalSupply(testCase.poolId, testCase.totalSupply);
 
         term.setDepositUnlockedReturnValues(
-            testCase.underlyingIn,
+            testCase.sharesValue,
             testCase.sharesMinted
         );
-    }
-
-    function _convertRegisterPoolIdTestCase(uint256[][] memory rawTestCases)
-        internal
-        view
-        returns (RegisterPoolIdTestCase[] memory testCases)
-    {
-        testCases = new RegisterPoolIdTestCase[](rawTestCases.length);
-        for (uint256 i = 0; i < rawTestCases.length; i++) {
-            require(
-                rawTestCases[i].length == 7,
-                "Raw test case must have length of 7"
-            );
-
-            uint256 _poolId = rawTestCases[i][0] == 1e18
-                ? block.timestamp
-                : rawTestCases[i][0];
-
-            testCases[i] = RegisterPoolIdTestCase({
-                poolId: _poolId,
-                underlyingIn: rawTestCases[i][1],
-                tStretch: uint32(rawTestCases[i][2]),
-                maxTime: uint16(rawTestCases[i][3]),
-                maxLength: uint16(rawTestCases[i][4]),
-                totalSupply: rawTestCases[i][5],
-                sharesMinted: rawTestCases[i][6]
-            });
-        }
     }
 
     function _logRegisterPoolIdTestCase(
@@ -357,6 +417,9 @@ contract PoolTest is ElementTest {
         console2.log("    maxLength        = ", testCase.maxLength);
         console2.log("    totalSupply      = ", testCase.totalSupply);
         console2.log("    sharesMinted     = ", testCase.sharesMinted);
+        console2.log("    sharesValue      = ", testCase.sharesValue);
+        console2.log("    userBalance      = ", testCase.userBalance);
+
         console2.log("");
     }
 }
