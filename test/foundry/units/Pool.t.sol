@@ -47,7 +47,7 @@ contract PoolTest is ElementTest {
         uint256 poolId;
         uint256 underlyingIn;
         uint32 tStretch;
-        uint16 maxTime;
+        uint16 minTime;
         uint16 maxLength;
         // state vars
         uint256 totalSupply;
@@ -76,17 +76,15 @@ contract PoolTest is ElementTest {
         inputs[2][0] = 0;
         inputs[2][1] = 10245;
 
-        // maxTime
-        inputs[3] = new uint256[](3);
+        // minTime
+        inputs[3] = new uint256[](2);
         inputs[3][0] = 0;
         inputs[3][1] = 1;
-        inputs[3][2] = 5;
 
         // maxLength
-        inputs[4] = new uint256[](3);
+        inputs[4] = new uint256[](2);
         inputs[4][0] = 0;
         inputs[4][1] = 1;
-        inputs[4][2] = 5;
 
         // totalSupply
         inputs[5] = new uint256[](2);
@@ -128,7 +126,7 @@ contract PoolTest is ElementTest {
                         testCase.underlyingIn,
                         testCase.tStretch,
                         user,
-                        testCase.maxTime,
+                        testCase.minTime,
                         testCase.maxLength
                     )
                 {
@@ -139,23 +137,23 @@ contract PoolTest is ElementTest {
                     );
                     revert TestFail();
                 } catch Error(string memory err) {
-                    assertEq(err, string(expectedError));
-                    if (!Utils.eq(bytes(err), expectedError)) {
+                    if (Utils.neq(bytes(err), expectedError)) {
                         _logRegisterPoolIdTestCase(
                             "Expected different failure reason (string)",
                             i,
                             testCase
                         );
+                        assertEq(err, string(expectedError));
                         revert TestFail();
                     }
                 } catch (bytes memory err) {
-                    assertEq(err, expectedError);
-                    if (!Utils.eq(err, expectedError)) {
+                    if (Utils.neq(err, expectedError)) {
                         _logRegisterPoolIdTestCase(
                             "Expected different failure reason (bytes)",
                             i,
                             testCase
                         );
+                        assertEq(err, expectedError);
                         revert TestFail();
                     }
                 }
@@ -167,7 +165,7 @@ contract PoolTest is ElementTest {
                         testCase.underlyingIn,
                         testCase.tStretch,
                         user,
-                        testCase.maxTime,
+                        testCase.minTime,
                         testCase.maxLength
                     )
                 returns (uint256 mintedLpTokens) {
@@ -196,7 +194,7 @@ contract PoolTest is ElementTest {
                 poolId: rawTestCases[i][0],
                 underlyingIn: rawTestCases[i][1],
                 tStretch: uint32(rawTestCases[i][2]),
-                maxTime: uint16(rawTestCases[i][3]),
+                minTime: uint16(rawTestCases[i][3]),
                 maxLength: uint16(rawTestCases[i][4]),
                 totalSupply: rawTestCases[i][5],
                 sharesMinted: rawTestCases[i][6],
@@ -222,6 +220,25 @@ contract PoolTest is ElementTest {
             address(pool)
         );
 
+        vm.expectEmit(true, true, true, false);
+        emit MockPoolCall.Update(
+            testCase.poolId,
+            uint128(0),
+            uint128(testCase.sharesMinted)
+        );
+
+        if (testCase.minTime > 0 || testCase.maxLength > 0) {
+            vm.expectEmit(true, true, true, false);
+            emit MockPoolCall.InitializeBuffer(
+                testCase.poolId,
+                testCase.minTime,
+                testCase.maxLength
+            );
+        }
+
+        vm.expectEmit(true, true, true, false);
+        emit MockPoolCall.Mint(testCase.poolId, user, testCase.sharesMinted);
+
         vm.expectEmit(true, false, false, false);
         emit MockPoolCall.PoolRegistered(testCase.poolId);
     }
@@ -238,7 +255,7 @@ contract PoolTest is ElementTest {
         }
 
         // implies that we have registered a pool previously
-        if (testCase.totalSupply > 0 || testCase.poolId == TERM_END + 1) {
+        if (testCase.totalSupply > 0) {
             return (
                 true,
                 abi.encodeWithSelector(ElementError.PoolInitialized.selector)
@@ -267,9 +284,6 @@ contract PoolTest is ElementTest {
             return (true, bytes("ERC20: insufficient-balance"));
         }
 
-        // Will fail as underlyinIn is mapped to sharesValue which in the mu
-        // calculation will do a scaled division and will overflow in conditions
-        // where the normalized value is an exceptionally high value
         if (testCase.sharesValue > (type(uint256).max / 1e18)) {
             return (true, EMPTY_REVERT);
         }
@@ -277,31 +291,6 @@ contract PoolTest is ElementTest {
         // assembly division by zero in fixed point math
         if (testCase.sharesMinted == 0) {
             return (true, EMPTY_REVERT);
-        }
-
-        if (
-            (testCase.maxLength == 0 && testCase.maxTime > 0) ||
-            (testCase.maxLength == 1)
-        ) {
-            return (
-                true,
-                abi.encodeWithSelector(
-                    ElementError.TWAROracle_IncorrectBufferLength.selector
-                )
-            );
-        }
-
-        // NOTE Should this error case be reachable?
-        if (
-            (testCase.maxLength > 1 && testCase.maxTime == 0) ||
-            testCase.maxTime < testCase.maxLength
-        ) {
-            return (
-                true,
-                abi.encodeWithSelector(
-                    ElementError.TWAROracle_MinTimeStepMustBeNonZero.selector
-                )
-            );
         }
 
         return (false, new bytes(0));
@@ -317,48 +306,11 @@ contract PoolTest is ElementTest {
             "user underlying balance should decrease by amount of underlyingIn"
         );
 
-        (uint128 shares, uint128 bonds) = pool.reserves(testCase.poolId);
-        assertEq(
-            shares,
-            uint128(testCase.sharesMinted),
-            "reserve shares should equal minted shares"
-        );
-        assertEq(bonds, 0, "reserve bonds should be 0");
-
-        (, , , uint16 bufferMaxLength, ) = pool.readMetadataParsed(
-            testCase.poolId
-        );
-        if (testCase.maxTime > 0 || testCase.maxLength > 0) {
-            assertEq(
-                bufferMaxLength,
-                testCase.maxLength,
-                "Oracle should be initialized"
-            );
-        } else {
-            assertEq(bufferMaxLength, 0, "Oracle should not be initialized");
-        }
-
-        uint256 derivedMu = FixedPointMath.divDown(
-            testCase.sharesValue,
-            testCase.sharesMinted
-        );
-        (uint32 tStretch, uint224 mu) = pool.parameters(testCase.poolId);
-        assertEq(
-            tStretch,
-            testCase.tStretch,
-            "tStretch parameter should match input"
-        );
-        assertEq(mu, derivedMu, "mu paramater should be derived correctly");
-
         assertEq(
             pool.totalSupply(testCase.poolId),
-            testCase.totalSupply + testCase.sharesMinted,
+            testCase.sharesMinted,
             "should create sharesMinted amount of LP tokens"
         );
-
-        if (pool.balanceOf(testCase.poolId, user) != testCase.sharesMinted) {
-            _logRegisterPoolIdTestCase("", 1, testCase);
-        }
 
         assertEq(
             pool.balanceOf(testCase.poolId, user),
@@ -413,7 +365,7 @@ contract PoolTest is ElementTest {
         console2.log("    poolId           = ", testCase.poolId);
         console2.log("    underlyingIn     = ", testCase.underlyingIn);
         console2.log("    tStretch         = ", testCase.tStretch);
-        console2.log("    maxTime          = ", testCase.maxTime);
+        console2.log("    minTime          = ", testCase.minTime);
         console2.log("    maxLength        = ", testCase.maxLength);
         console2.log("    totalSupply      = ", testCase.totalSupply);
         console2.log("    sharesMinted     = ", testCase.sharesMinted);

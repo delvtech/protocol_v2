@@ -243,7 +243,6 @@ contract TermTest is Test {
             testCase.currentPricePerShare
         );
         console.log("    userBalance          = ", testCase.userBalance);
-
         console.log("");
     }
 

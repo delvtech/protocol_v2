@@ -7,6 +7,11 @@ library Utils {
             keccak256(abi.encodePacked(b1)) == keccak256(abi.encodePacked(b2));
     }
 
+    function neq(bytes memory b1, bytes memory b2) public pure returns (bool) {
+        return
+            keccak256(abi.encodePacked(b1)) != keccak256(abi.encodePacked(b2));
+    }
+
     function encodeAssetId(
         bool isYieldToken,
         uint256 startDate,

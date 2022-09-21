@@ -5,6 +5,13 @@ import "../Pool.sol";
 
 library MockPoolCall {
     event PoolRegistered(uint256 indexed poolId);
+    event InitializeBuffer(uint256 bufferId, uint16 minTime, uint16 maxLength);
+    event Mint(uint256 tokenID, address to, uint256 amount);
+    event Update(
+        uint256 poolId,
+        uint128 newBondBalance,
+        uint128 newSharesBalance
+    );
 }
 
 contract MockPool is Pool {
@@ -39,6 +46,31 @@ contract MockPool is Pool {
     }
 
     function normalize(uint256 input) external returns (uint256) {
-        return _normalize(input);
+        return super._normalize(input);
+    }
+
+    function _initializeBuffer(
+        uint256 bufferId,
+        uint16 minTime,
+        uint16 maxLength
+    ) internal override {
+        emit MockPoolCall.InitializeBuffer(bufferId, minTime, maxLength);
+    }
+
+    function _mint(
+        uint256 tokenID,
+        address to,
+        uint256 amount
+    ) internal override {
+        emit MockPoolCall.Mint(tokenID, to, amount);
+        super._mint(tokenID, to, amount);
+    }
+
+    function _update(
+        uint256 poolId,
+        uint128 newBondBalance,
+        uint128 newSharesBalance
+    ) internal override {
+        emit MockPoolCall.Update(poolId, newBondBalance, newSharesBalance);
     }
 }
