@@ -336,7 +336,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 _mint(yieldTokenId, destination, value);
 
                 // Update the amount of shares for the expiry
-                sharesPerExpiry[expiration] += totalShares - totalDiscount;
+                sharesPerExpiry[expiration] += totalShares;
 
                 // Update the reserve information for this YT term, and the total shares
                 // backing the PT it will create.

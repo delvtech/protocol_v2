@@ -154,6 +154,23 @@ contract MockTerm is Term {
 
     // ---------------------- function mocks ---------------------- //
 
+    function createYTExternal(
+        address destination,
+        uint256 value,
+        uint256 totalShares,
+        uint256 startTime,
+        uint256 expiration
+    ) external returns (uint256) {
+        return
+            super._createYT(
+                destination,
+                value,
+                totalShares,
+                startTime,
+                expiration
+            );
+    }
+
     function releaseAssetExternal(
         uint256 assetId,
         address source,
