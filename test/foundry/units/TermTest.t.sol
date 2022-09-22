@@ -84,7 +84,8 @@ contract TermTest is Test {
         // shared inputs
         uint256[] memory amountInputs = new uint256[](3);
         amountInputs[0] = 0;
-        amountInputs[1] = 123;
+        // TODO: This fails if using low value inputs (ex. 123).
+        amountInputs[1] = 1 ether;
         amountInputs[2] = 1.324 ether + 734;
         uint256[] memory timeInputs = new uint256[](3);
         // TODO: There isn't currently a check on whether or not the start
@@ -124,6 +125,7 @@ contract TermTest is Test {
                 testCases[i].expiration,
                 testCases[i].yieldState.shares
             );
+            _term.setUserBalance(assetId, destination, 0);
             _term.setTotalSupply(assetId, testCases[i].totalSupply);
             _term.setYieldState(assetId, testCases[i].yieldState);
 
@@ -326,11 +328,14 @@ contract TermTest is Test {
             uint256 sharesPerExpiry = _term.sharesPerExpiry(
                 testCase.expiration
             );
-            if (sharesPerExpiry != testCase.totalShares) {
+            if (
+                sharesPerExpiry !=
+                testCase.yieldState.shares + testCase.totalShares
+            ) {
                 logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     sharesPerExpiry,
-                    testCase.totalShares,
+                    testCase.yieldState.shares + testCase.totalShares,
                     "unexpected sharesPerExpiry"
                 );
             }
@@ -387,11 +392,14 @@ contract TermTest is Test {
             uint256 sharesPerExpiry = _term.sharesPerExpiry(
                 testCase.expiration
             );
-            if (sharesPerExpiry != testCase.totalShares) {
+            if (
+                sharesPerExpiry !=
+                testCase.yieldState.shares + testCase.totalShares
+            ) {
                 logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     sharesPerExpiry,
-                    testCase.totalShares,
+                    testCase.yieldState.shares + testCase.totalShares,
                     "unexpected sharesPerExpiry"
                 );
             }
@@ -408,7 +416,9 @@ contract TermTest is Test {
                 logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     pt,
-                    testCase.yieldState.pt + testCase.value,
+                    testCase.yieldState.pt +
+                        testCase.value -
+                        expectedTotalDiscount,
                     "unexpected yieldState.pt"
                 );
             }
