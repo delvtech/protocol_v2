@@ -313,20 +313,20 @@ contract CompoundV3Term is Term {
             } else {
                 /// Internalized representation for shares of this contract's deposits
                 /// to Compound and the interest accrued to them
-                uint256 _underlyingAsYieldShares = (yieldSharesIssued *
+                uint256 underlyingAsYieldShares_ = (yieldSharesIssued *
                     underlying) / accruedUnderlying;
 
                 /// Withdraws `underlying`
                 yieldSource.withdrawTo(_dest, address(token), underlying);
 
                 /// Account for yieldShares being redeemed
-                yieldSharesIssued -= _underlyingAsYieldShares;
+                yieldSharesIssued -= underlyingAsYieldShares_;
 
                 /// The `underlyingReserve` is unchanged. Deducts `yieldShares`
                 /// redeemed by the withdrawal from the `vaultShareReserve`
                 _setReserves(
                     underlyingReserve_,
-                    yieldShareReserve_ - _underlyingAsYieldShares
+                    yieldShareReserve_ - underlyingAsYieldShares_
                 );
             }
         }

@@ -39,11 +39,11 @@ contract CompoundV3TermTest is Test {
     // -------------------  _setReserves unit tests   ------------------ //
 
     function test__setReserves() public {
-        term.setReservesExternal(1, 0);
+        term.setReservesExternal(1, 2);
 
         uint128 underlyingReserve = term.getUnderlyingReserve();
         uint128 yieldShareReserve = term.getYieldShareReserve();
         assertEq(underlyingReserve, 1);
-        assertEq(yieldShareReserve, 0);
+        assertEq(yieldShareReserve, 2);
     }
 }
