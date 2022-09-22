@@ -3,17 +3,6 @@ pragma solidity ^0.8.15;
 
 import "../Pool.sol";
 
-library MockPoolCall {
-    event PoolRegistered(uint256 indexed poolId);
-    event InitializeBuffer(uint256 bufferId, uint16 minTime, uint16 maxLength);
-    event Mint(uint256 tokenID, address to, uint256 amount);
-    event Update(
-        uint256 poolId,
-        uint128 newBondBalance,
-        uint128 newSharesBalance
-    );
-}
-
 contract MockPool is Pool {
     constructor(
         ITerm _term,
@@ -49,28 +38,38 @@ contract MockPool is Pool {
         return super._normalize(input);
     }
 
+    event InitializeBuffer(uint256 bufferId, uint16 minTime, uint16 maxLength);
+
     function _initializeBuffer(
         uint256 bufferId,
         uint16 minTime,
         uint16 maxLength
     ) internal override {
-        emit MockPoolCall.InitializeBuffer(bufferId, minTime, maxLength);
+        emit InitializeBuffer(bufferId, minTime, maxLength);
     }
+
+    event Mint(uint256 tokenID, address to, uint256 amount);
 
     function _mint(
         uint256 tokenID,
         address to,
         uint256 amount
     ) internal override {
-        emit MockPoolCall.Mint(tokenID, to, amount);
+        emit Mint(tokenID, to, amount);
         super._mint(tokenID, to, amount);
     }
+
+    event Update(
+        uint256 poolId,
+        uint128 newBondBalance,
+        uint128 newSharesBalance
+    );
 
     function _update(
         uint256 poolId,
         uint128 newBondBalance,
         uint128 newSharesBalance
     ) internal override {
-        emit MockPoolCall.Update(poolId, newBondBalance, newSharesBalance);
+        emit Update(poolId, newBondBalance, newSharesBalance);
     }
 }

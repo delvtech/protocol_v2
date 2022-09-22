@@ -6,8 +6,8 @@ import "forge-std/Test.sol";
 
 import { ForwarderFactory } from "contracts/ForwarderFactory.sol";
 import { MockERC20Permit } from "contracts/mocks/MockERC20Permit.sol";
-import { MockTerm, MockTermCall } from "contracts/mocks/MockTerm.sol";
-import { MockPool, MockPoolCall } from "contracts/mocks/MockPool.sol";
+import { MockTerm } from "contracts/mocks/MockTerm.sol";
+import { MockPool } from "contracts/mocks/MockPool.sol";
 
 import { IERC20 } from "contracts/interfaces/IERC20.sol";
 import { ITerm } from "contracts/interfaces/ITerm.sol";
@@ -205,42 +205,51 @@ contract PoolTest is ElementTest {
     }
 
     event Transfer(address indexed from, address indexed to, uint256 value);
+    event DepositUnlocked(
+        uint256 underlyingAmount,
+        uint256 ptAmount,
+        uint256 ptExpiry,
+        address destination
+    );
+    event Update(
+        uint256 poolId,
+        uint128 newBondBalance,
+        uint128 newSharesBalance
+    );
+    event Mint(uint256 tokenID, address to, uint256 amount);
+    event InitializeBuffer(uint256 bufferId, uint16 minTime, uint16 maxLength);
+    event PoolRegistered(uint256 indexed poolId);
 
     function _registerExpectedRegisterPoolIdEvents(
         RegisterPoolIdTestCase memory testCase
     ) internal {
-        vm.expectEmit(true, true, true, false);
+        vm.expectEmit(true, true, false, true);
         emit Transfer(user, address(pool), testCase.underlyingIn);
 
-        vm.expectEmit(true, true, true, true);
-        emit MockTermCall.DepositUnlocked(
-            testCase.underlyingIn,
-            0,
-            0,
-            address(pool)
-        );
+        vm.expectEmit(false, false, false, true);
+        emit DepositUnlocked(testCase.underlyingIn, 0, 0, address(pool));
 
-        vm.expectEmit(true, true, true, false);
-        emit MockPoolCall.Update(
+        vm.expectEmit(false, false, false, true);
+        emit Update(
             testCase.poolId,
             uint128(0),
             uint128(testCase.sharesMinted)
         );
 
         if (testCase.minTime > 0 || testCase.maxLength > 0) {
-            vm.expectEmit(true, true, true, false);
-            emit MockPoolCall.InitializeBuffer(
+            vm.expectEmit(false, false, false, true);
+            emit InitializeBuffer(
                 testCase.poolId,
                 testCase.minTime,
                 testCase.maxLength
             );
         }
 
-        vm.expectEmit(true, true, true, false);
-        emit MockPoolCall.Mint(testCase.poolId, user, testCase.sharesMinted);
+        vm.expectEmit(false, false, false, true);
+        emit Mint(testCase.poolId, user, testCase.sharesMinted);
 
         vm.expectEmit(true, false, false, false);
-        emit MockPoolCall.PoolRegistered(testCase.poolId);
+        emit PoolRegistered(testCase.poolId);
     }
 
     function _getExpectedRegisterPoolIdError(

@@ -3,15 +3,6 @@ pragma solidity ^0.8.15;
 
 import { Term, IERC20 } from "contracts/Term.sol";
 
-library MockTermCall {
-    event DepositUnlocked(
-        uint256 underlyingAmount,
-        uint256 ptAmount,
-        uint256 ptExpiry,
-        address destination
-    );
-}
-
 contract MockTerm is Term {
     constructor(
         bytes32 _linkerCodeHash,
@@ -124,6 +115,13 @@ contract MockTerm is Term {
     uint256 _depositUnlockedLeftReturnValue;
     uint256 _depositUnlockedRightReturnValue;
 
+    event DepositUnlocked(
+        uint256 underlyingAmount,
+        uint256 ptAmount,
+        uint256 ptExpiry,
+        address destination
+    );
+
     function setDepositUnlockedReturnValues(uint256 _left, uint256 _right)
         external
     {
@@ -137,12 +135,7 @@ contract MockTerm is Term {
         uint256 ptExpiry,
         address destination
     ) external override returns (uint256, uint256) {
-        emit MockTermCall.DepositUnlocked(
-            underlyingAmount,
-            ptAmount,
-            ptExpiry,
-            destination
-        );
+        emit DepositUnlocked(underlyingAmount, ptAmount, ptExpiry, destination);
         return (
             _depositUnlockedLeftReturnValue,
             _depositUnlockedRightReturnValue
