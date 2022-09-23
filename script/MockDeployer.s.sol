@@ -60,9 +60,9 @@ contract MockDeployer is Script {
         WETHTerm.authorize(msg.sender);
 
         // mint tokens to msg.sender to seed terms
-        USDC.mint(msg.sender, 5_000_000 * 1e6); // 6 decimals
-        DAI.mint(msg.sender, 5_000_000 * 1e18); // 18 decimals
-        WETH.mint(msg.sender, 100_000 * 1e18); // 18 decimals
+        USDC.mint(msg.sender, 10_000_000 * 1e6); // 6 decimals
+        DAI.mint(msg.sender, 10_000_000 * 1e18); // 18 decimals
+        WETH.mint(msg.sender, 200_000 * 1e18); // 18 decimals
 
         // Create 30 / 60 / 90 day terms for each token
 
@@ -89,7 +89,7 @@ contract MockDeployer is Script {
         USDCTerm.lock(
             emptyArray, // no assets (PT, YT, unlocked shares) to lock
             emptyArray, // no assets amounts to lock
-            100_000 * 1e6, // underlying amount
+            500_000 * 1e6, // underlying amount
             false, // no prefunding
             msg.sender,
             msg.sender,
@@ -100,7 +100,7 @@ contract MockDeployer is Script {
         USDCTerm.lock(
             emptyArray,
             emptyArray,
-            100_000 * 1e6,
+            500_000 * 1e6,
             false,
             msg.sender,
             msg.sender,
@@ -111,7 +111,7 @@ contract MockDeployer is Script {
         USDCTerm.lock(
             emptyArray,
             emptyArray,
-            100_000 * 1e6,
+            500_000 * 1e6,
             false,
             msg.sender,
             msg.sender,
@@ -123,7 +123,7 @@ contract MockDeployer is Script {
         DAITerm.lock(
             emptyArray,
             emptyArray,
-            100_000 * 1e18,
+            500_000 * 1e18,
             false,
             msg.sender,
             msg.sender,
@@ -133,7 +133,7 @@ contract MockDeployer is Script {
         DAITerm.lock(
             emptyArray,
             emptyArray,
-            100_000 * 1e18,
+            500_000 * 1e18,
             false,
             msg.sender,
             msg.sender,
@@ -143,7 +143,7 @@ contract MockDeployer is Script {
         DAITerm.lock(
             emptyArray,
             emptyArray,
-            100_000 * 1e18,
+            500_000 * 1e18,
             false,
             msg.sender,
             msg.sender,
@@ -220,7 +220,7 @@ contract MockDeployer is Script {
         USDCPool.registerPoolId(
             oneMonthExpiry, // term expiry is pool id
             100_000 * 1e6, // underlying in
-            1000, // timestretch
+            50 * 1e3, // timestretch
             msg.sender,
             0, // max time (used for oracle)
             0 // max length (used for oracle)
@@ -228,7 +228,7 @@ contract MockDeployer is Script {
         USDCPool.registerPoolId(
             twoMonthExpiry,
             100_000 * 1e6,
-            1000,
+            50 * 1e3,
             msg.sender,
             0,
             0
@@ -236,7 +236,7 @@ contract MockDeployer is Script {
         USDCPool.registerPoolId(
             threeMonthExpiry,
             100_000 * 1e6,
-            1000,
+            50 * 1e3,
             msg.sender,
             0,
             0
@@ -246,7 +246,7 @@ contract MockDeployer is Script {
         DAIPool.registerPoolId(
             oneMonthExpiry,
             100_000 * 1e18,
-            1000,
+            50 * 1e3,
             msg.sender,
             0,
             0
@@ -254,7 +254,7 @@ contract MockDeployer is Script {
         DAIPool.registerPoolId(
             twoMonthExpiry,
             100_000 * 1e18,
-            1000,
+            50 * 1e3,
             msg.sender,
             0,
             0
@@ -262,7 +262,7 @@ contract MockDeployer is Script {
         DAIPool.registerPoolId(
             threeMonthExpiry,
             100_000 * 1e18,
-            1000,
+            50 * 1e3,
             msg.sender,
             0,
             0
@@ -272,7 +272,7 @@ contract MockDeployer is Script {
         WETHPool.registerPoolId(
             oneMonthExpiry,
             1_000 * 1e18,
-            1000,
+            50 * 1e3,
             msg.sender,
             0,
             0
@@ -280,7 +280,7 @@ contract MockDeployer is Script {
         WETHPool.registerPoolId(
             twoMonthExpiry,
             1_000 * 1e18,
-            1000,
+            50 * 1e3,
             msg.sender,
             0,
             0
@@ -288,7 +288,7 @@ contract MockDeployer is Script {
         WETHPool.registerPoolId(
             threeMonthExpiry,
             1_000 * 1e18,
-            1000,
+            50 * 1e3,
             msg.sender,
             0,
             0
@@ -328,29 +328,29 @@ contract MockDeployer is Script {
         WETHTerm.setApprovalForAll(address(WETHPool), true);
 
         // Initalize pool with trade, adding PTs to the pool
-        USDCPool.tradeBonds(oneMonthExpiry, 10_000 * 1e6, 1, msg.sender, false);
-        USDCPool.tradeBonds(twoMonthExpiry, 10_000 * 1e6, 1, msg.sender, false);
+        USDCPool.tradeBonds(oneMonthExpiry, 90_000 * 1e6, 1, msg.sender, false);
+        USDCPool.tradeBonds(twoMonthExpiry, 90_000 * 1e6, 1, msg.sender, false);
         USDCPool.tradeBonds(
             threeMonthExpiry,
-            10_000 * 1e6,
+            90_000 * 1e6,
             1,
             msg.sender,
             false
         );
 
-        DAIPool.tradeBonds(oneMonthExpiry, 10_000 * 1e18, 1, msg.sender, false);
-        DAIPool.tradeBonds(twoMonthExpiry, 10_000 * 1e18, 1, msg.sender, false);
+        DAIPool.tradeBonds(oneMonthExpiry, 90_000 * 1e18, 1, msg.sender, false);
+        DAIPool.tradeBonds(twoMonthExpiry, 90_000 * 1e18, 1, msg.sender, false);
         DAIPool.tradeBonds(
             threeMonthExpiry,
-            10_000 * 1e18,
+            90_000 * 1e18,
             1,
             msg.sender,
             false
         );
 
-        WETHPool.tradeBonds(oneMonthExpiry, 100 * 1e18, 1, msg.sender, false);
-        WETHPool.tradeBonds(twoMonthExpiry, 100 * 1e18, 1, msg.sender, false);
-        WETHPool.tradeBonds(threeMonthExpiry, 100 * 1e18, 1, msg.sender, false);
+        WETHPool.tradeBonds(oneMonthExpiry, 900 * 1e18, 1, msg.sender, false);
+        WETHPool.tradeBonds(twoMonthExpiry, 900 * 1e18, 1, msg.sender, false);
+        WETHPool.tradeBonds(threeMonthExpiry, 900 * 1e18, 1, msg.sender, false);
 
         vm.stopBroadcast();
 
