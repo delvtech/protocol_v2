@@ -9,6 +9,14 @@ import "../contracts/mocks/MockYieldAdapter.sol";
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 
+/* 
+    Example usage:
+    forge script script/MockDeployer.s.sol:MockDeployer \
+    --rpc-url $GOERLI_RPC --private-key $PRIVATE_KEY \
+    --verify --etherscan-api-key $ETHERSCAN_KEY \
+    --broadcast -vv 
+*/
+
 contract MockDeployer is Script {
     function run() external {
         vm.startBroadcast();
