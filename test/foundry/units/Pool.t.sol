@@ -223,13 +223,13 @@ contract PoolTest is ElementTest {
     function _registerExpectedRegisterPoolIdEvents(
         RegisterPoolIdTestCase memory testCase
     ) internal {
-        vm.expectEmit(true, true, false, true);
+        expectStrictEmit();
         emit Transfer(user, address(pool), testCase.underlyingIn);
 
-        vm.expectEmit(false, false, false, true);
+        expectStrictEmit();
         emit DepositUnlocked(testCase.underlyingIn, 0, 0, address(pool));
 
-        vm.expectEmit(false, false, false, true);
+        expectStrictEmit();
         emit Update(
             testCase.poolId,
             uint128(0),
@@ -237,7 +237,7 @@ contract PoolTest is ElementTest {
         );
 
         if (testCase.minTime > 0 || testCase.maxLength > 0) {
-            vm.expectEmit(false, false, false, true);
+            expectStrictEmit();
             emit InitializeBuffer(
                 testCase.poolId,
                 testCase.minTime,
@@ -245,10 +245,10 @@ contract PoolTest is ElementTest {
             );
         }
 
-        vm.expectEmit(false, false, false, true);
+        expectStrictEmit();
         emit Mint(testCase.poolId, user, testCase.sharesMinted);
 
-        vm.expectEmit(true, false, false, false);
+        expectStrictEmit();
         emit PoolRegistered(testCase.poolId);
     }
 

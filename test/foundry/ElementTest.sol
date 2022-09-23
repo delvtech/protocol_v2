@@ -19,4 +19,18 @@ contract ElementTest is Test {
         vm.deal(addr, 100 ether);
         vm.label(addr, name);
     }
+
+    // https://book.getfoundry.sh/cheatcodes/expect-emit?highlight=expectEmi#expectemit
+    // The typical `expectEmit` function as specified in the documentation will
+    // when always validate topic0 and optionally topic1, topic2, topic3 and
+    // the event data (non-indexed args);
+    // In the event those options are set to true but the event in question does
+    // not contain those paramaters, then they will be silently ignored.
+    // Therefore it makes sense that for every event we wish to expect for, that
+    // the strictest settings be used by setting all options to true as we lose
+    // nothing by being less specific and it is less developer overhead to have
+    // to check whether a certain event paramater is indexed or not
+    function expectStrictEmit() public {
+        vm.expectEmit(true, true, true, true);
+    }
 }
