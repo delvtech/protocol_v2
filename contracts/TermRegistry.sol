@@ -7,9 +7,7 @@ import "./ElementRegistry.sol";
 import "./libraries/Authorizable.sol";
 import "./libraries/FixedPointMath.sol";
 
-// Expiry Registry for Element V2 Protocol
-// Extends a Term Registry contract by adding support for registering particular expiries
-contract ExpiryRegistry is Authorizable {
+contract TermRegistry is Authorizable {
     ElementRegistry public immutable registry;
 
     struct Expiry {

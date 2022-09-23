@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
 import "contracts/ElementRegistry.sol";
-import "contracts/ExpiryRegistry.sol";
+import "contracts/TermRegistry.sol";
 import "contracts/mocks/MockERC20Permit.sol";
 import "contracts/mocks/MockERC20YearnVault.sol";
 import "contracts/mocks/MockPool.sol";
@@ -16,8 +16,8 @@ contract User {
     receive() external payable {} // solhint-disable-line no-empty-blocks
 }
 
-contract ExpiryRegistryTest is Test {
-    ExpiryRegistry public expiryRegistry;
+contract TermRegistryTest is Test {
+    TermRegistry public termRegistry;
     ForwarderFactory public factory;
     MockERC20Permit public token;
     MockERC20YearnVault public yearnVault;
@@ -71,8 +71,8 @@ contract ExpiryRegistryTest is Test {
         registry.authorize(address(user));
 
         // expiry registry
-        expiryRegistry = new ExpiryRegistry(address(owner), registry);
-        expiryRegistry.authorize((address(expiryRegistry)));
+        termRegistry = new TermRegistry(address(owner), registry);
+        termRegistry.authorize((address(termRegistry)));
         vm.stopPrank();
 
         // register a new term in the term registry
@@ -80,8 +80,8 @@ contract ExpiryRegistryTest is Test {
         registry.registerTerm(term, pool);
         vm.stopPrank();
 
-        // token approvals for expiryRegistry
-        startHoax(address(expiryRegistry));
+        // token approvals for termRegistry
+        startHoax(address(termRegistry));
         token.approve(address(term), type(uint256).max);
         token.approve(address(pool), type(uint256).max);
         term.setApprovalForAll(address(pool), true);
@@ -89,22 +89,22 @@ contract ExpiryRegistryTest is Test {
     }
 
     function testCreateTerm() public {
-        startHoax(address(expiryRegistry));
+        startHoax(address(termRegistry));
 
-        // give expiryRegistry tokens
-        token.mint(address(expiryRegistry), 200_000 * 1e18);
+        // give termRegistry tokens
+        token.mint(address(termRegistry), 200_000 * 1e18);
 
         // create new term with liquidity
-        ExpiryRegistry.PoolConfig memory poolConfig = ExpiryRegistry.PoolConfig(
+        TermRegistry.PoolConfig memory poolConfig = TermRegistry.PoolConfig(
             10_000,
             0,
             0
         );
-        expiryRegistry.createTerm(
+        termRegistry.createTerm(
             0,
             poolConfig,
             block.timestamp + 100_000,
-            address(expiryRegistry),
+            address(termRegistry),
             100_000 * 1e18,
             1_000 * 1e18,
             1_000 * 1e18,
@@ -112,7 +112,7 @@ contract ExpiryRegistryTest is Test {
         );
 
         // assert expiries have been registered
-        assertEq(expiryRegistry.getExpiriesCount(0), 1);
+        assertEq(termRegistry.getExpiriesCount(0), 1);
     }
 
     function testCreateTerm_externalSeeder() public {
@@ -124,19 +124,19 @@ contract ExpiryRegistryTest is Test {
         token.mint(address(seeder), 200_000 * 1e18);
         token.approve(address(term), type(uint256).max);
         token.approve(address(pool), type(uint256).max);
-        token.approve(address(expiryRegistry), type(uint256).max);
+        token.approve(address(termRegistry), type(uint256).max);
         term.setApprovalForAll(address(pool), true);
         vm.stopPrank();
 
-        startHoax(address(expiryRegistry));
+        startHoax(address(termRegistry));
         uint256 expiry = block.timestamp + 100_000;
         // create new term with liquidity using external seeder
-        ExpiryRegistry.PoolConfig memory poolConfig = ExpiryRegistry.PoolConfig(
+        TermRegistry.PoolConfig memory poolConfig = TermRegistry.PoolConfig(
             10_000,
             0,
             0
         );
-        expiryRegistry.createTerm(
+        termRegistry.createTerm(
             0,
             poolConfig,
             expiry,
@@ -148,7 +148,7 @@ contract ExpiryRegistryTest is Test {
         );
 
         // assert expiries have been registered
-        assertEq(expiryRegistry.getExpiriesCount(0), 1);
+        assertEq(termRegistry.getExpiriesCount(0), 1);
 
         // assert that seeder account is properly accredited for LP and any excess capital
         assertGt(pool.balanceOf(expiry, address(seeder)), 0);
