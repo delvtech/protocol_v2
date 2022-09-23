@@ -39,7 +39,7 @@ contract TermRegistry is Authorizable {
     /// @param termIndex index of the term information in the term list.
     /// @param start term start timestamp.
     /// @param end term end timestamp.
-    function registerExpiry(
+    function register(
         uint256 termIndex,
         uint256 start,
         uint256 end
@@ -47,7 +47,6 @@ contract TermRegistry is Authorizable {
         Expiry memory expiry = Expiry(start, end);
         // add expiry to list
         _expiries[termIndex].push(expiry);
-
         // Emit event for off-chain discoverability
         emit ExpiryRegistered(start, end, termIndex);
     }
@@ -75,8 +74,8 @@ contract TermRegistry is Authorizable {
         ElementRegistry.TermInfo memory termInfo = registry.getTermInfo(
             termIndex
         );
-        Term term = Term(termInfo.termAddress);
-        Pool pool = Pool(termInfo.poolAddress);
+        Term term = Term(termInfo.term);
+        Pool pool = Pool(termInfo.pool);
 
         // cache token holdings
         uint256 underlyingTotal = term.token().balanceOf(address(this));
@@ -148,7 +147,7 @@ contract TermRegistry is Authorizable {
             );
         }
 
-        registerExpiry(termIndex, block.timestamp, expiry);
+        register(termIndex, block.timestamp, expiry);
 
         return (block.timestamp, expiry);
     }

@@ -77,7 +77,7 @@ contract TermRegistryTest is Test {
 
         // register a new term in the term registry
         startHoax(address(user));
-        registry.registerTerm(term, pool);
+        registry.register(term, pool);
         vm.stopPrank();
 
         // token approvals for termRegistry
