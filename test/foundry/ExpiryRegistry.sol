@@ -77,7 +77,7 @@ contract ExpiryRegistryTest is Test {
 
         // register a new term in the term registry
         startHoax(address(user));
-        registry.registerTerm(term, pool, 1);
+        registry.registerTerm(term, pool);
         vm.stopPrank();
 
         // token approvals for expiryRegistry

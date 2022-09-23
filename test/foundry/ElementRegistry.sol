@@ -63,7 +63,7 @@ contract ElementRegistryTest is Test {
 
     function testRegisterTerm() public {
         startHoax(address(user));
-        registry.registerTerm(term, pool, 1);
+        registry.registerTerm(term, pool);
         assertEq(registry.getTermsCount(), 1);
     }
 
@@ -71,7 +71,7 @@ contract ElementRegistryTest is Test {
     function testFailRegisterTerm() public {
         User bad = new User();
         startHoax(address(bad));
-        registry.registerTerm(term, pool, 1);
+        registry.registerTerm(term, pool);
     }
 
     // test expected to fail when the term in the pool contract differs from the term being registered
@@ -93,6 +93,6 @@ contract ElementRegistryTest is Test {
             address(factory)
         );
 
-        registry.registerTerm(term, newPool, 1);
+        registry.registerTerm(term, newPool);
     }
 }

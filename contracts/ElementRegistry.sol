@@ -9,14 +9,9 @@ contract ElementRegistry is Authorizable {
     struct TermInfo {
         address termAddress; // term contract address
         address poolAddress; // pool contract address
-        uint24 yieldSourceId; // arbitrary identifier, e.g. 1 = Yearn, 2 = Compound
     }
 
-    event TermRegistered(
-        address term,
-        address pool,
-        uint24 indexed yieldSourceId
-    );
+    event TermRegistered(address term, address pool);
 
     TermInfo[] private _terms;
 
@@ -27,12 +22,7 @@ contract ElementRegistry is Authorizable {
     /// @notice Registers a new Term <> Pool combination
     /// @param term Term contract
     /// @param pool Associated Pool contract
-    /// @param yieldSourceId Arbitrary identifier, e.g. 1 = Yearn, 2 = Compound, etc.
-    function registerTerm(
-        Term term,
-        Pool pool,
-        uint24 yieldSourceId
-    ) public onlyAuthorized {
+    function registerTerm(Term term, Pool pool) public onlyAuthorized {
         // cache addresses
         address termAddress = address(term);
         address poolAddress = address(pool);
@@ -43,17 +33,13 @@ contract ElementRegistry is Authorizable {
             "pool's term address != term address"
         );
 
-        TermInfo memory info = TermInfo(
-            termAddress,
-            poolAddress,
-            yieldSourceId
-        );
+        TermInfo memory info = TermInfo(termAddress, poolAddress);
 
         // add term info to term list
         _terms.push(info);
 
         // Emit event for off-chain discoverability
-        emit TermRegistered(termAddress, poolAddress, yieldSourceId);
+        emit TermRegistered(termAddress, poolAddress);
     }
 
     /// @notice Helper function for fetching length of terms list
