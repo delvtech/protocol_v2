@@ -64,4 +64,9 @@ library ElementError {
     /// #####################
     error Authorizable_SenderMustBeOwner();
     error Authorizable_SenderMustBeAuthorized();
+
+    /// #####################
+    /// ##### Registry ######
+    /// #####################
+    error ElementRegistry_DifferentTermAddresses();
 }

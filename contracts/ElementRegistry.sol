@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import "./Pool.sol";
 import "./Term.sol";
 import "./libraries/Authorizable.sol";
+import "./libraries/Errors.sol";
 
 contract ElementRegistry is Authorizable {
     struct TermInfo {
@@ -23,23 +24,22 @@ contract ElementRegistry is Authorizable {
     /// @param term Term contract
     /// @param pool Associated Pool contract
     function registerTerm(Term term, Pool pool) public onlyAuthorized {
-        // cache addresses
-        address termAddress = address(term);
-        address poolAddress = address(pool);
-
         // configuration check
+        if (address(pool.term()) != address(term)) {
+            revert ElementError.ElementRegistry_DifferentTermAddresses();
+        }
         require(
-            address(pool.term()) == termAddress,
+            address(pool.term()) == address(term),
             "pool's term address != term address"
         );
 
-        TermInfo memory info = TermInfo(termAddress, poolAddress);
+        TermInfo memory info = TermInfo(address(term), address(pool));
 
         // add term info to term list
         _terms.push(info);
 
         // Emit event for off-chain discoverability
-        emit TermRegistered(termAddress, poolAddress);
+        emit TermRegistered(address(term), address(pool));
     }
 
     /// @notice Helper function for fetching length of terms list
