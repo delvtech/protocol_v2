@@ -38,7 +38,7 @@ contract ElementTest is Test {
     // Therefore it makes sense that for any event we wish to expect for, that
     // the strictest settings be used by setting all options to true as we lose
     // nothing by being less specific and it is less developer overhead to have
-    // to check whether a certain event paramater is indexed or not
+    // to check whether a certain event argument is indexed or not
     function expectStrictEmit() public {
         vm.expectEmit(true, true, true, true);
     }
