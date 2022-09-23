@@ -25,8 +25,17 @@ contract ElementTest is Test {
     // when always validate topic0 and optionally topic1, topic2, topic3 and
     // the event data (non-indexed args);
     // In the event those options are set to true but the event in question does
-    // not contain those paramaters, then they will be silently ignored.
-    // Therefore it makes sense that for every event we wish to expect for, that
+    // not contain those arguments, then those checks are not considered
+    // regardless. Example:
+    //
+    // SomeEvent(uint256 indexed arg1);
+    //
+    // - vm.expectEmit(true, false, false, false); <- Docs suggestion
+    // - vm.expectEmit(true, true, true, true);
+    //
+    // Both of these will check for a "SomeEvent" event with a uint256 topic1
+    //
+    // Therefore it makes sense that for any event we wish to expect for, that
     // the strictest settings be used by setting all options to true as we lose
     // nothing by being less specific and it is less developer overhead to have
     // to check whether a certain event paramater is indexed or not
