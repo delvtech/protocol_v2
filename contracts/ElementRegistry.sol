@@ -5,9 +5,7 @@ import "./Pool.sol";
 import "./Term.sol";
 import "./libraries/Authorizable.sol";
 
-// Term Registry for Element V2 Protocol
-// Stores address information for registred Term and Pool contracts
-contract TermRegistry is Authorizable {
+contract ElementRegistry is Authorizable {
     struct TermInfo {
         address termAddress; // term contract address
         address poolAddress; // pool contract address

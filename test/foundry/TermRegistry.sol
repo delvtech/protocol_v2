@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
-import "contracts/TermRegistry.sol";
+import "contracts/ElementRegistry.sol";
 import "contracts/mocks/MockERC20Permit.sol";
 import "contracts/mocks/MockERC20YearnVault.sol";
 import "contracts/mocks/MockPool.sol";
@@ -15,13 +15,13 @@ contract User {
     receive() external payable {} // solhint-disable-line no-empty-blocks
 }
 
-contract TermRegistryTest is Test {
+contract ElementRegistryTest is Test {
     ForwarderFactory public factory;
     MockERC20Permit public token;
     MockERC20YearnVault public yearnVault;
     MockPool public pool;
     MockYieldAdapter public term;
-    TermRegistry public registry;
+    ElementRegistry public registry;
     User public owner;
     User public user;
 
@@ -56,7 +56,7 @@ contract TermRegistryTest is Test {
 
         // deploy term registry and authorize user
         startHoax(address(owner));
-        registry = new TermRegistry(address(owner));
+        registry = new ElementRegistry(address(owner));
         registry.authorize(address(user));
         vm.stopPrank();
     }

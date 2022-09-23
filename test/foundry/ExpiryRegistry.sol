@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
-import "contracts/TermRegistry.sol";
+import "contracts/ElementRegistry.sol";
 import "contracts/ExpiryRegistry.sol";
 import "contracts/mocks/MockERC20Permit.sol";
 import "contracts/mocks/MockERC20YearnVault.sol";
@@ -23,7 +23,7 @@ contract ExpiryRegistryTest is Test {
     MockERC20YearnVault public yearnVault;
     MockPool public pool;
     MockYieldAdapter public term;
-    TermRegistry public registry;
+    ElementRegistry public registry;
     User public owner;
     User public user;
 
@@ -67,7 +67,7 @@ contract ExpiryRegistryTest is Test {
         startHoax(address(owner));
 
         // term registry
-        registry = new TermRegistry(address(owner));
+        registry = new ElementRegistry(address(owner));
         registry.authorize(address(user));
 
         // expiry registry

@@ -3,14 +3,14 @@ pragma solidity ^0.8.15;
 
 import "./Pool.sol";
 import "./Term.sol";
-import "./TermRegistry.sol";
+import "./ElementRegistry.sol";
 import "./libraries/Authorizable.sol";
 import "./libraries/FixedPointMath.sol";
 
 // Expiry Registry for Element V2 Protocol
 // Extends a Term Registry contract by adding support for registering particular expiries
 contract ExpiryRegistry is Authorizable {
-    TermRegistry public immutable registry;
+    ElementRegistry public immutable registry;
 
     struct Expiry {
         uint256 start;
@@ -29,10 +29,10 @@ contract ExpiryRegistry is Authorizable {
         uint256 indexed termIndex
     );
 
-    // termIndex in the TermRegistry to list of expiries
+    // termIndex in the ElementRegistry to list of expiries
     mapping(uint256 => Expiry[]) private _expiries;
 
-    constructor(address owner, TermRegistry _registry) {
+    constructor(address owner, ElementRegistry _registry) {
         setOwner(owner);
         registry = _registry;
     }
@@ -74,7 +74,9 @@ contract ExpiryRegistry is Authorizable {
         uint256 ptAmount,
         uint256 outputAmount
     ) public onlyAuthorized returns (uint256, uint256) {
-        TermRegistry.TermInfo memory termInfo = registry.getTermInfo(termIndex);
+        ElementRegistry.TermInfo memory termInfo = registry.getTermInfo(
+            termIndex
+        );
         Term term = Term(termInfo.termAddress);
         Pool pool = Pool(termInfo.poolAddress);
 
