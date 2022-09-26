@@ -144,7 +144,7 @@ contract Pool is LP, Authorizable, TWAROracle {
     /// @param  underlyingIn Amount of tokens used to initialize the reserves.
     /// @param  timeStretch The fraction of a year to stretch by in 3 decimal ie [10.245 = 10245]
     /// @param  recipient Address which will receive the minted LP tokens.
-    /// @param  maxTime The longest timestamp the oracle will hold, 0 and it will not be initialized
+    /// @param  minTime The longest timestamp the oracle will hold, 0 and it will not be initialized
     /// @param  maxLength The most timestamps the oracle will hold
     /// @return mintedLpTokens No. of minted LP tokens amount for provided `poolIds`.
     function registerPoolId(
@@ -152,7 +152,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 underlyingIn,
         uint32 timeStretch,
         address recipient,
-        uint16 maxTime,
+        uint16 minTime,
         uint16 maxLength
     ) external returns (uint256 mintedLpTokens) {
         // Expired PTs are not supported.
@@ -180,8 +180,8 @@ contract Pool is LP, Authorizable, TWAROracle {
         // Initialize the reserves.
         _update(poolId, uint128(0), uint128(sharesMinted));
         // Initialize the oracle if this pool needs one
-        if (maxTime > 0 || maxLength > 0) {
-            _initializeBuffer(poolId, maxTime, maxLength);
+        if (minTime > 0 || maxLength > 0) {
+            _initializeBuffer(poolId, minTime, maxLength);
         }
         // Add the timestretch into the mapping corresponds to the poolId.
         parameters[poolId] = SubPoolParameters(timeStretch, uint224(mu));
@@ -584,7 +584,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 poolId,
         uint128 newBondBalance,
         uint128 newSharesBalance
-    ) internal {
+    ) internal virtual {
         // Update the reserves.
         reserves[poolId].bonds = newBondBalance;
         reserves[poolId].shares = newSharesBalance;

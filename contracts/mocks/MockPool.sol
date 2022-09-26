@@ -29,4 +29,47 @@ contract MockPool is Pool {
     ) external {
         governanceFees[poolId] = CollectedFees(feeShares, feeBond);
     }
+
+    function setTotalSupply(uint256 _poolId, uint256 _amount) external {
+        totalSupply[_poolId] = _amount;
+    }
+
+    function normalize(uint256 input) external returns (uint256) {
+        return super._normalize(input);
+    }
+
+    event InitializeBuffer(uint256 bufferId, uint16 minTime, uint16 maxLength);
+
+    function _initializeBuffer(
+        uint256 bufferId,
+        uint16 minTime,
+        uint16 maxLength
+    ) internal override {
+        emit InitializeBuffer(bufferId, minTime, maxLength);
+    }
+
+    event Mint(uint256 tokenID, address to, uint256 amount);
+
+    function _mint(
+        uint256 tokenID,
+        address to,
+        uint256 amount
+    ) internal override {
+        emit Mint(tokenID, to, amount);
+        super._mint(tokenID, to, amount);
+    }
+
+    event Update(
+        uint256 poolId,
+        uint128 newBondBalance,
+        uint128 newSharesBalance
+    );
+
+    function _update(
+        uint256 poolId,
+        uint128 newBondBalance,
+        uint128 newSharesBalance
+    ) internal override {
+        emit Update(poolId, newBondBalance, newSharesBalance);
+    }
 }
