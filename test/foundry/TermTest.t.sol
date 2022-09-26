@@ -16,7 +16,7 @@ contract User {
     receive() external payable {} // solhint-disable-line no-empty-blocks
 }
 
-contract TermTest is Test {
+contract TermFunctionalTest is Test {
     ForwarderFactory public ff;
     MockYieldAdapter public term;
     MockERC20Permit public token;

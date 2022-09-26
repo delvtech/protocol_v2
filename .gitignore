@@ -9,6 +9,7 @@ coverage.json
 coverage/
 typechain/
 .env
+target/
 
 # Foundry files
 forge-cache/
