@@ -392,6 +392,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         address receiver
     )
         internal
+        virtual
         returns (
             uint256,
             uint256,
@@ -475,6 +476,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         address receiver
     )
         internal
+        virtual
         returns (
             uint256,
             uint256,
