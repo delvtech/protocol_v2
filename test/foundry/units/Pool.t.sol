@@ -37,7 +37,6 @@ contract PoolTest is ElementTest {
         TERM_END = block.timestamp + YEAR;
     }
 
-    // ------------------- constructor unit tests ------------------ //
     // ------------------- name unit tests ------------------ //
     // ------------------- symbol unit tests ------------------ //
     // ------------------- registerPoolId unit tests ------------------ //
@@ -380,7 +379,20 @@ contract PoolTest is ElementTest {
         console2.log("    sharesMinted     = ", testCase.sharesMinted);
         console2.log("    sharesValue      = ", testCase.sharesValue);
         console2.log("    userBalance      = ", testCase.userBalance);
-
         console2.log("");
+    }
+
+    // ------------------- tradeBonds unit tests ------------------ //
+
+    struct TradeBondsTestCase {
+        // args
+        uint256 poolId;
+        uint256 amount;
+        uint256 minAmountOut;
+        bool isBuy;
+        // state
+        uint128 shareReserves;
+        uint128 bondReserves;
+        uint256 tradeOutputAmount;
     }
 }
