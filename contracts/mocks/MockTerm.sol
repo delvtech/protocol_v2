@@ -4,6 +4,14 @@ pragma solidity ^0.8.15;
 import { Term, IERC20 } from "contracts/Term.sol";
 
 contract MockTerm is Term {
+    uint256 internal _convertReturnValue;
+    uint256 internal _depositLeftReturnValue;
+    uint256 internal _depositRightReturnValue;
+    uint256 internal _withdrawReturnValue;
+    uint256 internal _underlyingReturnValue;
+    uint256 internal _lockPrincipalTokensReturnValue;
+    uint256 internal _lockYieldTokensReturnValue;
+
     constructor(
         bytes32 _linkerCodeHash,
         address _factory,
@@ -11,6 +19,33 @@ contract MockTerm is Term {
         address _owner
     ) Term(_linkerCodeHash, _factory, _token, _owner) {} /* solhint-disable-line no-empty-blocks */
 
+    // ####################
+    // ###   lock ###
+    // ####################
+
+    function setLockValues(uint256 principalTokens, uint256 yieldTokens)
+        external
+    {
+        _lockPrincipalTokensReturnValue = principalTokens;
+        _lockYieldTokensReturnValue = yieldTokens;
+    }
+
+    function lock(
+        uint256[] memory assetIds,
+        uint256[] memory assetAmounts,
+        uint256 underlyingAmount,
+        bool hasPreFunding,
+        address ytDestination,
+        address ptDestination,
+        uint256 ytBeginDate,
+        uint256 expiration
+    ) external override returns (uint256, uint256) {
+        return (_lockPrincipalTokensReturnValue, _lockYieldTokensReturnValue);
+    }
+
+    // ####################
+    // ###   _convert   ###
+    // ####################
     uint256 internal _convertReturnValue;
 
     function setConvertReturnValue(uint256 _value) external {
