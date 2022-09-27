@@ -235,7 +235,7 @@ contract LP is MultiToken {
         uint256 depositedShares,
         uint256 pricePerShare,
         address to
-    ) internal returns (uint256) {
+    ) internal virtual returns (uint256) {
         // Must be initialized
         // NOTE - There's a strong requirement for trades to not be able to move the pool to
         //        have a reserve of exactly 0 in either asset
@@ -246,7 +246,9 @@ contract LP is MultiToken {
 
         // Calculate total reserve with conversion to underlying units
         // IE: amount_bonds + amountShares*underlyingPerShare
-        uint256 totalValue = currentShares * pricePerShare + currentBonds;
+        uint256 totalValue = (currentShares * pricePerShare) /
+            _one +
+            currentBonds;
         // Calculate the needed bonds as a percent of the value
         uint256 depositedAmount = (depositedShares * pricePerShare) / _one;
         uint256 neededBonds = (depositedAmount * currentBonds) / totalValue;
