@@ -176,7 +176,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 ptAmount,
         uint256 ptExpiry,
         address destination
-    ) external override returns (uint256, uint256) {
+    ) external virtual override returns (uint256, uint256) {
         // If the user wants to send in tokens transfer them to this contract
         if (underlyingAmount != 0) {
             token.transferFrom(msg.sender, address(this), underlyingAmount);

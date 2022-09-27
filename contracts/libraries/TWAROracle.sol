@@ -23,7 +23,7 @@ contract TWAROracle {
         uint256 bufferId,
         uint16 minTime,
         uint16 maxLength
-    ) internal {
+    ) internal virtual {
         // maxLength of zero indicates a buffer has not been initialized.  Upper value for
         // maxLength checked by the fact that it is uint16.
         if (maxLength <= 1)

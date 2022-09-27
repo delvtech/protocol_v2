@@ -271,7 +271,7 @@ contract MultiToken is IMultiToken {
         uint256 tokenID,
         address to,
         uint256 amount
-    ) internal {
+    ) internal virtual {
         balanceOf[tokenID][to] += amount;
         totalSupply[tokenID] += amount;
         // Emit an event to track minting

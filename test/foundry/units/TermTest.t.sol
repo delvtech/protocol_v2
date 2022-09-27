@@ -7,7 +7,7 @@ import "contracts/ForwarderFactory.sol";
 import "contracts/interfaces/IERC20.sol";
 import "contracts/mocks/MockTerm.sol";
 import "contracts/mocks/MockERC20Permit.sol";
-import "test/foundry/Utils.sol";
+import "test/Utils.sol";
 
 contract TermTest is Test {
     address public user = vm.addr(0xDEAD_BEEF);
@@ -96,7 +96,7 @@ contract TermTest is Test {
                         shares,
                         value
                     );
-                } catch (bytes memory error) {
+                } catch {
                     logReleasePTTestCase("success case", testCases[i]);
                     revert("fails unexpectedly");
                 }
