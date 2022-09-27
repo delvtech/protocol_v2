@@ -127,31 +127,23 @@ contract PoolTest is ElementTest {
                         testCase.maxLength
                     )
                 {
-                    _logRegisterPoolIdTestCase(
-                        "Expected fail, test case passes",
-                        i,
-                        testCase
-                    );
-                    revert TestFail();
+                    _logRegisterPoolIdTestCase(testCase);
+                    revert ExpectedFailingTestPasses(expectedError);
                 } catch Error(string memory err) {
                     if (Utils.neq(bytes(err), expectedError)) {
-                        _logRegisterPoolIdTestCase(
-                            "Expected different failure reason (string)",
-                            i,
-                            testCase
+                        _logRegisterPoolIdTestCase(testCase);
+                        revert ExpectedDifferentFailureReasonString(
+                            err,
+                            string(expectedError)
                         );
-                        assertEq(err, string(expectedError));
-                        revert TestFail();
                     }
                 } catch (bytes memory err) {
                     if (Utils.neq(err, expectedError)) {
-                        _logRegisterPoolIdTestCase(
-                            "Expected different failure reason (bytes)",
-                            i,
-                            testCase
+                        _logRegisterPoolIdTestCase(testCase);
+                        revert ExpectedDifferentFailureReason(
+                            err,
+                            expectedError
                         );
-                        assertEq(err, expectedError);
-                        revert TestFail();
                     }
                 }
             } else {
@@ -167,13 +159,9 @@ contract PoolTest is ElementTest {
                     )
                 returns (uint256 mintedLpTokens) {
                     _validateRegisterPoolIdSuccess(testCase, mintedLpTokens);
-                } catch {
-                    _logRegisterPoolIdTestCase(
-                        "Expected passing test, fails",
-                        i,
-                        testCase
-                    );
-                    revert TestFail();
+                } catch (bytes memory err) {
+                    _logRegisterPoolIdTestCase(testCase);
+                    revert ExpectedPassingTestFails(err);
                 }
             }
         }
@@ -362,12 +350,11 @@ contract PoolTest is ElementTest {
         );
     }
 
-    function _logRegisterPoolIdTestCase(
-        string memory prelude,
-        uint256 index,
-        RegisterPoolIdTestCase memory testCase
-    ) internal view {
-        console2.log("    Pool.registerPoolId Test #%s :: %s", index, prelude);
+    function _logRegisterPoolIdTestCase(RegisterPoolIdTestCase memory testCase)
+        internal
+        view
+    {
+        console2.log("    Pool.registerPoolId");
         console2.log("    -----------------------------------------------    ");
         console2.log("    poolId           = ", testCase.poolId);
         console2.log("    underlyingIn     = ", testCase.underlyingIn);
@@ -460,21 +447,15 @@ contract PoolTest is ElementTest {
                         testCase.isBuy
                     )
                 {
-                    _logTradeBondsTestCase(
-                        "Expected fail, test case passes",
-                        i,
-                        testCase
-                    );
-                    revert TestFail();
+                    _logTradeBondsTestCase(testCase);
+                    revert ExpectedFailingTestPasses(expectedError);
                 } catch (bytes memory err) {
                     if (Utils.neq(err, expectedError)) {
-                        _logTradeBondsTestCase(
-                            "Expected different failure reason (bytes)",
-                            i,
-                            testCase
+                        _logTradeBondsTestCase(testCase);
+                        revert ExpectedDifferentFailureReason(
+                            err,
+                            expectedError
                         );
-                        assertEq(err, expectedError);
-                        revert TestFail();
                     }
                 }
             } else {
@@ -490,12 +471,8 @@ contract PoolTest is ElementTest {
                 returns (uint256 outputAmount) {
                     assertEq(outputAmount, testCase.outputAmount);
                 } catch (bytes memory err) {
-                    _logTradeBondsTestCase(
-                        "Expected passing test, fails",
-                        i,
-                        testCase
-                    );
-                    revert TestFail();
+                    _logTradeBondsTestCase(testCase);
+                    revert ExpectedPassingTestFails(err);
                 }
             }
         }
