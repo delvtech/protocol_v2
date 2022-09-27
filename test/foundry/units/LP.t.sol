@@ -2,14 +2,17 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
+import "forge-std/console2.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/interfaces/IERC20.sol";
 import "contracts/mocks/MockLP.sol";
 import "contracts/mocks/MockTerm.sol";
 import "contracts/mocks/MockERC20Permit.sol";
-import "test/foundry/Utils.sol";
 
-contract LPTest is Test {
+import { ElementTest } from "test/ElementTest.sol";
+import { Utils } from "test/Utils.sol";
+
+contract LPTest is ElementTest {
     address public user = vm.addr(0xDEAD_BEEF);
 
     ForwarderFactory public factory;
@@ -57,5 +60,241 @@ contract LPTest is Test {
         );
 
         assertEq(newLp, 2 ether);
+    }
+
+    function test__depositFromSharesCombinatorial() public {
+        uint256[][] memory inputs = new uint256[][](6);
+        // currentShares
+        inputs[0] = new uint256[](3);
+        inputs[0][0] = 0; // should throw error
+        inputs[0][1] = 1 ether;
+        inputs[0][2] = 2 ether;
+
+        // currentBonds
+        inputs[1] = new uint256[](3);
+        inputs[1][0] = 0; // should throw error
+        inputs[1][1] = 1 ether;
+        inputs[1][2] = 2 ether;
+
+        // depositedShares
+        inputs[2] = new uint256[](4);
+        inputs[2][0] = 0;
+        inputs[2][1] = 1;
+        inputs[2][2] = 1 ether;
+        inputs[2][3] = 2 ether;
+
+        // totalSupply
+        inputs[3] = new uint256[](2);
+        inputs[3][0] = 1 ether;
+        inputs[3][1] = 2 ether;
+
+        //pricePerShare
+        inputs[4] = new uint256[](2);
+        inputs[4][0] = 1 ether;
+        inputs[4][1] = 1.5 ether;
+        inputs[4][1] = 3 ether; // higher than 100% interest
+
+        // poolId
+        inputs[5] = new uint256[](2);
+        inputs[5][0] = 0; // should throw error
+        inputs[5][1] = 12345678;
+
+        DepositSharesTestCase[]
+            memory testCases = _convertToDepositSharesTestCase(
+                Utils.generateTestingMatrix2(inputs)
+            );
+
+        // Set the address.
+        startHoax(user);
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            DepositSharesTestCase memory testCase = testCases[i];
+            uint256 totalSupply = testCases[i].totalSupply;
+            uint256 currentShares = testCases[i].currentShares;
+            uint256 currentBonds = testCases[i].currentBonds;
+            uint256 depositedShares = testCases[i].depositedShares;
+            uint256 pricePerShare = testCases[i].pricePerShare;
+            uint256 poolId = testCases[i].poolId;
+
+            lp.setTotalSupply(totalSupply, poolId);
+
+            // See if we are expecting an error from the inputs
+            (
+                bool testCaseIsError,
+                bytes memory expectedError
+            ) = _getExpectedDepositSharesError(testCase);
+
+            // if there is an expected error, try to catch it
+            if (testCaseIsError) {
+                try
+                    lp.depositFromSharesExternal(
+                        poolId,
+                        currentShares,
+                        currentBonds,
+                        depositedShares,
+                        pricePerShare,
+                        address(user)
+                    )
+                {
+                    _logDepositSharesTestCase(
+                        "Expected fail, test case passes",
+                        i,
+                        testCase
+                    );
+                    revert TestFail();
+                } catch Error(string memory err) {
+                    if (Utils.neq(bytes(err), expectedError)) {
+                        _logDepositSharesTestCase(
+                            "Expected different failure reason (string)",
+                            i,
+                            testCase
+                        );
+                        assertEq(err, string(expectedError));
+                        revert TestFail();
+                    }
+                } catch (bytes memory err) {
+                    if (Utils.neq(err, expectedError)) {
+                        _logDepositSharesTestCase(
+                            "Expected different failure reason (bytes)",
+                            i,
+                            testCase
+                        );
+                        assertEq(err, expectedError);
+                        revert TestFail();
+                    }
+                }
+                // otherwise call the method and check the result
+            } else {
+                _registerExpectedDepositSharesEvents(testCase);
+                try
+                    lp.depositFromSharesExternal(
+                        poolId,
+                        currentShares,
+                        currentBonds,
+                        depositedShares,
+                        pricePerShare,
+                        address(user)
+                    )
+                returns (
+                    // result is the number of lp tokens created
+                    uint256 result
+                ) {
+                    // --- get the increase in shares --- //
+                    uint256 totalValue = (currentShares * pricePerShare) /
+                        1 ether +
+                        currentBonds;
+                    uint256 depositedAmount = (depositedShares *
+                        pricePerShare) / 1 ether;
+                    uint256 neededBonds = (depositedAmount * currentBonds) /
+                        totalValue;
+                    uint256 sharesToLock = (neededBonds * 1 ether) /
+                        pricePerShare;
+                    uint256 increaseInShares = depositedShares - sharesToLock;
+                    // ------ //
+
+                    uint256 newLpToken = (totalSupply * increaseInShares) /
+                        currentShares;
+
+                    assertEq(result, newLpToken);
+                    if (result != newLpToken) {
+                        console.log("result", result);
+                        console.log("newLpToken", newLpToken);
+                        _logDepositSharesTestCase(
+                            "Expected passing test, fails",
+                            i,
+                            testCase
+                        );
+                        revert TestFail();
+                    }
+                } catch {
+                    _logDepositSharesTestCase(
+                        "Expected passing test, fails",
+                        i,
+                        testCase
+                    );
+                    revert TestFail();
+                }
+            }
+        }
+    }
+
+    struct DepositSharesTestCase {
+        // the number of shares in the pool
+        uint256 currentShares;
+        // the number of bonds in the pool
+        uint256 currentBonds;
+        // the number of shares to deposit into the pool
+        uint256 depositedShares;
+        // total number of lp tokens in the pool
+        uint256 totalSupply;
+        // the number of underlying per share in 18 point decimal
+        uint256 pricePerShare;
+        // the expiration block timestamp of the term is the pool id
+        uint256 poolId;
+    }
+
+    function _convertToDepositSharesTestCase(uint256[][] memory rawTestCases)
+        internal
+        pure
+        returns (DepositSharesTestCase[] memory testCases)
+    {
+        testCases = new DepositSharesTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            require(
+                rawTestCases[i].length == 6,
+                "Raw test case must have length of 6."
+            );
+            testCases[i] = DepositSharesTestCase({
+                currentShares: rawTestCases[i][0],
+                currentBonds: rawTestCases[i][1],
+                depositedShares: rawTestCases[i][2],
+                totalSupply: rawTestCases[i][3],
+                pricePerShare: rawTestCases[i][4],
+                poolId: rawTestCases[i][5]
+            });
+        }
+    }
+
+    function _getExpectedDepositSharesError(
+        DepositSharesTestCase memory testCase
+    ) internal view returns (bool testCaseIsError, bytes memory reason) {
+        if (testCase.currentBonds == 0 || testCase.currentShares == 0) {
+            return (
+                true,
+                abi.encodeWithSelector(ElementError.PoolNotInitialized.selector)
+            );
+        }
+        // where the input poolId is less than mined block timestamp
+        if (testCase.poolId <= block.timestamp) {
+            return (
+                true,
+                abi.encodeWithSelector(ElementError.TermExpired.selector)
+            );
+        }
+    }
+
+    function _logDepositSharesTestCase(
+        string memory prelude,
+        uint256 index,
+        DepositSharesTestCase memory testCase
+    ) internal view {
+        console2.log("    LP.depositFromShares Test #%s :: %s", index, prelude);
+        console2.log("    -----------------------------------------------    ");
+        console2.log("    poolId           = ", testCase.poolId);
+        console2.log("    depositedShares  = ", testCase.depositedShares);
+        console2.log("    currentShares    = ", testCase.currentShares);
+        console2.log("    currentBonds     = ", testCase.currentBonds);
+        console2.log("    totalSupply      = ", testCase.totalSupply);
+        console2.log("    pricePerShare    = ", testCase.pricePerShare);
+        console2.log("");
+    }
+
+    event Lock();
+
+    function _registerExpectedDepositSharesEvents(
+        DepositSharesTestCase memory testCase
+    ) internal {
+        expectStrictEmit();
+        emit Lock();
     }
 }
