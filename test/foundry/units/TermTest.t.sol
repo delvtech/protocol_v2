@@ -164,7 +164,7 @@ contract TermTest is Test {
         returns (bytes memory)
     {
         (, , uint256 expiry) = _term.parseAssetIdExternal(testCase.assetId);
-        if (expiry < 5_000 && expiry != 0) {
+        if (expiry > 5_000 && expiry != 0) {
             return abi.encodeWithSelector(ElementError.TermNotExpired.selector);
         }
         return new bytes(0);

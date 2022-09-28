@@ -366,7 +366,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // Note for both yt and pt the first 128 bits contain the expiry.
         (bool isYieldToken, , uint256 expiry) = _parseAssetId(assetId);
         // Check that the expiry has been hit
-        if (expiry < block.timestamp && expiry != 0)
+        if (expiry > block.timestamp && expiry != 0)
             revert ElementError.TermNotExpired();
         // Load the data which is cached when the first asset is released
         FinalizedState memory finalState = finalizedTerms[expiry];
