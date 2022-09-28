@@ -55,7 +55,7 @@ contract TermTestUnlock is Test {
     // test unlocking yield tokens when there is negative interest
     function testUnlock_YieldTokensWithNegativeInterest(uint256 loss) public {
         uint256 underlyingAmount = 1 ether;
-        vm.assume(loss <= underlyingAmount);
+        vm.assume(loss > 0 && loss <= underlyingAmount);
 
         address ytDestination = address(user);
         address ptDestination = address(user);
