@@ -4,11 +4,11 @@ pragma solidity ^0.8.15;
 import "../Term.sol";
 
 contract MockTerm is Term {
-    uint256 convertReturnValue;
-    uint256 depositLeftReturnValue;
-    uint256 depositRightReturnValue;
-    uint256 withdrawReturnValue;
-    uint256 currentPricePerShare;
+    uint256 _convertReturnValue;
+    uint256 _depositLeftReturnValue;
+    uint256 _depositRightReturnValue;
+    uint256 _withdrawReturnValue;
+    uint256 _currentPricePerShare;
 
     constructor(
         bytes32 _linkerCodeHash,
@@ -18,21 +18,21 @@ contract MockTerm is Term {
     ) Term(_linkerCodeHash, _factory, _token, _owner) {}
 
     function setConvertReturnValue(uint256 _value) external {
-        convertReturnValue = _value;
+        _convertReturnValue = _value;
     }
 
     function setDepositReturnValues(uint256 _left, uint256 _right) external {
-        depositLeftReturnValue = _left;
-        depositRightReturnValue = _left;
+        _depositLeftReturnValue = _left;
+        _depositRightReturnValue = _left;
     }
 
     function setWithdrawReturnValue(uint256 _value) external {
-        withdrawReturnValue = _value;
+        _withdrawReturnValue = _value;
     }
 
     // TODO: We may ultimately want to set this value for locked and unlocked.
     function setCurrentPricePerShare(uint256 _value) external {
-        currentPricePerShare = _value;
+        _currentPricePerShare = _value;
     }
 
     function setFinalizedState(
@@ -69,7 +69,7 @@ contract MockTerm is Term {
         override
         returns (uint256)
     {
-        return convertReturnValue;
+        return _convertReturnValue;
     }
 
     function _deposit(ShareState _state)
@@ -77,7 +77,7 @@ contract MockTerm is Term {
         override
         returns (uint256, uint256)
     {
-        return (depositLeftReturnValue, depositRightReturnValue);
+        return (_depositLeftReturnValue, _depositRightReturnValue);
     }
 
     function _underlying(uint256 _shares, ShareState _state)
@@ -86,7 +86,7 @@ contract MockTerm is Term {
         override
         returns (uint256)
     {
-        return (currentPricePerShare * _shares) / one;
+        return (_currentPricePerShare * _shares) / one;
     }
 
     function _withdraw(
@@ -94,7 +94,7 @@ contract MockTerm is Term {
         address _dest,
         ShareState _state
     ) internal override returns (uint256) {
-        return withdrawReturnValue;
+        return _withdrawReturnValue;
     }
 
     function releasePTExternal(
