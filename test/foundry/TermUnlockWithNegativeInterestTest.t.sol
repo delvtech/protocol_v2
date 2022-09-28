@@ -109,7 +109,7 @@ contract TermTestUnlock is Test {
         public
     {
         uint256 underlyingAmount = 1 ether;
-        vm.assume(loss <= underlyingAmount);
+        vm.assume(loss > 0 && loss <= underlyingAmount);
 
         address ytDestination = address(user);
         address ptDestination = address(user);
