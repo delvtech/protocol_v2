@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity ^0.8.15;
+
+import "../CompoundV3Term.sol";
+
+contract MockCompoundV3Term is CompoundV3Term {
+    constructor(
+        address _yieldSource,
+        bytes32 _linkerCodeHash,
+        address _factory,
+        uint256 _maxReserve,
+        address _owner
+    )
+        CompoundV3Term(
+            _yieldSource,
+            _linkerCodeHash,
+            _factory,
+            _maxReserve,
+            _owner
+        )
+    {}
+
+    function setReservesExternal(
+        uint256 _newUnderlyingReserve,
+        uint256 _newYieldShareReserve
+    ) external {
+        _setReserves(_newUnderlyingReserve, _newYieldShareReserve);
+    }
+
+    function getUnderlyingReserve() public returns (uint128) {
+        return _underlyingReserve;
+    }
+
+    function getYieldShareReserve() public returns (uint128) {
+        return _yieldShareReserve;
+    }
+}
