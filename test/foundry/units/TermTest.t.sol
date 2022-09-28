@@ -28,6 +28,181 @@ contract TermTest is Test {
         );
     }
 
+    // -------------------  _finalizeTerm unit tests   ------------------ //
+
+    function testCombinatorialFinalizeTerm() public {
+        // TODO: There were some failures when using inputs below 1e18.
+        // Think more about this and make sure to test with these inputs
+        // elsewhere in the codebase.
+        uint256[] memory inputs = new uint256[](5);
+        inputs[0] = 0;
+        inputs[1] = 1 ether;
+        inputs[2] = 1.5435 ether + 23423;
+        inputs[3] = 2 ether;
+        inputs[4] = 10 ether + 89534;
+        FinalizeTermTestCase[] memory testCases = convertToFinalizeTermTestCase(
+            Utils.generateTestingMatrix(3, inputs)
+        );
+
+        // Set the address.
+        startHoax(user);
+
+        // We pick a fixed expiry since it wouldn't effect the testing to
+        // simulate different values for the parameter.
+        uint256 expiry = 10_000;
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            // Set up the test state.
+            _term.setCurrentPricePerShare(testCases[i].currentPricePerShare);
+            _term.setSharesPerExpiry(expiry, testCases[i].sharesPerExpiry);
+            _term.setTotalSupply(expiry, testCases[i].totalSupply);
+
+            bytes memory expectedError = getExpectedErrorFinalizeTerm(
+                testCases[i]
+            );
+            if (expectedError.length > 0) {
+                try _term.finalizeTermExternal(expiry) {
+                    logTestCaseFinalizeTerm("failure case", testCases[i]);
+                    revert("succeeded unexpectedly");
+                } catch (bytes memory error) {
+                    if (
+                        keccak256(abi.encodePacked(error)) !=
+                        keccak256(abi.encodePacked(expectedError))
+                    ) {
+                        logTestCaseFinalizeTerm("failure case", testCases[i]);
+                        assertEq(error, expectedError);
+                    }
+                }
+            } else {
+                try _term.finalizeTermExternal(expiry) returns (
+                    Term.FinalizedState memory finalState
+                ) {
+                    validateFinalizeTermSuccess(
+                        testCases[i],
+                        finalState,
+                        expiry
+                    );
+                } catch (bytes memory error) {
+                    logTestCaseFinalizeTerm("success case", testCases[i]);
+                    revert("failed unexpectedly");
+                }
+            }
+        }
+    }
+
+    struct FinalizeTermTestCase {
+        uint256 currentPricePerShare;
+        uint256 sharesPerExpiry;
+        uint256 totalSupply;
+    }
+
+    function convertToFinalizeTermTestCase(uint256[][] memory rawTestMatrix)
+        internal
+        pure
+        returns (FinalizeTermTestCase[] memory)
+    {
+        FinalizeTermTestCase[] memory result = new FinalizeTermTestCase[](
+            rawTestMatrix.length
+        );
+        for (uint256 i = 0; i < rawTestMatrix.length; i++) {
+            require(
+                rawTestMatrix[i].length == 3,
+                "Raw test case must have length of 3."
+            );
+            result[i] = FinalizeTermTestCase({
+                currentPricePerShare: rawTestMatrix[i][0],
+                sharesPerExpiry: rawTestMatrix[i][1],
+                totalSupply: rawTestMatrix[i][2]
+            });
+        }
+        return result;
+    }
+
+    function getExpectedErrorFinalizeTerm(FinalizeTermTestCase memory testCase)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        if (testCase.sharesPerExpiry == 0) {
+            return stdError.divisionError;
+        }
+        return new bytes(0);
+    }
+
+    function validateFinalizeTermSuccess(
+        FinalizeTermTestCase memory testCase,
+        Term.FinalizedState memory finalState,
+        uint256 expiry
+    ) internal {
+        // Ensure that the return value is correct.
+        uint256 expectedPricePerShare = testCase.currentPricePerShare;
+        if (
+            stdMath.delta(finalState.pricePerShare, expectedPricePerShare) > 1
+        ) {
+            logTestCaseFinalizeTerm("success case", testCase);
+            assertApproxEqAbs(
+                finalState.pricePerShare,
+                expectedPricePerShare,
+                1,
+                "unexpected pricePerShare in return"
+            );
+            revert();
+        }
+        // TODO: Double check on the how the release and withdrawal flows work
+        // with different cases of finalized interest and accrued interest
+        // after the fact.
+        uint256 expectedTotalValue = (testCase.currentPricePerShare *
+            testCase.sharesPerExpiry) / _term.one();
+        uint256 expectedInterest = testCase.totalSupply > expectedTotalValue
+            ? 0
+            : expectedTotalValue - testCase.totalSupply;
+        if (finalState.interest != expectedInterest) {
+            logTestCaseFinalizeTerm("success case", testCase);
+            assertEq(
+                finalState.interest,
+                expectedInterest,
+                "unexpected interest in return"
+            );
+        }
+
+        // Ensure that the finalized state was updated correctly.
+        (uint256 pricePerShare, uint256 interest) = _term.finalizedTerms(
+            expiry
+        );
+        if (stdMath.delta(pricePerShare, expectedPricePerShare) > 1) {
+            logTestCaseFinalizeTerm("success case", testCase);
+            assertApproxEqAbs(
+                pricePerShare,
+                expectedPricePerShare,
+                1,
+                "unexpected pricePerShare in state"
+            );
+        }
+        if (interest != expectedInterest) {
+            logTestCaseFinalizeTerm("success case", testCase);
+            assertEq(
+                interest,
+                expectedInterest,
+                "unexpected interest in state"
+            );
+        }
+    }
+
+    function logTestCaseFinalizeTerm(
+        string memory prelude,
+        FinalizeTermTestCase memory testCase
+    ) internal view {
+        console.log(prelude);
+        console.log("");
+        console.log(
+            "    currentPricePerShare =",
+            testCase.currentPricePerShare
+        );
+        console.log("    sharesPerExpiry      =", testCase.sharesPerExpiry);
+        console.log("    totalSupply          =", testCase.totalSupply);
+        console.log("");
+    }
+
     // -------------------  _releaseUnlocked unit tests   ------------------ //
 
     function testCombinatorialReleaseUnlocked() public {
