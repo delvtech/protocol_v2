@@ -85,6 +85,16 @@ contract MockTerm is Term {
     }
 
     // ###########################
+    // ###   finalizedTerms    ###
+    // ###########################
+    function setFinalizedState(
+        uint256 expiry,
+        FinalizedState memory finalizedState
+    ) external {
+        finalizedTerms[expiry] = finalizedState;
+    }
+
+    // ###########################
     // ###   sharesPerExpiry   ###
     // ###########################
     function setSharesPerExpiry(uint256 assetId, uint256 shares) external {
@@ -96,6 +106,15 @@ contract MockTerm is Term {
     // #######################
     function setTotalSupply(uint256 assetId, uint256 amount) external {
         totalSupply[assetId] = amount;
+    }
+
+    // ######################
+    // ###   yieldTerms   ###
+    // ######################
+    function setYieldState(uint256 assetId, YieldState memory yieldState)
+        external
+    {
+        yieldTerms[assetId] = yieldState;
     }
 
     // #####################
@@ -140,6 +159,18 @@ contract MockTerm is Term {
             _depositUnlockedLeftReturnValue,
             _depositUnlockedRightReturnValue
         );
+    }
+
+    // ######################
+    // ###   _releaseYT   ###
+    // ######################
+    function releaseYTExternal(
+        FinalizedState memory finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) external returns (uint256, uint256) {
+        return _releaseYT(finalState, assetId, source, amount);
     }
 
     // ######################
