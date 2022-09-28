@@ -543,7 +543,7 @@ contract TermTest is Test {
         if (
             _term.totalSupply(assetId) != testCase.totalSupply - testCase.amount
         ) {
-            logReleasePTTestCase("success case", testCase);
+            logTestCaseReleasePT("success case", testCase);
             assertEq(
                 _term.totalSupply(assetId),
                 testCase.totalSupply - testCase.amount

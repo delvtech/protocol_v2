@@ -108,6 +108,15 @@ contract MockTerm is Term {
         totalSupply[assetId] = amount;
     }
 
+    // ######################
+    // ###   yieldTerms   ###
+    // ######################
+    function setYieldState(uint256 assetId, YieldState memory yieldState)
+        external
+    {
+        yieldTerms[assetId] = yieldState;
+    }
+
     // #####################
     // ###   balanceOf   ###
     // #####################
@@ -150,6 +159,18 @@ contract MockTerm is Term {
             _depositUnlockedLeftReturnValue,
             _depositUnlockedRightReturnValue
         );
+    }
+
+    // ######################
+    // ###   _releaseYT   ###
+    // ######################
+    function releaseYTExternal(
+        FinalizedState memory finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) external returns (uint256, uint256) {
+        return _releaseYT(finalState, assetId, source, amount);
     }
 
     // ######################
