@@ -72,8 +72,8 @@ contract MockTerm is Term {
     uint256 _currentPricePerShare;
 
     // TODO: We may ultimately want to set this value for locked and unlocked.
-    function setCurrentPricePerShare(uint256 _value) external {
-        _currentPricePerShare = _value;
+    function setCurrentPricePerShare(uint256 _price) external {
+        _currentPricePerShare = _price;
     }
 
     function _underlying(uint256 _shares, ShareState _state)
@@ -181,7 +181,7 @@ contract MockTerm is Term {
         address source,
         uint256 amount
     ) external returns (uint256, uint256) {
-        return _releasePT(finalState, assetId, source, amount);
+        return _releaseYT(finalState, assetId, source, amount);
     }
 
     // ######################
@@ -193,7 +193,7 @@ contract MockTerm is Term {
         address source,
         uint256 amount
     ) external returns (uint256, uint256) {
-        return _releaseYT(finalState, assetId, source, amount);
+        return _releasePT(finalState, assetId, source, amount);
     }
 
     // #########################
