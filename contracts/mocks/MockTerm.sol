@@ -163,47 +163,115 @@ contract MockTerm is Term {
     }
 
     // #########################
+    // ###   _releaseAsset   ###
+    // #########################
+
+    function releaseAssetExternal(
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) external returns (uint256, uint256) {
+        return super._releaseAsset(assetId, source, amount);
+    }
+
+    // #########################
     // ###   _finalizeTerm   ###
     // #########################
+    event FinalizeTerm(uint256 expiry);
+
     function finalizeTermExternal(uint256 expiry)
         external
         returns (FinalizedState memory)
     {
-        return _finalizeTerm(expiry);
+        return super._finalizeTerm(expiry);
+    }
+
+    function _finalizeTerm(uint256 expiry)
+        internal
+        override
+        returns (FinalizedState memory finalState)
+    {
+        emit FinalizeTerm(expiry);
+        return FinalizedState({ pricePerShare: 1, interest: 2 });
     }
 
     // ############################
     // ###   _releaseUnlocked   ###
     // ############################
+    event ReleaseUnlocked(address source, uint256 amount);
+
     function releaseUnlockedExternal(address source, uint256 amount)
         external
         returns (uint256, uint256)
     {
-        return _releaseUnlocked(source, amount);
+        return super._releaseUnlocked(source, amount);
+    }
+
+    function _releaseUnlocked(address source, uint256 amount)
+        internal
+        override
+        returns (uint256, uint256)
+    {
+        emit ReleaseUnlocked(source, amount);
+        return (1, 2);
     }
 
     // ######################
     // ###   _releaseYT   ###
     // ######################
+    event ReleaseYT(
+        FinalizedState finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    );
+
+    function _releaseYT(
+        FinalizedState memory finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) internal override returns (uint256, uint256) {
+        emit ReleaseYT(finalState, assetId, source, amount);
+        return (1, 2);
+    }
+
     function releaseYTExternal(
         FinalizedState memory finalState,
         uint256 assetId,
         address source,
         uint256 amount
     ) external returns (uint256, uint256) {
-        return _releaseYT(finalState, assetId, source, amount);
+        return super._releaseYT(finalState, assetId, source, amount);
     }
 
     // ######################
     // ###   _releasePT   ###
     // ######################
+    event ReleasePT(
+        FinalizedState finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    );
+
     function releasePTExternal(
         FinalizedState memory finalState,
         uint256 assetId,
         address source,
         uint256 amount
     ) external returns (uint256, uint256) {
-        return _releasePT(finalState, assetId, source, amount);
+        return super._releasePT(finalState, assetId, source, amount);
+    }
+
+    function _releasePT(
+        FinalizedState memory finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) internal override returns (uint256, uint256) {
+        emit ReleasePT(finalState, assetId, source, amount);
+        return (1, 2);
     }
 
     // #########################

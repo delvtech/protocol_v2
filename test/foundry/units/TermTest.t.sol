@@ -5,6 +5,7 @@ import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/interfaces/IERC20.sol";
+import "contracts/libraries/Errors.sol";
 import "contracts/mocks/MockTerm.sol";
 import "contracts/mocks/MockERC20Permit.sol";
 import "test/Utils.sol";
@@ -26,6 +27,191 @@ contract TermTest is Test {
             IERC20(_underlying),
             address(this)
         );
+    }
+
+    // ----------------------- mock events -----------------------//
+
+    event FinalizeTerm(uint256 expiry);
+    event ReleasePT(
+        Term.FinalizedState finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    );
+    event ReleaseYT(
+        Term.FinalizedState finalState,
+        uint256 assetId,
+        address source,
+        uint256 amount
+    );
+    event ReleaseUnlocked(address source, uint256 amount);
+
+    // -------------------  _releaseAsset unit tests   ------------------ //
+
+    function testCombinatorialReleaseAsset() public {
+        uint256[] memory inputs = new uint256[](7);
+        inputs[0] = 0;
+        inputs[1] = 23423;
+        inputs[2] = 1 ether;
+        inputs[3] = 1 ether + 893;
+        inputs[4] = 1.3242 ether + 893;
+        inputs[5] = 10 ether + 98234;
+        inputs[6] = 10.432534 ether + 98234;
+        ReleaseAssetTestCase[] memory testCases = convertToReleaseAssetTestCase(
+            Utils.generateTestingMatrix(3, inputs)
+        );
+
+        // Set the address.
+        startHoax(user);
+
+        // Set the block timestamp so that we can test the expiry.
+        vm.warp(5_000);
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            // Set up the test state.
+            (, , uint256 expiry) = _term.parseAssetIdExternal(
+                testCases[i].assetId
+            );
+            _term.setFinalizedState(
+                expiry,
+                Term.FinalizedState({
+                    pricePerShare: 1 ether,
+                    interest: testCases[i].interest
+                })
+            );
+
+            bytes memory expectedError = getExpectedErrorReleaseAsset(
+                testCases[i]
+            );
+            if (expectedError.length > 0) {
+                try
+                    _term.releaseAssetExternal(
+                        testCases[i].assetId,
+                        user,
+                        testCases[i].amount
+                    )
+                {
+                    logTestCaseReleaseAsset("failure case", testCases[i]);
+                    revert("succeeded unexpectedly");
+                } catch (bytes memory error) {
+                    if (
+                        keccak256(abi.encodePacked(error)) !=
+                        keccak256(abi.encodePacked(expectedError))
+                    ) {
+                        logTestCaseReleaseAsset("failure case", testCases[i]);
+                        assertEq(error, expectedError);
+                    }
+                }
+            } else {
+                registerExpectedEventsReleaseAsset(testCases[i]);
+                try
+                    _term.releaseAssetExternal(
+                        testCases[i].assetId,
+                        user,
+                        testCases[i].amount
+                    )
+                returns (uint256 shares, uint256 value) {
+                    // The mocks always return (1, 2). We have other unit
+                    // tests that verify that the `_release*` functions for
+                    // different assets return the correct values.
+                    assertEq(shares, 1);
+                    assertEq(value, 2);
+                } catch (bytes memory error) {
+                    logTestCaseReleaseAsset("success case", testCases[i]);
+                    revert("failed unexpectedly");
+                }
+            }
+        }
+    }
+
+    struct ReleaseAssetTestCase {
+        uint256 amount;
+        uint256 assetId;
+        // TODO: We considered changing this check to use pricePerShare
+        // instead of interest.
+        uint128 interest;
+    }
+
+    function convertToReleaseAssetTestCase(uint256[][] memory rawTestMatrix)
+        internal
+        pure
+        returns (ReleaseAssetTestCase[] memory)
+    {
+        ReleaseAssetTestCase[] memory result = new ReleaseAssetTestCase[](
+            rawTestMatrix.length
+        );
+        for (uint256 i = 0; i < rawTestMatrix.length; i++) {
+            require(
+                rawTestMatrix[i].length == 3,
+                "Raw test case must have length of 3."
+            );
+            result[i] = ReleaseAssetTestCase({
+                amount: rawTestMatrix[i][0],
+                assetId: Utils.encodeAssetId(
+                    rawTestMatrix[i][1] / 1e18 > 0 ? true : false,
+                    (rawTestMatrix[i][1] / 1e9) % 1e18,
+                    rawTestMatrix[i][1] % 1e9
+                ),
+                interest: uint128(rawTestMatrix[i][2])
+            });
+        }
+        return result;
+    }
+
+    function getExpectedErrorReleaseAsset(ReleaseAssetTestCase memory testCase)
+        internal
+        view
+        returns (bytes memory)
+    {
+        (, , uint256 expiry) = _term.parseAssetIdExternal(testCase.assetId);
+        if (expiry > 5_000 && expiry != 0) {
+            return abi.encodeWithSelector(ElementError.TermNotExpired.selector);
+        }
+        return new bytes(0);
+    }
+
+    function registerExpectedEventsReleaseAsset(
+        ReleaseAssetTestCase memory testCase
+    ) internal {
+        (bool isYieldToken, , uint256 expiry) = _term.parseAssetIdExternal(
+            testCase.assetId
+        );
+        if (testCase.assetId == _term.UNLOCKED_YT_ID()) {
+            vm.expectEmit(true, true, true, true);
+            emit ReleaseUnlocked(user, testCase.amount);
+            return;
+        }
+        Term.FinalizedState memory finalState = Term.FinalizedState({
+            pricePerShare: 1 ether,
+            interest: testCase.interest
+        });
+        if (testCase.interest == 0) {
+            vm.expectEmit(true, true, true, true);
+            emit FinalizeTerm(expiry);
+            // If _finalizeTerm is called, we expect the final state to
+            // consist of a price per share of 1 wei and a interest of 2
+            // wei.
+            finalState = Term.FinalizedState({ pricePerShare: 1, interest: 2 });
+        }
+        if (isYieldToken) {
+            vm.expectEmit(true, true, true, true);
+            emit ReleaseYT(finalState, testCase.assetId, user, testCase.amount);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit ReleasePT(finalState, testCase.assetId, user, testCase.amount);
+        }
+    }
+
+    function logTestCaseReleaseAsset(
+        string memory prelude,
+        ReleaseAssetTestCase memory testCase
+    ) internal view {
+        console.log(prelude);
+        console.log("");
+        console.log("    amount   = ", testCase.amount);
+        console.log("    assetId  = ", testCase.assetId);
+        console.log("    interest = ", testCase.interest);
+        console.log("");
     }
 
     // -------------------  _finalizeTerm unit tests   ------------------ //
@@ -146,7 +332,6 @@ contract TermTest is Test {
                 1,
                 "unexpected pricePerShare in return"
             );
-            revert();
         }
         // TODO: Double check on the how the release and withdrawal flows work
         // with different cases of finalized interest and accrued interest
