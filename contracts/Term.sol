@@ -149,6 +149,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             ytBeginDate,
             expiration
         );
+        // Update the shares per expiry with the new shares
+        sharesPerExpiry[expiration] += totalShares;
+
         // Mint the user principal tokens
         // Note - Reverts if the user is trying to enter a term where they have not supplied enough
         //        value to pay for accumulated interest, the user should choose a more recent term.
@@ -173,7 +176,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 ptAmount,
         uint256 ptExpiry,
         address destination
-    ) external override returns (uint256, uint256) {
+    ) external virtual override returns (uint256, uint256) {
         // If the user wants to send in tokens transfer them to this contract
         if (underlyingAmount != 0) {
             token.transferFrom(msg.sender, address(this), underlyingAmount);
@@ -307,10 +310,9 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             if (startTime == block.timestamp && state.pt == 0) {
                 // Initiate a new term
                 _mint(yieldTokenId, destination, value);
-                // Store the data from the first mint
+                // Increase recorded share data
                 yieldTerms[yieldTokenId].shares = uint128(totalShares);
                 yieldTerms[yieldTokenId].pt = uint128(value);
-                sharesPerExpiry[expiration] += totalShares;
                 // No interest earned and no discount.
                 return 0;
             } else {
@@ -334,9 +336,6 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                     totalSupply[yieldTokenId];
                 // Now we mint the YT for the user
                 _mint(yieldTokenId, destination, value);
-
-                // Update the amount of shares for the expiry
-                sharesPerExpiry[expiration] += totalShares;
 
                 // Update the reserve information for this YT term, and the total shares
                 // backing the PT it will create.
@@ -548,6 +547,10 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         if (expiry == 0) revert ElementError.ExpirationDateMustBeNonZero();
         // start date must be greater than zero
         if (startDate == 0) revert ElementError.StartDateMustBeNonZero();
+        // Must not be in the same block as the start
+        if (startDate == block.timestamp) revert ElementError.InvalidStart();
+        // Must not be expired
+        if (expiry < block.timestamp) revert ElementError.TermExpired();
 
         // load the state for the term
         YieldState memory state = yieldTerms[assetId];
@@ -557,17 +560,25 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         // calculate the shares belonging to the user
         uint256 userShares = (uint256(state.shares) * amount) /
             totalSupply[assetId];
-        // remove shares from the yield state and the yt to burn from pt
+        // PT percent - The number of PT to remove from this pool to keep the accounting
+        //              correct for price per share
+        uint256 userPt = (uint256(state.pt) * amount) / totalSupply[assetId];
 
+        // Reduce the number of shares and reduce the implied number of PT to keep the
+        // implied interest per YT the same.
         yieldTerms[assetId] = YieldState(
             state.shares - uint128(userShares),
-            state.pt - uint128(amount)
+            state.pt - uint128(userPt)
         );
 
         // burn the yt from the user's balance
         _burn(assetId, msg.sender, amount);
 
-        uint256 value = _underlying(amount, ShareState.Locked);
+        // Load the value of the shares in terms of underlying
+        uint256 value = _underlying(userShares, ShareState.Locked);
+
+        // If the shares have lost value we don't allow this function
+        if (value < amount) revert ElementError.NegativeInterest();
 
         if (isCompound) {
             // deposit freed shares into YT
@@ -579,7 +590,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
                 expiry
             );
 
-            // yt created at current time so discount should always be 0
+            // Require these to be the first mint
             if (discount != 0) revert ElementError.InvalidYieldTokenCreation();
 
             // create PT
@@ -590,13 +601,17 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
             // withdraw the interest from the yield source
             _withdraw(interestShares, destination, ShareState.Locked);
             // create yt with remaining shares
-            _createYT(
+            uint256 discount = _createYT(
                 destination,
                 amount,
                 userShares - interestShares,
                 block.timestamp,
                 expiry
             );
+
+            // Require these to be the first mint
+            if (discount != 0) revert ElementError.InvalidYieldTokenCreation();
+
             // update the state for expiry timestamps
             sharesPerExpiry[expiry] -= interestShares;
         }

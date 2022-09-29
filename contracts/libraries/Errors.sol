@@ -31,6 +31,8 @@ library ElementError {
     error InvalidYieldTokenCreation();
     error IncongruentPrincipalAndYieldTokenIds();
     error VaultShareReserveTooLow();
+    error NegativeInterest();
+    error InvalidStart();
 
     /// ############
     /// ### Pool ###
