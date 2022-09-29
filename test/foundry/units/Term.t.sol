@@ -303,20 +303,6 @@ contract TermTest is Test {
                     "unexpected total supply"
                 );
             }
-            uint256 sharesPerExpiry = _term.sharesPerExpiry(
-                testCase.expiration
-            );
-            if (
-                sharesPerExpiry !=
-                testCase.yieldState.shares + testCase.totalShares
-            ) {
-                logTestCaseCreateYT("success case", testCase);
-                assertEq(
-                    sharesPerExpiry,
-                    testCase.yieldState.shares + testCase.totalShares,
-                    "unexpected sharesPerExpiry"
-                );
-            }
             (uint256 shares, uint256 pt) = _term.yieldTerms(assetId);
             if (shares != testCase.yieldState.shares + testCase.totalShares) {
                 logTestCaseCreateYT("success case", testCase);
@@ -362,20 +348,6 @@ contract TermTest is Test {
                     totalSupply,
                     testCase.totalSupply + testCase.value,
                     "unexpected total supply"
-                );
-            }
-            uint256 sharesPerExpiry = _term.sharesPerExpiry(
-                testCase.expiration
-            );
-            if (
-                sharesPerExpiry !=
-                testCase.yieldState.shares + testCase.totalShares
-            ) {
-                logTestCaseCreateYT("success case", testCase);
-                assertEq(
-                    sharesPerExpiry,
-                    testCase.yieldState.shares + testCase.totalShares,
-                    "unexpected sharesPerExpiry"
                 );
             }
             (uint256 shares, uint256 pt) = _term.yieldTerms(assetId);
@@ -543,7 +515,7 @@ contract TermTest is Test {
         returns (bytes memory)
     {
         (, , uint256 expiry) = _term.parseAssetIdExternal(testCase.assetId);
-        if (expiry < 5_000 && expiry != 0) {
+        if (expiry > 5_000 && expiry != 0) {
             return abi.encodeWithSelector(ElementError.TermNotExpired.selector);
         }
         return new bytes(0);
@@ -1360,7 +1332,7 @@ contract TermTest is Test {
                     _term.releasePTExternal(
                         finalState,
                         assetId,
-                        user,
+                        source,
                         testCases[i].amount
                     )
                 {
@@ -1380,7 +1352,7 @@ contract TermTest is Test {
                     _term.releasePTExternal(
                         finalState,
                         assetId,
-                        user,
+                        source,
                         testCases[i].amount
                     )
                 returns (uint256 shares, uint256 value) {
@@ -1506,7 +1478,7 @@ contract TermTest is Test {
         ) {
             logTestCaseReleasePT("success case", testCase);
             assertEq(
-                _term.balanceOf(assetId, user),
+                _term.balanceOf(assetId, source),
                 testCase.sourceBalance - testCase.amount
             );
         }
@@ -1536,7 +1508,7 @@ contract TermTest is Test {
             "    currentPricePerShare = ",
             testCase.currentPricePerShare
         );
-        console.log("    userBalance          = ", testCase.userBalance);
+        console.log("    sourceBalance        = ", testCase.sourceBalance);
         console.log("");
     }
 

@@ -16,7 +16,7 @@ contract User {
     receive() external payable {} // solhint-disable-line no-empty-blocks
 }
 
-contract TermFunctionalTest is Test {
+contract TermTest is Test {
     ForwarderFactory public ff;
     MockYieldAdapter public term;
     MockERC20Permit public token;
@@ -158,7 +158,7 @@ contract TermFunctionalTest is Test {
         token.setBalance(address(user), 10 ether);
         token.approve(address(term), UINT256_MAX);
 
-        (uint256 shares, uint256 value) = term.depositUnlocked(
+        (uint256 shares, ) = term.depositUnlocked(
             underlyingAmount,
             ptAmount,
             ptExpiry,
