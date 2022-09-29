@@ -96,16 +96,6 @@ contract MockTerm is Term {
     }
 
     // ###########################
-    // ###   finalizedTerms    ###
-    // ###########################
-    function setFinalizedState(
-        uint256 expiry,
-        FinalizedState memory finalizedState
-    ) external {
-        finalizedTerms[expiry] = finalizedState;
-    }
-
-    // ###########################
     // ###   sharesPerExpiry   ###
     // ###########################
     function setSharesPerExpiry(uint256 assetId, uint256 shares) external {
@@ -180,18 +170,6 @@ contract MockTerm is Term {
         returns (uint256, uint256)
     {
         return _releaseUnlocked(source, amount);
-    }
-
-    // ######################
-    // ###   _releaseYT   ###
-    // ######################
-    function releaseYTExternal(
-        FinalizedState memory finalState,
-        uint256 assetId,
-        address source,
-        uint256 amount
-    ) external returns (uint256, uint256) {
-        return _releaseYT(finalState, assetId, source, amount);
     }
 
     // ######################
