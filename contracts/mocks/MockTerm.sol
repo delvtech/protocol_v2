@@ -23,7 +23,7 @@ contract MockTerm is Term {
 
     function setDepositReturnValues(uint256 _left, uint256 _right) external {
         depositLeftReturnValue = _left;
-        depositRightReturnValue = _left;
+        depositRightReturnValue = _right;
     }
 
     function setWithdrawReturnValue(uint256 _value) external {
@@ -64,11 +64,7 @@ contract MockTerm is Term {
         yieldTerms[assetId] = yieldState;
     }
 
-    function _convert(ShareState _state, uint256 _shares)
-        internal
-        override
-        returns (uint256)
-    {
+    function _convert(ShareState, uint256) internal override returns (uint256) {
         return convertReturnValue;
     }
 

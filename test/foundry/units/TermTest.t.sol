@@ -49,32 +49,6 @@ contract TermTest is Test {
 
     // -------------------  _createYT unit tests   ------------------ //
 
-    // FIXME:
-    //
-    // There are no checks to verify that the term is expired.
-
-    // FIXME:
-    //
-    // Ensure that users that _createYT in the same block as the
-    // the person that created the YT term are treated fairly.
-
-    // FIXME
-    //
-    // Whiteboard out the calculations for unlocked vs locked accounting.
-
-    // FIXME:
-    //
-    // I can't tell where there is a penalty applied for creating yield
-    // tokens with later start dates. Revisit the lock accounting to see
-    // how the totalShares figure is calculated.
-
-    // FIXME:
-    //
-    // Really pay attention to the discounting math. Think about how this
-    // works at various points in time (soon after the term is created,
-    // awhile after the term is created, right before finalization), with
-    // several values being minted.
-
     function testCombinatorialCreateYT() public {
         // Set up the fixed values.
         startHoax(source);
@@ -91,8 +65,6 @@ contract TermTest is Test {
         // TODO: There isn't currently a check on whether or not the start
         // date is zero.
         timeInputs[0] = 0;
-        // TODO: There isn't currently a check on whether or not the expiry
-        // has already been reached.
         timeInputs[1] = block.timestamp - 1_000;
         timeInputs[2] = 2 * block.timestamp;
         // value inputs
@@ -115,6 +87,12 @@ contract TermTest is Test {
         );
 
         for (uint256 i = 0; i < testCases.length; i++) {
+            // Filter out pathological cases. If the expiration is
+            // zero, the start time will always be zero.
+            if (testCases[i].startTime != 0 && testCases[i].expiration == 0) {
+                continue;
+            }
+
             // Set up the test state.
             uint256 assetId = Utils.encodeAssetId(
                 true,
@@ -362,9 +340,6 @@ contract TermTest is Test {
                 testCase.startTime,
                 testCase.expiration
             );
-            // TODO: Revisit these calculations in more depth. Better
-            //       documentation that explains how all of the accounting
-            //       fits together would do wonders.
             uint256 expectedImpliedShareValue = (testCase.yieldState.shares *
                 testCase.value) / testCase.totalShares;
             uint256 expectedInterestEarned = expectedImpliedShareValue -
@@ -412,7 +387,10 @@ contract TermTest is Test {
                     "unexpected yieldState.shares"
                 );
             }
-            if (pt != testCase.yieldState.pt + testCase.value) {
+            if (
+                pt !=
+                testCase.yieldState.pt + testCase.value - expectedTotalDiscount
+            ) {
                 logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     pt,
@@ -962,11 +940,11 @@ contract TermTest is Test {
                 "unexpected sourceBalance"
             );
         }
-        (uint128 shares, ) = _term.yieldTerms(unlockedYTId);
-        if (shares != testCase.shares - expectedShares) {
+        (uint128 shares_, ) = _term.yieldTerms(unlockedYTId);
+        if (shares_ != testCase.shares - expectedShares) {
             logTestCaseReleaseUnlocked("success case", testCase);
             assertEq(
-                shares,
+                shares_,
                 testCase.shares - expectedShares,
                 "unexpected shares"
             );
@@ -1255,9 +1233,9 @@ contract TermTest is Test {
                 "unexpected sourceBalance"
             );
         }
-        (uint128 shares, uint128 pt) = _term.yieldTerms(assetId);
+        (uint128 shares_, uint128 pt) = _term.yieldTerms(assetId);
         if (
-            shares !=
+            shares_ !=
             testCase.yieldState.shares -
                 (testCase.yieldState.shares * testCase.amount) /
                 testCase.totalSupply
