@@ -162,6 +162,16 @@ contract MockTerm is Term {
         );
     }
 
+    // #########################
+    // ###   _finalizeTerm   ###
+    // #########################
+    function finalizeTermExternal(uint256 expiry)
+        external
+        returns (FinalizedState memory)
+    {
+        return _finalizeTerm(expiry);
+    }
+
     // ############################
     // ###   _releaseUnlocked   ###
     // ############################
