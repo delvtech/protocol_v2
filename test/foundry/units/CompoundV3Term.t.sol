@@ -13,7 +13,7 @@ contract User {
     receive() external payable {} // solhint-disable-line no-empty-blocks
 }
 
-contract CompoundV3TermTest is Test {
+contract CompoundV3TermTestUnit is Test {
     MockCompoundV3Term public term;
     MockCompoundV3 public compound;
     MockERC20Permit public usdc;

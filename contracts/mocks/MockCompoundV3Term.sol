@@ -27,11 +27,33 @@ contract MockCompoundV3Term is CompoundV3Term {
         _setReserves(_newUnderlyingReserve, _newYieldShareReserve);
     }
 
-    function getUnderlyingReserve() public returns (uint128) {
+    function getUnderlyingReserve() public view returns (uint128) {
         return _underlyingReserve;
     }
 
-    function getYieldShareReserve() public returns (uint128) {
+    function getYieldShareReserve() public view returns (uint128) {
         return _yieldShareReserve;
+    }
+
+    function yieldSharesAsUnderlying(uint256 shares)
+        public
+        view
+        returns (uint256)
+    {
+        return ((shares * yieldSource.balanceOf(address(this))) /
+            yieldSharesIssued);
+    }
+
+    function getYieldSharesIssued() public returns (uint256) {
+        return (yieldSharesIssued);
+    }
+
+    function underlyingAsYieldShares(uint256 underlying)
+        public
+        view
+        returns (uint256)
+    {
+        return ((underlying * yieldSharesIssued) /
+            yieldSource.balanceOf(address(this)));
     }
 }

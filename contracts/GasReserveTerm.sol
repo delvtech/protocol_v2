@@ -3,7 +3,6 @@
 pragma solidity ^0.8.15;
 
 import "./Term.sol";
-import "hardhat/console.sol";
 
 // This contract is an abstraction called a gas reserve where a yield source be deposited on withdraw
 // from with lower gas by allowing execution against reserve.
@@ -49,10 +48,10 @@ import "hardhat/console.sol";
 
 abstract contract GasReserveTerm is Term {
     /// accounts for the balance of "unlocked" underlying for this term
-    uint128 private _underlyingReserve;
+    uint128 internal _underlyingReserve;
 
     /// accounts for the balance of "unlocked" vaultShares for this term
-    uint128 private _vaultShareReserve;
+    uint128 internal _yieldShareReserve;
 
     /// upper limit of balance of _underlyingReserve allowed in this contract
     uint256 public immutable maxReserve;
@@ -76,7 +75,6 @@ abstract contract GasReserveTerm is Term {
     ) Term(_linkerCodeHash, _factory, IERC20(_token), _owner) {
         maxReserve = _maxReserve;
         targetReserve = _maxReserve / 2;
-        console.log("got here");
     }
 
     /// Abstract functions
@@ -464,7 +462,7 @@ abstract contract GasReserveTerm is Term {
     /// @return underlyingReserve The amount of underlying accounted for in
     ///         `_underlyingReserve`
     /// @return vaultShareReserve The amount of vaultShares accounted for in
-    ///         `_vaultShareReserve`
+    ///         `_yieldShareReserve`
     /// @return vaultShareReserveAsUnderlying The underlying value of the
     ///         vaultShareReserve
     /// @return impliedUnderlyingReserve The sum of the `underlyingReserve`
@@ -484,7 +482,7 @@ abstract contract GasReserveTerm is Term {
         /// Retrieve both reserves.
         (underlyingReserve, vaultShareReserve) = (
             uint256(_underlyingReserve),
-            uint256(_vaultShareReserve)
+            uint256(_yieldShareReserve)
         );
 
         /// Compute the underlying value of the `vaultShareReserve`
@@ -503,6 +501,6 @@ abstract contract GasReserveTerm is Term {
         uint256 _newVaultShareReserve
     ) internal {
         _underlyingReserve = uint128(_newUnderlyingReserve);
-        _vaultShareReserve = uint128(_newVaultShareReserve);
+        _yieldShareReserve = uint128(_newVaultShareReserve);
     }
 }
