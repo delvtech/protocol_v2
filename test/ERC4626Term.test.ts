@@ -1014,13 +1014,15 @@ describe("ERC4626Term", () => {
 
       it("should convert users locked shares into unlocked shares", async () => {
         // advance time past expiry
-        await advanceTime(provider, TERM_END - TERM_START + HOUR);
+        await advanceTime(provider, TERM_END - TERM_START + 2 * HOUR);
 
         // tx
         const receipt = await (
           await term
             .connect(user)
-            .depositUnlocked(0, $ether(1_000), TERM_END, user.address)
+            .depositUnlocked(0, $ether(1_000), TERM_END, user.address, {
+              gasLimit: 30000000,
+            })
         ).wait(1);
 
         expect(receipt.status).to.be.eq(1);
