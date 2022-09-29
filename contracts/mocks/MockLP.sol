@@ -22,6 +22,8 @@ contract MockLP is LP {
         totalSupply[poolId] = value;
     }
 
+    event DepositFromShares();
+
     // use this to stub calls to _depositFromShares
     function _depositFromShares(
         uint256 poolId,
@@ -31,6 +33,7 @@ contract MockLP is LP {
         uint256 pricePerShare,
         address to
     ) internal override returns (uint256) {
+        emit DepositFromShares();
         return _lpShares;
     }
 
