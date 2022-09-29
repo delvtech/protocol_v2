@@ -9,18 +9,18 @@ contract MockTerm is Term {
         address _factory,
         IERC20 _token,
         address _owner
-    ) Term(_linkerCodeHash, _factory, _token, _owner) {}
+    ) Term(_linkerCodeHash, _factory, _token, _owner) {} /* solhint-disable-line no-empty-blocks */
 
     // ####################
     // ###   _convert   ###
     // ####################
-    uint256 _convertReturnValue;
+    uint256 internal _convertReturnValue;
 
     function setConvertReturnValue(uint256 _value) external {
         _convertReturnValue = _value;
     }
 
-    function _convert(ShareState _state, uint256 _shares)
+    function _convert(ShareState, uint256)
         internal
         view
         override
@@ -32,15 +32,15 @@ contract MockTerm is Term {
     // ####################
     // ###   _deposit   ###
     // ####################
-    uint256 _depositLeftReturnValue;
-    uint256 _depositRightReturnValue;
+    uint256 internal _depositLeftReturnValue;
+    uint256 internal _depositRightReturnValue;
 
     function setDepositReturnValues(uint256 _left, uint256 _right) external {
         _depositLeftReturnValue = _left;
         _depositRightReturnValue = _right;
     }
 
-    function _deposit(ShareState _state)
+    function _deposit(ShareState)
         internal
         view
         override
@@ -52,16 +52,16 @@ contract MockTerm is Term {
     // #####################
     // ###   _withdraw   ###
     // #####################
-    uint256 _withdrawReturnValue;
+    uint256 internal _withdrawReturnValue;
 
     function setWithdrawReturnValue(uint256 _value) external {
         _withdrawReturnValue = _value;
     }
 
     function _withdraw(
-        uint256 _shares,
-        address _dest,
-        ShareState _state
+        uint256,
+        address,
+        ShareState
     ) internal view override returns (uint256) {
         return _withdrawReturnValue;
     }
@@ -69,14 +69,14 @@ contract MockTerm is Term {
     // #######################
     // ###   _underlying   ###
     // #######################
-    uint256 _currentPricePerShare;
+    uint256 internal _currentPricePerShare;
 
     // TODO: We may ultimately want to set this value for locked and unlocked.
     function setCurrentPricePerShare(uint256 _price) external {
         _currentPricePerShare = _price;
     }
 
-    function _underlying(uint256 _shares, ShareState _state)
+    function _underlying(uint256 _shares, ShareState)
         internal
         view
         override
@@ -132,8 +132,8 @@ contract MockTerm is Term {
     // ###########################
     // ###   depositUnlocked   ###
     // ###########################
-    uint256 _depositUnlockedLeftReturnValue;
-    uint256 _depositUnlockedRightReturnValue;
+    uint256 internal _depositUnlockedLeftReturnValue;
+    uint256 internal _depositUnlockedRightReturnValue;
 
     event DepositUnlocked(
         uint256 underlyingAmount,
