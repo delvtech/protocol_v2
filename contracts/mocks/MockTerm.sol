@@ -14,10 +14,19 @@ contract MockTerm is Term {
     // ####################
     // ###     lock     ###
     // ####################
-    event Lock();
+    event Lock(
+        uint256[] assetIds,
+        uint256[] assetAmounts,
+        uint256 underlyingAmount,
+        bool hasPreFunding,
+        address ytDestination,
+        address ptDestination,
+        uint256 ytBeginDate,
+        uint256 expiration
+    );
 
-    uint256 _lockPrincipalTokensReturnValue;
-    uint256 _lockYieldTokensReturnValue;
+    uint256 internal _lockPrincipalTokensReturnValue;
+    uint256 internal _lockYieldTokensReturnValue;
 
     function setLockValues(uint256 principalTokens, uint256 yieldTokens)
         external
@@ -36,7 +45,16 @@ contract MockTerm is Term {
         uint256 ytBeginDate,
         uint256 expiration
     ) external override returns (uint256, uint256) {
-        emit Lock();
+        emit Lock(
+            assetIds,
+            assetAmounts,
+            underlyingAmount,
+            hasPreFunding,
+            ytDestination,
+            ptDestination,
+            ytBeginDate,
+            expiration
+        );
         return (_lockPrincipalTokensReturnValue, _lockYieldTokensReturnValue);
     }
 

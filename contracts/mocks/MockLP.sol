@@ -18,8 +18,16 @@ contract MockLP is LP {
         _lpShares = value;
     }
 
-    function setTotalSupply(uint256 value, uint256 poolId) public {
+    function setTotalSupply(uint256 poolId, uint256 value) public {
         totalSupply[poolId] = value;
+    }
+
+    function setShareReserves(uint256 poolId, uint128 value) public {
+        reserves[poolId].shares = value;
+    }
+
+    function setBondReserves(uint256 poolId, uint128 value) public {
+        reserves[poolId].bonds = value;
     }
 
     event DepositFromShares();

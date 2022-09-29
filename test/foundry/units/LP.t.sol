@@ -13,6 +13,7 @@ import { ElementTest } from "test/ElementTest.sol";
 import { Utils } from "test/Utils.sol";
 
 contract LPTest is ElementTest {
+    uint256 internal constant _UNLOCKED_TERM_ID = 1 << 255;
     address public user = vm.addr(0xDEAD_BEEF);
 
     ForwarderFactory public factory;
@@ -48,7 +49,7 @@ contract LPTest is ElementTest {
         uint256 depositedShares = 4 ether;
         uint256 pricePerShare = 1 ether;
 
-        lp.setTotalSupply(10 ether, poolId);
+        lp.setTotalSupply(poolId, 10 ether);
 
         uint256 newLp = lp.depositFromSharesExternal(
             poolId,
@@ -116,7 +117,9 @@ contract LPTest is ElementTest {
             uint256 pricePerShare = testCases[i].pricePerShare;
             uint256 poolId = testCases[i].poolId;
 
-            lp.setTotalSupply(totalSupply, poolId);
+            lp.setShareReserves(poolId, uint128(currentShares));
+            lp.setBondReserves(poolId, uint128(currentBonds));
+            lp.setTotalSupply(poolId, totalSupply);
 
             // See if we are expecting an error from the inputs
             (
@@ -165,7 +168,18 @@ contract LPTest is ElementTest {
                 }
                 // otherwise call the method and check the result
             } else {
-                _registerExpectedDepositSharesEvents(testCase);
+                // --- get the increase in shares --- //
+                uint256 totalValue = (currentShares * pricePerShare) /
+                    1 ether +
+                    currentBonds;
+                uint256 depositedAmount = (depositedShares * pricePerShare) /
+                    1 ether;
+                uint256 neededBonds = (depositedAmount * currentBonds) /
+                    totalValue;
+                uint256 sharesToLock = (neededBonds * 1 ether) / pricePerShare;
+                uint256 increaseInShares = depositedShares - sharesToLock;
+                // ------ //
+                _registerExpectedDepositSharesEvents(testCase, sharesToLock);
                 try
                     lp.depositFromSharesExternal(
                         poolId,
@@ -179,24 +193,42 @@ contract LPTest is ElementTest {
                     // result is the number of lp tokens created
                     uint256 result
                 ) {
-                    // --- get the increase in shares --- //
-                    uint256 totalValue = (currentShares * pricePerShare) /
-                        1 ether +
-                        currentBonds;
-                    uint256 depositedAmount = (depositedShares *
-                        pricePerShare) / 1 ether;
-                    uint256 neededBonds = (depositedAmount * currentBonds) /
-                        totalValue;
-                    uint256 sharesToLock = (neededBonds * 1 ether) /
-                        pricePerShare;
-                    uint256 increaseInShares = depositedShares - sharesToLock;
-                    // ------ //
-
                     uint256 newLpToken = (totalSupply * increaseInShares) /
                         currentShares;
 
                     assertEq(result, newLpToken);
+                    (uint128 shares, uint128 bonds) = lp.reserves(poolId);
+                    if (
+                        shares != currentShares + increaseInShares ||
+                        bonds != currentBonds + neededBonds
+                    ) {
+                        assertEq(
+                            shares,
+                            currentShares + increaseInShares,
+                            "shares not equal"
+                        );
+                        assertEq(
+                            bonds,
+                            currentBonds + neededBonds,
+                            "bonds not equal"
+                        );
+                        console.log("shares", shares);
+                        console.log("bonds", bonds);
+                        console.log("increaseInShares", increaseInShares);
+                        console.log("neededBonds", neededBonds);
+                        _logDepositSharesTestCase(
+                            "Expected passing test, fails",
+                            i,
+                            testCase
+                        );
+                        revert TestFail();
+                    }
                     if (result != newLpToken) {
+                        assertEq(
+                            result,
+                            newLpToken,
+                            "lp token result incorrect"
+                        );
                         console.log("result", result);
                         console.log("newLpToken", newLpToken);
                         _logDepositSharesTestCase(
@@ -289,12 +321,36 @@ contract LPTest is ElementTest {
         console2.log("");
     }
 
-    event Lock();
+    event Lock(
+        uint256[] assetIds,
+        uint256[] assetAmounts,
+        uint256 underlyingAmount,
+        bool hasPreFunding,
+        address ytDestination,
+        address ptDestination,
+        uint256 ytBeginDate,
+        uint256 expiration
+    );
 
     function _registerExpectedDepositSharesEvents(
-        DepositSharesTestCase memory testCase
+        DepositSharesTestCase memory testCase,
+        uint256 sharesToLock
     ) internal {
         expectStrictEmit();
-        emit Lock();
+        uint256[] memory assetIds = new uint256[](1);
+        uint256[] memory assetAmounts = new uint256[](1);
+        assetIds[0] = _UNLOCKED_TERM_ID;
+        assetAmounts[0] = sharesToLock;
+
+        emit Lock(
+            assetIds,
+            assetAmounts,
+            0,
+            false,
+            address(user),
+            address(lp),
+            block.timestamp,
+            testCase.poolId
+        );
     }
 }
