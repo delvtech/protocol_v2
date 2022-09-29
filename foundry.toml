@@ -22,5 +22,4 @@ remappings = ['forge-std=lib/forge-std/src', '@openzeppelin/=lib/openzeppelin-co
 # gas limit - max u64
 gas_limit = "18446744073709551615"
 
-gas_limit = "18446744073709551615"
 # For more config options see: https://book.getfoundry.sh/reference/config.html
