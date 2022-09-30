@@ -34,6 +34,104 @@ contract MockPool is Pool {
         totalSupply[_poolId] = _amount;
     }
 
+    function setReserves(
+        uint256 _poolId,
+        uint128 _shares,
+        uint128 _bonds
+    ) external {
+        reserves[_poolId].shares = _shares;
+        reserves[_poolId].bonds = _bonds;
+    }
+
+    uint128 _newShareReserves;
+    uint128 _newBondReserves;
+    uint256 _tradeBondsOutputAmount;
+
+    function setMockTradeReturnValues(
+        uint128 __newShareReserves,
+        uint128 __newBondReserves,
+        uint256 __tradeBondsOutputAmount
+    ) external {
+        _newShareReserves = __newShareReserves;
+        _newBondReserves = __newBondReserves;
+        _tradeBondsOutputAmount = __tradeBondsOutputAmount;
+    }
+
+    function _mockTrade()
+        internal
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return (_newShareReserves, _newBondReserves, _tradeBondsOutputAmount);
+    }
+
+    event BuyBonds(
+        uint256 poolId,
+        uint256 amount,
+        uint128 reserveShares,
+        uint128 reserveBonds,
+        address receiver
+    );
+
+    function _buyBonds(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        address receiver
+    )
+        internal
+        override
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        emit BuyBonds(
+            poolId,
+            amount,
+            cachedReserve.shares,
+            cachedReserve.bonds,
+            receiver
+        );
+        return _mockTrade();
+    }
+
+    event SellBonds(
+        uint256 poolId,
+        uint256 amount,
+        uint128 reserveShares,
+        uint128 reserveBonds,
+        address receiver
+    );
+
+    function _sellBonds(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        address receiver
+    )
+        internal
+        override
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        emit SellBonds(
+            poolId,
+            amount,
+            cachedReserve.shares,
+            cachedReserve.bonds,
+            receiver
+        );
+        return _mockTrade();
+    }
+
     function normalize(uint256 input) external returns (uint256) {
         return super._normalize(input);
     }
