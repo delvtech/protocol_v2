@@ -132,7 +132,7 @@ contract MockPool is Pool {
         return _mockTrade();
     }
 
-    function normalize(uint256 input) external returns (uint256) {
+    function normalize(uint256 input) external view returns (uint256) {
         return super._normalize(input);
     }
 
