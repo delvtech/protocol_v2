@@ -385,6 +385,22 @@ contract TermTest is ElementTest {
         }
     }
 
+    // ------------------- unlockedSharePrice unit tests ------------------- //
+
+    function testUnlockedSharePrice() public {
+        uint256[] memory sharePrices = new uint256[](3);
+        sharePrices[0] = 0;
+        sharePrices[1] = 1 ether;
+        sharePrices[2] = 2.2345 ether;
+
+        for (uint256 i = 0; i < sharePrices.length; i++) {
+            _term.setCurrentPricePerShare(sharePrices[i]);
+
+            uint256 unlockedSharePrice = _term.unlockedSharePrice();
+            assertEq(unlockedSharePrice, sharePrices[i]);
+        }
+    }
+
     // -------------------  _createYT unit tests   ------------------ //
 
     function testCombinatorialCreateYT() public {
