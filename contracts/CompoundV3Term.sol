@@ -89,7 +89,7 @@ contract CompoundV3Term is GasReserveTerm {
         yieldSharesIssued += shares;
     }
 
-    /// @notice Withdraws the user from compound by calculating how much of the underlying and interest
+    /// @notice Calls Compound to withdraw shares, the vault should send them to the destination address
     ///         that their percent of the held assets are. Sends the assets to a destination
     /// @param shares The number of yield shares the user owns.
     /// @param dest The address to send the result of the withdraw to
