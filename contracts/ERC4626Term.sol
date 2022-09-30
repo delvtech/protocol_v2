@@ -81,7 +81,7 @@ contract ERC4626Term is GasReserveTerm {
 
     /// @notice Calls the 4626 vault to withdraw shares, the vault should send them to the destination address
     /// @param shares the 4626 vault shares to withdraw
-    /// @param dest the address to send them to
+    /// @param dest the address to send the result of the withdraw to
     /// @return amount the amount of funds withdrawn
     function _withdrawFromYieldSource(uint256 shares, address dest)
         internal
