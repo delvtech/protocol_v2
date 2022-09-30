@@ -425,7 +425,7 @@ contract PoolTest is ElementTest {
         inputs[8][1] = 2 ether;
 
         TradeBondsTestCase[] memory testCases = _convertTradeBondsTestCase(
-            Utils.generateTestingMatrix2(inputs)
+            Utils.generateTestingMatrix(inputs)
         );
 
         for (uint256 i = 0; i < testCases.length; i++) {
@@ -736,7 +736,7 @@ contract PoolTest is ElementTest {
         inputs[9][1] = 1.01 ether;
 
         BuyBondsTestCase[] memory testCases = _convertBuyBondsTestCase(
-            Utils.generateTestingMatrix2(inputs)
+            Utils.generateTestingMatrix(inputs)
         );
 
         for (uint256 i = 0; i < testCases.length; i++) {
