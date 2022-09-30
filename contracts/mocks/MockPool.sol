@@ -100,7 +100,7 @@ contract MockPool is Pool {
         return _mockTrade();
     }
 
-    function buyBondsExt(
+    function buyBondsExternal(
         uint256 poolId,
         uint256 amount,
         Reserve memory cachedReserve,

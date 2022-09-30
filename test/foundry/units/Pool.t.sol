@@ -659,8 +659,7 @@ contract PoolTest is ElementTest {
 
     struct BuyBondsTestCase {
         uint256 amount;
-        uint128 cachedShareReserves;
-        uint128 cachedBondReserves;
+        LP.Reserve reserve;
         // state
         uint256 userMintAmount;
         uint256 poolPtMintAmount;
@@ -685,13 +684,13 @@ contract PoolTest is ElementTest {
         inputs[0][0] = 0;
         inputs[0][1] = 1 ether;
 
-        // cachedShareReserves
+        // reserve.shares
         inputs[1] = new uint256[](3);
         inputs[1][0] = 0;
         inputs[1][1] = 1000 ether;
         inputs[1][2] = 5555111.9999999999 ether;
 
-        // cachedBondReserves
+        // reserve.bonds
         inputs[2] = new uint256[](3);
         inputs[2][0] = 0;
         inputs[2][1] = 10000 ether;
@@ -749,13 +748,10 @@ contract PoolTest is ElementTest {
 
             if (testCaseIsError) {
                 try
-                    pool.buyBondsExt(
+                    pool.buyBondsExternal(
                         TERM_END,
                         testCase.amount,
-                        LP.Reserve({
-                            shares: testCase.cachedShareReserves,
-                            bonds: testCase.cachedBondReserves
-                        }),
+                        testCase.reserve,
                         user
                     )
                 {
@@ -790,13 +786,10 @@ contract PoolTest is ElementTest {
 
                 _registerExpectedBuyBondsEvents(testCase);
                 try
-                    pool.buyBondsExt(
+                    pool.buyBondsExternal(
                         TERM_END,
                         testCase.amount,
-                        LP.Reserve({
-                            shares: testCase.cachedShareReserves,
-                            bonds: testCase.cachedBondReserves
-                        }),
+                        testCase.reserve,
                         user
                     )
                 returns (
@@ -829,33 +822,61 @@ contract PoolTest is ElementTest {
         uint256 userUnderlyingBalanceBefore,
         uint256 poolPtBalanceBefore
     ) internal {
-        assertEq(
-            newShareReserve,
-            testCase.cachedShareReserves + testCase.addedShares
-        );
-        assertEq(
-            newBondReserve,
-            testCase.cachedBondReserves -
-                testCase.changeInBonds +
-                testCase.totalFee -
-                testCase.govFee
-        );
-        assertEq(bondsAmount, testCase.changeInBonds - testCase.totalFee);
+        uint256 computedNewShareReserve = testCase.reserve.shares +
+            testCase.addedShares;
+        if (computedNewShareReserve != newShareReserve) {
+            _logBuyBondsTestCase(testCase);
+            assertEq(computedNewShareReserve, newShareReserve);
+        }
+
+        uint256 computedNewBondReserve = (testCase.reserve.bonds -
+            testCase.changeInBonds) + (testCase.totalFee - testCase.govFee);
+
+        if (computedNewBondReserve != newBondReserve) {
+            _logBuyBondsTestCase(testCase);
+            assertEq(computedNewBondReserve, newBondReserve);
+        }
+
+        uint256 computedBondsAmount = testCase.changeInBonds -
+            testCase.totalFee;
+
+        if (computedBondsAmount != bondsAmount) {
+            _logBuyBondsTestCase(testCase);
+            assertEq(computedBondsAmount, bondsAmount);
+        }
 
         uint256 userUnderlyingBalanceAfter = underlying.balanceOf(user);
         uint256 poolPtBalanceAfter = term.balanceOf(TERM_END, address(pool));
 
-        assertEq(
-            userUnderlyingBalanceBefore - userUnderlyingBalanceAfter,
-            testCase.amount
-        );
-        assertEq(underlying.balanceOf(address(pool)), testCase.amount);
+        uint256 underlyingBalanceDiff = userUnderlyingBalanceBefore -
+            userUnderlyingBalanceAfter;
+        if (underlyingBalanceDiff != testCase.amount) {
+            _logBuyBondsTestCase(testCase);
+            assertEq(underlyingBalanceDiff, testCase.amount);
+        }
 
-        assertEq(poolPtBalanceBefore - poolPtBalanceAfter, bondsAmount);
-        assertEq(term.balanceOf(TERM_END, user), bondsAmount);
+        if (underlying.balanceOf(address(pool)) != testCase.amount) {
+            _logBuyBondsTestCase(testCase);
+            assertEq(underlying.balanceOf(address(pool)), testCase.amount);
+        }
+
+        uint256 poolPtBalanceDiff = poolPtBalanceBefore - poolPtBalanceAfter;
+        if (poolPtBalanceDiff != bondsAmount) {
+            _logBuyBondsTestCase(testCase);
+            assertEq(poolPtBalanceDiff, bondsAmount);
+        }
+
+        if (term.balanceOf(TERM_END, user) != bondsAmount) {
+            _logBuyBondsTestCase(testCase);
+            assertEq(term.balanceOf(TERM_END, user), bondsAmount);
+        }
 
         (, uint256 feesInBonds) = pool.governanceFees(TERM_END);
-        assertEq(feesInBonds, uint128(testCase.govFee));
+
+        if (feesInBonds != uint128(testCase.govFee)) {
+            _logBuyBondsTestCase(testCase);
+            assertEq(feesInBonds, uint128(testCase.govFee));
+        }
     }
 
     function _convertBuyBondsTestCase(uint256[][] memory rawTestCases)
@@ -882,8 +903,10 @@ contract PoolTest is ElementTest {
 
             testCases[i] = BuyBondsTestCase({
                 amount: rawTestCases[i][0],
-                cachedShareReserves: uint128(rawTestCases[i][1]),
-                cachedBondReserves: uint128(rawTestCases[i][2]),
+                reserve: LP.Reserve({
+                    shares: uint128(rawTestCases[i][1]),
+                    bonds: uint128(rawTestCases[i][2])
+                }),
                 userMintAmount: rawTestCases[i][3],
                 poolPtMintAmount: rawTestCases[i][4],
                 valuePaid: valuePaid,
@@ -930,7 +953,7 @@ contract PoolTest is ElementTest {
         }
 
         // underflow in newBondReserve calc
-        if (testCase.cachedBondReserves < testCase.changeInBonds) {
+        if (testCase.reserve.bonds < testCase.changeInBonds) {
             return (true, stdError.arithmeticError);
         }
 
@@ -1017,8 +1040,8 @@ contract PoolTest is ElementTest {
         expectStrictEmit();
         emit UpdateOracle(
             TERM_END,
-            testCase.cachedShareReserves + testCase.addedShares,
-            testCase.cachedBondReserves -
+            testCase.reserve.shares + testCase.addedShares,
+            testCase.reserve.bonds -
                 testCase.changeInBonds +
                 testCase.totalFee -
                 testCase.govFee
@@ -1032,14 +1055,8 @@ contract PoolTest is ElementTest {
         console2.log("    Pool._buyBonds");
         console2.log("    -----------------------------------------------    ");
         console2.log("    amount                 = ", testCase.amount);
-        console2.log(
-            "    cachedShareReserves    = ",
-            testCase.cachedShareReserves
-        );
-        console2.log(
-            "    cachedBondReserves     = ",
-            testCase.cachedBondReserves
-        );
+        console2.log("    reserve.shares         = ", testCase.reserve.shares);
+        console2.log("    reserve.bonds          = ", testCase.reserve.bonds);
         console2.log("    userMintAmount         = ", testCase.userMintAmount);
         console2.log(
             "    ptPoolMintAmount       = ",
