@@ -69,7 +69,7 @@ contract CompoundV3Term is GasReserveTerm {
         /// interest accrued on those deposits
         uint256 accruedUnderlying = yieldSource.balanceOf(address(this));
 
-        /// Deposits `underlying` into Compound
+        /// Deposits `amount` into Compound
         yieldSource.supply(address(token), amount);
 
         /// Initial case where `shares` are valued 1:1 with underlying
