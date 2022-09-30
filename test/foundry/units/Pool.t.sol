@@ -108,7 +108,7 @@ contract PoolTest is ElementTest {
 
         RegisterPoolIdTestCase[]
             memory testCases = _convertRegisterPoolIdTestCase(
-                Utils.generateTestingMatrix2(inputs)
+                Utils.generateTestingMatrix(inputs)
             );
         for (uint256 i = 0; i < testCases.length; i++) {
             RegisterPoolIdTestCase memory testCase = testCases[i];
