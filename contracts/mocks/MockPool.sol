@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "../Pool.sol";
+import "contracts/Pool.sol";
 
 contract MockPool is Pool {
     constructor(
@@ -100,6 +100,22 @@ contract MockPool is Pool {
         return _mockTrade();
     }
 
+    function buyBondsExt(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        address receiver
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return super._buyBonds(poolId, amount, cachedReserve, receiver);
+    }
+
     event SellBonds(
         uint256 poolId,
         uint256 amount,
@@ -169,5 +185,36 @@ contract MockPool is Pool {
         uint128 newSharesBalance
     ) internal override {
         emit Update(poolId, newBondBalance, newSharesBalance);
+    }
+
+    uint256 _tradeCalculationOutput;
+
+    function setTradeCalculationReturnValue(uint256 val) external {
+        _tradeCalculationOutput = val;
+    }
+
+    function _tradeCalculation(
+        uint256 expiry,
+        uint256 input,
+        uint256 shareReserve,
+        uint256 bondReserve,
+        uint256 pricePerShare,
+        bool isBondOut
+    ) internal view override returns (uint256) {
+        return _tradeCalculationOutput;
+    }
+
+    event UpdateOracle(
+        uint256 poolId,
+        uint256 newShareReserve,
+        uint256 newBondReserve
+    );
+
+    function _updateOracle(
+        uint256 poolId,
+        uint256 newShareReserve,
+        uint256 newBondReserve
+    ) internal override {
+        emit UpdateOracle(poolId, newShareReserve, newBondReserve);
     }
 }
