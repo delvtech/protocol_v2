@@ -108,7 +108,7 @@ contract PoolTest is ElementTest {
 
         RegisterPoolIdTestCase[]
             memory testCases = _convertRegisterPoolIdTestCase(
-                Utils.generateTestingMatrix(inputs)
+                Utils.generateTestingMatrix2(inputs)
             );
         for (uint256 i = 0; i < testCases.length; i++) {
             RegisterPoolIdTestCase memory testCase = testCases[i];
@@ -129,23 +129,31 @@ contract PoolTest is ElementTest {
                         testCase.maxLength
                     )
                 {
-                    _logRegisterPoolIdTestCase(testCase);
-                    revert ExpectedFailingTestPasses(expectedError);
+                    _logRegisterPoolIdTestCase(
+                        "Expected fail, test case passes",
+                        i,
+                        testCase
+                    );
+                    revert TestFail();
                 } catch Error(string memory err) {
                     if (Utils.neq(bytes(err), expectedError)) {
-                        _logRegisterPoolIdTestCase(testCase);
-                        revert ExpectedDifferentFailureReasonString(
-                            err,
-                            string(expectedError)
+                        _logRegisterPoolIdTestCase(
+                            "Expected different failure reason (string)",
+                            i,
+                            testCase
                         );
+                        assertEq(err, string(expectedError));
+                        revert TestFail();
                     }
                 } catch (bytes memory err) {
                     if (Utils.neq(err, expectedError)) {
-                        _logRegisterPoolIdTestCase(testCase);
-                        revert ExpectedDifferentFailureReason(
-                            err,
-                            expectedError
+                        _logRegisterPoolIdTestCase(
+                            "Expected different failure reason (bytes)",
+                            i,
+                            testCase
                         );
+                        assertEq(err, expectedError);
+                        revert TestFail();
                     }
                 }
             } else {
@@ -161,9 +169,13 @@ contract PoolTest is ElementTest {
                     )
                 returns (uint256 mintedLpTokens) {
                     _validateRegisterPoolIdSuccess(testCase, mintedLpTokens);
-                } catch (bytes memory err) {
-                    _logRegisterPoolIdTestCase(testCase);
-                    revert ExpectedPassingTestFails(err);
+                } catch {
+                    _logRegisterPoolIdTestCase(
+                        "Expected passing test, fails",
+                        i,
+                        testCase
+                    );
+                    revert TestFail();
                 }
             }
         }
@@ -172,7 +184,7 @@ contract PoolTest is ElementTest {
 
     function _convertRegisterPoolIdTestCase(uint256[][] memory rawTestCases)
         internal
-        pure
+        view
         returns (RegisterPoolIdTestCase[] memory testCases)
     {
         testCases = new RegisterPoolIdTestCase[](rawTestCases.length);
@@ -351,11 +363,12 @@ contract PoolTest is ElementTest {
         );
     }
 
-    function _logRegisterPoolIdTestCase(RegisterPoolIdTestCase memory testCase)
-        internal
-        view
-    {
-        console2.log("    Pool.registerPoolId");
+    function _logRegisterPoolIdTestCase(
+        string memory prelude,
+        uint256 index,
+        RegisterPoolIdTestCase memory testCase
+    ) internal view {
+        console2.log("    Pool.registerPoolId Test #%s :: %s", index, prelude);
         console2.log("    -----------------------------------------------    ");
         console2.log("    poolId           = ", testCase.poolId);
         console2.log("    underlyingIn     = ", testCase.underlyingIn);
@@ -371,115 +384,6 @@ contract PoolTest is ElementTest {
 
     // ------------------- tradeBonds unit tests ------------------ //
 
-    function testTradeBonds() public {
-        startHoax(user);
-
-        uint256[][] memory inputs = new uint256[][](9);
-
-        // poolId
-        inputs[0] = new uint256[](3);
-        inputs[0][0] = 0;
-        inputs[0][1] = block.timestamp;
-        inputs[0][2] = TERM_END;
-
-        // amount
-        inputs[1] = new uint256[](2);
-        inputs[1][0] = 0;
-        inputs[1][1] = 1 ether;
-
-        // minAmountOut
-        inputs[2] = new uint256[](3);
-        inputs[2][0] = 0;
-        inputs[2][1] = 1 ether;
-        inputs[2][2] = 2 ether;
-
-        // isBuy - to be converted
-        inputs[3] = new uint256[](2);
-        inputs[3][0] = 0;
-        inputs[3][1] = 1;
-
-        // shareReserves
-        inputs[4] = new uint256[](2);
-        inputs[4][0] = 0;
-        inputs[4][1] = 1 ether;
-
-        // bondReserves
-        inputs[5] = new uint256[](2);
-        inputs[5][0] = 0;
-        inputs[5][1] = 1 ether;
-
-        // newShareReserves
-        inputs[6] = new uint256[](3);
-        inputs[6][0] = 0;
-        inputs[6][1] = 1 ether;
-        inputs[6][1] = 10 ether;
-
-        // newBondReserves
-        inputs[7] = new uint256[](3);
-        inputs[7][0] = 0;
-        inputs[7][1] = 1 ether;
-        inputs[7][1] = 10 ether;
-
-        // outputAmount
-        inputs[8] = new uint256[](3);
-        inputs[8][0] = 0;
-        inputs[8][1] = 1 ether;
-        inputs[8][1] = 2 ether;
-
-        TradeBondsTestCase[] memory testCases = _convertTradeBondsTestCase(
-            Utils.generateTestingMatrix(inputs)
-        );
-
-        for (uint256 i = 0; i < testCases.length; i++) {
-            TradeBondsTestCase memory testCase = testCases[i];
-            _setupTradeBondsTestCase(testCase);
-            (
-                bool testCaseIsError,
-                bytes memory expectedError
-            ) = _getExpectedTradeBondsError(testCase);
-
-            if (testCaseIsError) {
-                try
-                    pool.tradeBonds(
-                        testCase.poolId,
-                        testCase.amount,
-                        testCase.minAmountOut,
-                        user,
-                        testCase.isBuy
-                    )
-                {
-                    _logTradeBondsTestCase(testCase);
-                    revert ExpectedFailingTestPasses(expectedError);
-                } catch (bytes memory err) {
-                    if (Utils.neq(err, expectedError)) {
-                        _logTradeBondsTestCase(testCase);
-                        revert ExpectedDifferentFailureReason(
-                            err,
-                            expectedError
-                        );
-                    }
-                }
-            } else {
-                _registerExpectedTradeBondsEvents(testCase);
-                try
-                    pool.tradeBonds(
-                        testCase.poolId,
-                        testCase.amount,
-                        testCase.minAmountOut,
-                        user,
-                        testCase.isBuy
-                    )
-                returns (uint256 outputAmount) {
-                    assertEq(outputAmount, testCase.outputAmount);
-                } catch (bytes memory err) {
-                    _logTradeBondsTestCase(testCase);
-                    revert ExpectedPassingTestFails(err);
-                }
-            }
-        }
-        console.log("###    %s combinations passing    ###", testCases.length);
-    }
-
     struct TradeBondsTestCase {
         // args
         uint256 poolId;
@@ -489,171 +393,6 @@ contract PoolTest is ElementTest {
         // state
         uint128 shareReserves;
         uint128 bondReserves;
-        uint128 newShareReserves;
-        uint128 newBondReserves;
-        uint256 outputAmount;
-    }
-
-    function _convertTradeBondsTestCase(uint256[][] memory rawTestCases)
-        internal
-        pure
-        returns (TradeBondsTestCase[] memory testCases)
-    {
-        testCases = new TradeBondsTestCase[](rawTestCases.length);
-        for (uint256 i = 0; i < rawTestCases.length; i++) {
-            testCases[i] = TradeBondsTestCase({
-                poolId: rawTestCases[i][0],
-                amount: rawTestCases[i][1],
-                minAmountOut: rawTestCases[i][2],
-                isBuy: rawTestCases[i][3] > 0,
-                shareReserves: uint128(rawTestCases[i][4]),
-                bondReserves: uint128(rawTestCases[i][5]),
-                newShareReserves: uint128(rawTestCases[i][6]),
-                newBondReserves: uint128(rawTestCases[i][7]),
-                outputAmount: rawTestCases[i][8]
-            });
-        }
-    }
-
-    function _getExpectedTradeBondsError(TradeBondsTestCase memory testCase)
-        internal
-        view
-        returns (bool testCaseIsError, bytes memory reason)
-    {
-        // where the input poolId is less than mined block timestamp
-        if (testCase.poolId <= block.timestamp) {
-            return (
-                true,
-                abi.encodeWithSelector(ElementError.TermExpired.selector)
-            );
-        }
-
-        if (testCase.shareReserves == 0 && testCase.bondReserves == 0) {
-            return (
-                true,
-                abi.encodeWithSelector(ElementError.PoolNotInitialized.selector)
-            );
-        }
-
-        if (testCase.outputAmount < testCase.minAmountOut)
-            return (
-                true,
-                abi.encodeWithSelector(
-                    ElementError.ExceededSlippageLimit.selector
-                )
-            );
-
-        return (false, new bytes(0));
-    }
-
-    function _setupTradeBondsTestCase(TradeBondsTestCase memory testCase)
-        internal
-    {
-        underlying = new MockERC20Permit("Test", "TEST", 18);
-        term = new MockTerm(
-            factory.ERC20LINK_HASH(),
-            address(factory),
-            IERC20(underlying),
-            governance
-        );
-        pool = new MockPool(
-            ITerm(address(term)),
-            IERC20(address(underlying)),
-            TRADE_FEE,
-            factory.ERC20LINK_HASH(),
-            governance,
-            address(factory)
-        );
-
-        pool.setReserves(
-            testCase.poolId,
-            testCase.shareReserves,
-            testCase.bondReserves
-        );
-        pool.setMockTradeReturnValues(
-            testCase.newShareReserves,
-            testCase.newBondReserves,
-            testCase.outputAmount
-        );
-    }
-
-    event BuyBonds(
-        uint256 poolId,
-        uint256 amount,
-        uint128 reserveShares,
-        uint128 reserveBonds,
-        address receiver
-    );
-
-    event SellBonds(
-        uint256 poolId,
-        uint256 amount,
-        uint128 reserveShares,
-        uint128 reserveBonds,
-        address receiver
-    );
-
-    event BondsTraded(
-        uint256 indexed poolId,
-        address indexed receiver,
-        bool indexed isBuy,
-        uint256 amountIn,
-        uint256 amountOut
-    );
-
-    function _registerExpectedTradeBondsEvents(
-        TradeBondsTestCase memory testCase
-    ) internal {
-        if (testCase.isBuy) {
-            expectStrictEmit();
-            emit BuyBonds(
-                testCase.poolId,
-                testCase.amount,
-                testCase.shareReserves,
-                testCase.bondReserves,
-                user
-            );
-        } else {
-            expectStrictEmit();
-            emit SellBonds(
-                testCase.poolId,
-                testCase.amount,
-                testCase.shareReserves,
-                testCase.bondReserves,
-                user
-            );
-        }
-
-        expectStrictEmit();
-        emit Update(
-            testCase.poolId,
-            testCase.newBondReserves,
-            testCase.newShareReserves
-        );
-
-        expectStrictEmit();
-        emit BondsTraded(
-            testCase.poolId,
-            user,
-            testCase.isBuy,
-            testCase.amount,
-            testCase.outputAmount
-        );
-    }
-
-    function _logTradeBondsTestCase(TradeBondsTestCase memory testCase)
-        internal
-        view
-    {
-        console2.log("    Pool.tradeBonds");
-        console2.log("    -----------------------------------------------    ");
-        console2.log("    poolId           = ", testCase.poolId);
-        console2.log("    amount           = ", testCase.amount);
-        console2.log("    minAmountOut     = ", testCase.minAmountOut);
-        console2.log("    isBuy            = ", testCase.isBuy);
-        console2.log("    shareReserves    = ", testCase.shareReserves);
-        console2.log("    bondReserves     = ", testCase.bondReserves);
-        console2.log("    outputAmount     = ", testCase.outputAmount);
-        console2.log("");
+        uint256 tradeOutputAmount;
     }
 }
