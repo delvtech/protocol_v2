@@ -10,7 +10,10 @@ contract ElementTest is Test {
 
     bytes public EMPTY_REVERT = new bytes(0);
 
-    error TestFail();
+    error ExpectedFailingTestPasses(bytes expected);
+    error ExpectedDifferentFailureReason(bytes err, bytes expected);
+    error ExpectedDifferentFailureReasonString(string err, string expected);
+    error ExpectedPassingTestFails(bytes err);
 
     // Helper function to create a random address seeded by a string value, also
     // deals and labels the address for easier debugging
