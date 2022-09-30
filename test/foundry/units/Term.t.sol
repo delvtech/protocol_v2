@@ -2,17 +2,17 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/console.sol";
-import "forge-std/Test.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/interfaces/IERC20.sol";
 import "contracts/libraries/Errors.sol";
 import "contracts/mocks/MockTerm.sol";
 import "contracts/mocks/MockERC20Permit.sol";
+import "test/ElementTest.sol";
 import "test/Utils.sol";
 
-contract TermTest is Test {
-    address public destination = vm.addr(0xBEEF_DEAD);
-    address public source = vm.addr(0xDEAD_BEEF);
+contract TermTest is ElementTest {
+    address public destination = makeAddress("destination");
+    address public source = makeAddress("source");
 
     ForwarderFactory _factory;
     MockTerm _term;
@@ -82,7 +82,7 @@ contract TermTest is Test {
         // total supply inputs
         inputs[6] = amountInputs;
         // generate the testing matrix
-        CreateYTTestCase[] memory testCases = convertToCreateYTTestCase(
+        CreateYTTestCase[] memory testCases = _convertToCreateYTTestCase(
             Utils.generateTestingMatrix(inputs)
         );
 
@@ -107,8 +107,11 @@ contract TermTest is Test {
             _term.setTotalSupply(assetId, testCases[i].totalSupply);
             _term.setYieldState(assetId, testCases[i].yieldState);
 
-            bytes memory expectedError = getExpectedErrorCreateYT(testCases[i]);
-            if (expectedError.length > 0) {
+            (
+                bool shouldExpectError,
+                bytes memory expectedError
+            ) = _getExpectedErrorCreateYT(testCases[i]);
+            if (shouldExpectError) {
                 try
                     _term.createYTExternal(
                         destination,
@@ -118,14 +121,11 @@ contract TermTest is Test {
                         testCases[i].expiration
                     )
                 {
-                    logTestCaseCreateYT("failure case", testCases[i]);
+                    _logTestCaseCreateYT("failure case", testCases[i]);
                     revert("succeeded unexpectedly");
                 } catch (bytes memory error) {
-                    if (
-                        keccak256(abi.encodePacked(error)) !=
-                        keccak256(abi.encodePacked(expectedError))
-                    ) {
-                        logTestCaseCreateYT("failure case", testCases[i]);
+                    if (Utils.neq(error, expectedError)) {
+                        _logTestCaseCreateYT("failure case", testCases[i]);
                         assertEq(error, expectedError);
                     }
                 }
@@ -139,9 +139,9 @@ contract TermTest is Test {
                         testCases[i].expiration
                     )
                 returns (uint256 amount) {
-                    validateCreateYTSuccess(testCases[i], amount);
-                } catch (bytes memory error) {
-                    logTestCaseCreateYT("success case", testCases[i]);
+                    _validateCreateYTSuccess(testCases[i], amount);
+                } catch {
+                    _logTestCaseCreateYT("success case", testCases[i]);
                     revert("failed unexpectedly");
                 }
             }
@@ -157,7 +157,7 @@ contract TermTest is Test {
         uint256 totalSupply;
     }
 
-    function convertToCreateYTTestCase(uint256[][] memory rawTestMatrix)
+    function _convertToCreateYTTestCase(uint256[][] memory rawTestMatrix)
         internal
         pure
         returns (CreateYTTestCase[] memory)
@@ -185,62 +185,59 @@ contract TermTest is Test {
         return result;
     }
 
-    function getExpectedErrorCreateYT(CreateYTTestCase memory testCase)
+    function _getExpectedErrorCreateYT(CreateYTTestCase memory testCase)
         internal
         view
-        returns (bytes memory)
+        returns (bool, bytes memory)
     {
         if (testCase.expiration != 0 && testCase.startTime != block.timestamp) {
             if (
                 testCase.yieldState.shares == 0 || testCase.yieldState.pt == 0
             ) {
-                return
+                return (
+                    true,
                     abi.encodeWithSelector(
                         ElementError.TermNotInitialized.selector
-                    );
+                    )
+                );
             }
             if (testCase.totalShares == 0) {
-                return stdError.divisionError;
+                return (true, stdError.divisionError);
             }
-            uint256 expectedImpliedShareValue = (testCase.value *
-                uint256(testCase.yieldState.shares)) / testCase.totalShares;
+            (
+                uint256 expectedImpliedShareValue,
+                uint256 expectedInterestEarned,
+                uint256 expectedTotalDiscount
+            ) = _getExpectedCalculationsCreateYT(testCase);
             if (expectedImpliedShareValue < uint256(testCase.yieldState.pt)) {
-                return stdError.arithmeticError;
+                return (true, stdError.arithmeticError);
             }
             if (testCase.totalSupply == 0) {
-                return stdError.divisionError;
+                return (true, stdError.divisionError);
             }
-            uint256 expectedInterestEarned = expectedImpliedShareValue -
-                uint256(testCase.yieldState.pt);
-            uint256 expectedTotalDiscount = (testCase.value *
-                expectedInterestEarned) / testCase.totalSupply;
-            // TODO: This seems like it will never happen, so we should
-            // definitely revisit this.
             if (expectedTotalDiscount > testCase.totalShares) {
-                return stdError.arithmeticError;
+                return (true, stdError.arithmeticError);
             }
-            // TODO: This seems like it will never happen, so we should
-            // definitely revisit this.
             if (expectedTotalDiscount > testCase.value) {
-                return stdError.arithmeticError;
+                return (true, stdError.arithmeticError);
             }
         }
-        return new bytes(0);
+        return (false, new bytes(0));
     }
 
-    function validateCreateYTSuccess(
+    function _validateCreateYTSuccess(
         CreateYTTestCase memory testCase,
         uint256 amount
     ) internal {
         if (testCase.expiration == 0) {
             uint256 assetId = _term.UNLOCKED_YT_ID();
             if (amount != testCase.value) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(amount, testCase.value, "unexpected value");
             }
             uint256 balance = _term.balanceOf(assetId, destination);
             if (balance != testCase.totalShares) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     balance,
                     testCase.totalShares,
@@ -249,7 +246,7 @@ contract TermTest is Test {
             }
             uint256 totalSupply = _term.totalSupply(assetId);
             if (totalSupply != testCase.totalSupply + testCase.totalShares) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     totalSupply,
                     testCase.totalSupply + testCase.totalShares,
@@ -258,7 +255,7 @@ contract TermTest is Test {
             }
             (uint256 shares, uint256 pt) = _term.yieldTerms(assetId);
             if (shares != testCase.yieldState.shares + testCase.totalShares) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     shares,
                     testCase.yieldState.shares + testCase.totalShares,
@@ -266,7 +263,7 @@ contract TermTest is Test {
                 );
             }
             if (pt != testCase.yieldState.pt) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     pt,
                     testCase.yieldState.pt,
@@ -282,12 +279,12 @@ contract TermTest is Test {
                 testCase.expiration
             );
             if (amount != 0) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(amount, 0, "unexpected value");
             }
             uint256 balance = _term.balanceOf(assetId, destination);
             if (balance != testCase.value) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     balance,
                     testCase.value,
@@ -296,7 +293,7 @@ contract TermTest is Test {
             }
             uint256 totalSupply = _term.totalSupply(assetId);
             if (totalSupply != testCase.totalSupply + testCase.value) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     totalSupply,
                     testCase.totalSupply + testCase.value,
@@ -305,7 +302,7 @@ contract TermTest is Test {
             }
             (uint256 shares, uint256 pt) = _term.yieldTerms(assetId);
             if (shares != testCase.yieldState.shares + testCase.totalShares) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     shares,
                     testCase.yieldState.shares + testCase.totalShares,
@@ -313,7 +310,7 @@ contract TermTest is Test {
                 );
             }
             if (pt != testCase.yieldState.pt + testCase.value) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     pt,
                     testCase.yieldState.pt + testCase.value,
@@ -326,24 +323,23 @@ contract TermTest is Test {
                 testCase.startTime,
                 testCase.expiration
             );
-            uint256 expectedImpliedShareValue = (testCase.yieldState.shares *
-                testCase.value) / testCase.totalShares;
-            uint256 expectedInterestEarned = expectedImpliedShareValue -
-                testCase.yieldState.pt;
-            uint256 expectedTotalDiscount = (testCase.value *
-                expectedInterestEarned) / testCase.totalSupply;
+            (
+                ,
+                ,
+                uint256 expectedTotalDiscount
+            ) = _getExpectedCalculationsCreateYT(testCase);
             if (amount != expectedTotalDiscount) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(amount, expectedTotalDiscount, "unexpected amount");
             }
             uint256 balance = _term.balanceOf(assetId, destination);
             if (balance != testCase.value) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(balance, testCase.value, "unexpected balance");
             }
             uint256 totalSupply = _term.totalSupply(assetId);
             if (totalSupply != testCase.totalSupply + testCase.value) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     totalSupply,
                     testCase.totalSupply + testCase.value,
@@ -352,7 +348,7 @@ contract TermTest is Test {
             }
             (uint256 shares, uint256 pt) = _term.yieldTerms(assetId);
             if (shares != testCase.yieldState.shares + testCase.totalShares) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     shares,
                     testCase.yieldState.shares + testCase.totalShares,
@@ -363,7 +359,7 @@ contract TermTest is Test {
                 pt !=
                 testCase.yieldState.pt + testCase.value - expectedTotalDiscount
             ) {
-                logTestCaseCreateYT("success case", testCase);
+                _logTestCaseCreateYT("success case", testCase);
                 assertEq(
                     pt,
                     testCase.yieldState.pt +
@@ -375,7 +371,29 @@ contract TermTest is Test {
         }
     }
 
-    function logTestCaseCreateYT(
+    function _getExpectedCalculationsCreateYT(CreateYTTestCase memory testCase)
+        internal
+        pure
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        uint256 expectedImpliedShareValue = (testCase.yieldState.shares *
+            testCase.value) / testCase.totalShares;
+        uint256 expectedInterestEarned = expectedImpliedShareValue -
+            testCase.yieldState.pt;
+        uint256 expectedTotalDiscount = (testCase.value *
+            expectedInterestEarned) / testCase.totalSupply;
+        return (
+            expectedImpliedShareValue,
+            expectedInterestEarned,
+            expectedTotalDiscount
+        );
+    }
+
+    function _logTestCaseCreateYT(
         string memory prelude,
         CreateYTTestCase memory testCase
     ) internal view {
@@ -412,9 +430,10 @@ contract TermTest is Test {
         inputs[1][4] = Utils.encodeAssetId(true, 3242, 893);
         inputs[1][5] = Utils.encodeAssetId(true, 0, 98234);
         inputs[1][6] = Utils.encodeAssetId(true, 432534, 98234);
-        ReleaseAssetTestCase[] memory testCases = convertToReleaseAssetTestCase(
-            Utils.generateTestingMatrix(inputs)
-        );
+        ReleaseAssetTestCase[]
+            memory testCases = _convertToReleaseAssetTestCase(
+                Utils.generateTestingMatrix(inputs)
+            );
 
         // Set the address.
         startHoax(source);
@@ -435,10 +454,11 @@ contract TermTest is Test {
                 })
             );
 
-            bytes memory expectedError = getExpectedErrorReleaseAsset(
-                testCases[i]
-            );
-            if (expectedError.length > 0) {
+            (
+                bool shouldExpectError,
+                bytes memory expectedError
+            ) = _getExpectedErrorReleaseAsset(testCases[i]);
+            if (shouldExpectError) {
                 try
                     _term.releaseAssetExternal(
                         testCases[i].assetId,
@@ -446,19 +466,16 @@ contract TermTest is Test {
                         testCases[i].amount
                     )
                 {
-                    logTestCaseReleaseAsset("failure case", testCases[i]);
+                    _logTestCaseReleaseAsset("failure case", testCases[i]);
                     revert("succeeded unexpectedly");
                 } catch (bytes memory error) {
-                    if (
-                        keccak256(abi.encodePacked(error)) !=
-                        keccak256(abi.encodePacked(expectedError))
-                    ) {
-                        logTestCaseReleaseAsset("failure case", testCases[i]);
+                    if (Utils.neq(error, expectedError)) {
+                        _logTestCaseReleaseAsset("failure case", testCases[i]);
                         assertEq(error, expectedError);
                     }
                 }
             } else {
-                registerExpectedEventsReleaseAsset(testCases[i]);
+                _registerExpectedEventsReleaseAsset(testCases[i]);
                 try
                     _term.releaseAssetExternal(
                         testCases[i].assetId,
@@ -471,8 +488,8 @@ contract TermTest is Test {
                     // different assets return the correct values.
                     assertEq(shares, 1);
                     assertEq(value, 2);
-                } catch (bytes memory error) {
-                    logTestCaseReleaseAsset("success case", testCases[i]);
+                } catch {
+                    _logTestCaseReleaseAsset("success case", testCases[i]);
                     revert("failed unexpectedly");
                 }
             }
@@ -487,7 +504,7 @@ contract TermTest is Test {
         uint128 interest;
     }
 
-    function convertToReleaseAssetTestCase(uint256[][] memory rawTestMatrix)
+    function _convertToReleaseAssetTestCase(uint256[][] memory rawTestMatrix)
         internal
         pure
         returns (ReleaseAssetTestCase[] memory)
@@ -509,19 +526,22 @@ contract TermTest is Test {
         return result;
     }
 
-    function getExpectedErrorReleaseAsset(ReleaseAssetTestCase memory testCase)
+    function _getExpectedErrorReleaseAsset(ReleaseAssetTestCase memory testCase)
         internal
         view
-        returns (bytes memory)
+        returns (bool, bytes memory)
     {
         (, , uint256 expiry) = _term.parseAssetIdExternal(testCase.assetId);
         if (expiry > 5_000 && expiry != 0) {
-            return abi.encodeWithSelector(ElementError.TermNotExpired.selector);
+            return (
+                true,
+                abi.encodeWithSelector(ElementError.TermNotExpired.selector)
+            );
         }
-        return new bytes(0);
+        return (false, new bytes(0));
     }
 
-    function registerExpectedEventsReleaseAsset(
+    function _registerExpectedEventsReleaseAsset(
         ReleaseAssetTestCase memory testCase
     ) internal {
         (bool isYieldToken, , uint256 expiry) = _term.parseAssetIdExternal(
@@ -563,7 +583,7 @@ contract TermTest is Test {
         }
     }
 
-    function logTestCaseReleaseAsset(
+    function _logTestCaseReleaseAsset(
         string memory prelude,
         ReleaseAssetTestCase memory testCase
     ) internal view {
@@ -591,9 +611,10 @@ contract TermTest is Test {
         for (uint256 i = 0; i < inputs.length; i++) {
             inputs[i] = innerInputs;
         }
-        FinalizeTermTestCase[] memory testCases = convertToFinalizeTermTestCase(
-            Utils.generateTestingMatrix(inputs)
-        );
+        FinalizeTermTestCase[]
+            memory testCases = _convertToFinalizeTermTestCase(
+                Utils.generateTestingMatrix(inputs)
+            );
 
         // Set the address.
         startHoax(source);
@@ -608,19 +629,17 @@ contract TermTest is Test {
             _term.setSharesPerExpiry(expiry, testCases[i].sharesPerExpiry);
             _term.setTotalSupply(expiry, testCases[i].totalSupply);
 
-            bytes memory expectedError = getExpectedErrorFinalizeTerm(
-                testCases[i]
-            );
-            if (expectedError.length > 0) {
+            (
+                bool shouldExpectError,
+                bytes memory expectedError
+            ) = _getExpectedErrorFinalizeTerm(testCases[i]);
+            if (shouldExpectError) {
                 try _term.finalizeTermExternal(expiry) {
-                    logTestCaseFinalizeTerm("failure case", testCases[i]);
+                    _logTestCaseFinalizeTerm("failure case", testCases[i]);
                     revert("succeeded unexpectedly");
                 } catch (bytes memory error) {
-                    if (
-                        keccak256(abi.encodePacked(error)) !=
-                        keccak256(abi.encodePacked(expectedError))
-                    ) {
-                        logTestCaseFinalizeTerm("failure case", testCases[i]);
+                    if (Utils.neq(error, expectedError)) {
+                        _logTestCaseFinalizeTerm("failure case", testCases[i]);
                         assertEq(error, expectedError);
                     }
                 }
@@ -628,13 +647,13 @@ contract TermTest is Test {
                 try _term.finalizeTermExternal(expiry) returns (
                     Term.FinalizedState memory finalState
                 ) {
-                    validateFinalizeTermSuccess(
+                    _validateFinalizeTermSuccess(
                         testCases[i],
                         finalState,
                         expiry
                     );
                 } catch (bytes memory error) {
-                    logTestCaseFinalizeTerm("success case", testCases[i]);
+                    _logTestCaseFinalizeTerm("success case", testCases[i]);
                     revert("failed unexpectedly");
                 }
             }
@@ -647,7 +666,7 @@ contract TermTest is Test {
         uint256 totalSupply;
     }
 
-    function convertToFinalizeTermTestCase(uint256[][] memory rawTestMatrix)
+    function _convertToFinalizeTermTestCase(uint256[][] memory rawTestMatrix)
         internal
         pure
         returns (FinalizeTermTestCase[] memory)
@@ -669,18 +688,18 @@ contract TermTest is Test {
         return result;
     }
 
-    function getExpectedErrorFinalizeTerm(FinalizeTermTestCase memory testCase)
+    function _getExpectedErrorFinalizeTerm(FinalizeTermTestCase memory testCase)
         internal
         pure
-        returns (bytes memory)
+        returns (bool, bytes memory)
     {
         if (testCase.sharesPerExpiry == 0) {
-            return stdError.divisionError;
+            return (true, stdError.divisionError);
         }
-        return new bytes(0);
+        return (false, new bytes(0));
     }
 
-    function validateFinalizeTermSuccess(
+    function _validateFinalizeTermSuccess(
         FinalizeTermTestCase memory testCase,
         Term.FinalizedState memory finalState,
         uint256 expiry
@@ -690,7 +709,7 @@ contract TermTest is Test {
         if (
             stdMath.delta(finalState.pricePerShare, expectedPricePerShare) > 1
         ) {
-            logTestCaseFinalizeTerm("success case", testCase);
+            _logTestCaseFinalizeTerm("success case", testCase);
             assertApproxEqAbs(
                 finalState.pricePerShare,
                 expectedPricePerShare,
@@ -707,7 +726,7 @@ contract TermTest is Test {
             ? 0
             : expectedTotalValue - testCase.totalSupply;
         if (finalState.interest != expectedInterest) {
-            logTestCaseFinalizeTerm("success case", testCase);
+            _logTestCaseFinalizeTerm("success case", testCase);
             assertEq(
                 finalState.interest,
                 expectedInterest,
@@ -720,7 +739,7 @@ contract TermTest is Test {
             expiry
         );
         if (stdMath.delta(pricePerShare, expectedPricePerShare) > 1) {
-            logTestCaseFinalizeTerm("success case", testCase);
+            _logTestCaseFinalizeTerm("success case", testCase);
             assertApproxEqAbs(
                 pricePerShare,
                 expectedPricePerShare,
@@ -729,7 +748,7 @@ contract TermTest is Test {
             );
         }
         if (interest != expectedInterest) {
-            logTestCaseFinalizeTerm("success case", testCase);
+            _logTestCaseFinalizeTerm("success case", testCase);
             assertEq(
                 interest,
                 expectedInterest,
@@ -738,7 +757,7 @@ contract TermTest is Test {
         }
     }
 
-    function logTestCaseFinalizeTerm(
+    function _logTestCaseFinalizeTerm(
         string memory prelude,
         FinalizeTermTestCase memory testCase
     ) internal view {
@@ -767,7 +786,7 @@ contract TermTest is Test {
             inputs[i] = innerInputs;
         }
         ReleaseUnlockedTestCase[]
-            memory testCases = convertToReleaseUnlockedTestCase(
+            memory testCases = _convertToReleaseUnlockedTestCase(
                 Utils.generateTestingMatrix(inputs)
             );
 
@@ -792,19 +811,17 @@ contract TermTest is Test {
                 })
             );
 
-            bytes memory expectedError = getExpectedErrorReleaseUnlocked(
-                testCases[i]
-            );
-            if (expectedError.length > 0) {
+            (
+                bool shouldExpectError,
+                bytes memory expectedError
+            ) = _getExpectedErrorReleaseUnlocked(testCases[i]);
+            if (shouldExpectError) {
                 try _term.releaseUnlockedExternal(source, testCases[i].amount) {
-                    logTestCaseReleaseUnlocked("failure case", testCases[i]);
+                    _logTestCaseReleaseUnlocked("failure case", testCases[i]);
                     revert("succeeded unexpectedly");
                 } catch (bytes memory error) {
-                    if (
-                        keccak256(abi.encodePacked(error)) !=
-                        keccak256(abi.encodePacked(expectedError))
-                    ) {
-                        logTestCaseReleaseUnlocked(
+                    if (Utils.neq(error, expectedError)) {
+                        _logTestCaseReleaseUnlocked(
                             "failure case",
                             testCases[i]
                         );
@@ -815,9 +832,13 @@ contract TermTest is Test {
                 try
                     _term.releaseUnlockedExternal(source, testCases[i].amount)
                 returns (uint256 shares, uint256 value) {
-                    validateReleaseUnlockedSuccess(testCases[i], shares, value);
+                    _validateReleaseUnlockedSuccess(
+                        testCases[i],
+                        shares,
+                        value
+                    );
                 } catch {
-                    logTestCaseReleaseUnlocked("success case", testCases[i]);
+                    _logTestCaseReleaseUnlocked("success case", testCases[i]);
                     revert("failed unexpectedly");
                 }
             }
@@ -835,7 +856,7 @@ contract TermTest is Test {
         uint256 sourceBalance;
     }
 
-    function convertToReleaseUnlockedTestCase(uint256[][] memory rawTestMatrix)
+    function _convertToReleaseUnlockedTestCase(uint256[][] memory rawTestMatrix)
         internal
         pure
         returns (ReleaseUnlockedTestCase[] memory)
@@ -859,21 +880,21 @@ contract TermTest is Test {
         return result;
     }
 
-    function getExpectedErrorReleaseUnlocked(
+    function _getExpectedErrorReleaseUnlocked(
         ReleaseUnlockedTestCase memory testCase
-    ) internal pure returns (bytes memory) {
+    ) internal pure returns (bool, bytes memory) {
         if (testCase.totalSupply == 0) {
-            return stdError.divisionError;
+            return (true, stdError.divisionError);
         } else if (
             testCase.amount > testCase.totalSupply ||
             testCase.amount > testCase.sourceBalance
         ) {
-            return stdError.arithmeticError;
+            return (true, stdError.arithmeticError);
         }
-        return new bytes(0);
+        return (false, new bytes(0));
     }
 
-    function validateReleaseUnlockedSuccess(
+    function _validateReleaseUnlockedSuccess(
         ReleaseUnlockedTestCase memory testCase,
         uint256 shares,
         uint256 value
@@ -884,11 +905,11 @@ contract TermTest is Test {
         uint256 expectedValue = (expectedShares *
             testCase.currentPricePerShare) / _term.one();
         if (shares != expectedShares) {
-            logTestCaseReleaseUnlocked("success case", testCase);
+            _logTestCaseReleaseUnlocked("success case", testCase);
             assertEq(shares, expectedShares, "unexpected shares");
         }
         if (value != expectedValue) {
-            logTestCaseReleaseUnlocked("success case", testCase);
+            _logTestCaseReleaseUnlocked("success case", testCase);
             assertEq(value, expectedValue, "unexpected value");
         }
 
@@ -897,7 +918,7 @@ contract TermTest is Test {
         uint256 totalSupply = _term.totalSupply(unlockedYTId);
         uint256 sourceBalance = _term.balanceOf(unlockedYTId, source);
         if (totalSupply != testCase.totalSupply - testCase.amount) {
-            logTestCaseReleaseUnlocked("success case", testCase);
+            _logTestCaseReleaseUnlocked("success case", testCase);
             assertEq(
                 totalSupply,
                 testCase.totalSupply - testCase.amount,
@@ -905,7 +926,7 @@ contract TermTest is Test {
             );
         }
         if (sourceBalance != testCase.sourceBalance - testCase.amount) {
-            logTestCaseReleaseUnlocked("success case", testCase);
+            _logTestCaseReleaseUnlocked("success case", testCase);
             assertEq(
                 sourceBalance,
                 testCase.sourceBalance - testCase.amount,
@@ -914,7 +935,7 @@ contract TermTest is Test {
         }
         (uint128 shares_, ) = _term.yieldTerms(unlockedYTId);
         if (shares_ != testCase.shares - expectedShares) {
-            logTestCaseReleaseUnlocked("success case", testCase);
+            _logTestCaseReleaseUnlocked("success case", testCase);
             assertEq(
                 shares_,
                 testCase.shares - expectedShares,
@@ -923,7 +944,7 @@ contract TermTest is Test {
         }
     }
 
-    function logTestCaseReleaseUnlocked(
+    function _logTestCaseReleaseUnlocked(
         string memory prelude,
         ReleaseUnlockedTestCase memory testCase
     ) internal view {
@@ -957,7 +978,7 @@ contract TermTest is Test {
         for (uint256 i = 0; i < inputs.length; i++) {
             inputs[i] = innerInputs;
         }
-        ReleaseYTTestCase[] memory testCases = convertToReleaseYTTestCase(
+        ReleaseYTTestCase[] memory testCases = _convertToReleaseYTTestCase(
             Utils.generateTestingMatrix(inputs)
         );
 
@@ -979,10 +1000,11 @@ contract TermTest is Test {
             _term.setUserBalance(assetId, source, testCases[i].sourceBalance);
             _term.setYieldState(assetId, testCases[i].yieldState);
 
-            bytes memory expectedError = getExpectedErrorReleaseYT(
-                testCases[i]
-            );
-            if (expectedError.length > 0) {
+            (
+                bool shouldExpectError,
+                bytes memory expectedError
+            ) = _getExpectedErrorReleaseYT(testCases[i]);
+            if (shouldExpectError) {
                 try
                     _term.releaseYTExternal(
                         finalState,
@@ -991,14 +1013,11 @@ contract TermTest is Test {
                         testCases[i].amount
                     )
                 {
-                    logTestCaseReleaseYT("failure case", testCases[i]);
+                    _logTestCaseReleaseYT("failure case", testCases[i]);
                     revert("succeeded unexpectedly");
                 } catch (bytes memory error) {
-                    if (
-                        keccak256(abi.encodePacked(error)) !=
-                        keccak256(abi.encodePacked(expectedError))
-                    ) {
-                        logTestCaseReleaseYT("failure case", testCases[i]);
+                    if (Utils.neq(error, expectedError)) {
+                        _logTestCaseReleaseYT("failure case", testCases[i]);
                         assertEq(error, expectedError);
                     }
                 }
@@ -1011,14 +1030,14 @@ contract TermTest is Test {
                         testCases[i].amount
                     )
                 returns (uint256 shares, uint256 value) {
-                    validateReleaseYTSuccess(
+                    _validateReleaseYTSuccess(
                         testCases[i],
                         assetId,
                         shares,
                         value
                     );
                 } catch {
-                    logTestCaseReleaseYT("success case", testCases[i]);
+                    _logTestCaseReleaseYT("success case", testCases[i]);
                     revert("failed unexpectedly");
                 }
             }
@@ -1050,7 +1069,7 @@ contract TermTest is Test {
     }
 
     // Converts a raw testing matrix to a structured array.
-    function convertToReleaseYTTestCase(uint256[][] memory rawTestCases)
+    function _convertToReleaseYTTestCase(uint256[][] memory rawTestCases)
         internal
         pure
         returns (ReleaseYTTestCase[] memory testCases)
@@ -1079,11 +1098,9 @@ contract TermTest is Test {
         }
     }
 
-    function getExpectedReturnValuesReleaseYT(ReleaseYTTestCase memory testCase)
-        internal
-        view
-        returns (uint256, uint256)
-    {
+    function _getExpectedReturnValuesReleaseYT(
+        ReleaseYTTestCase memory testCase
+    ) internal view returns (uint256, uint256) {
         // TODO: It's unfortunate to need to replicate all of this logic here.
         // Think about how this could be simplified or avoided (one thought is
         // that this could be a separate function that gets tested separately,
@@ -1102,36 +1119,36 @@ contract TermTest is Test {
 
     // Given a test case, get the expected error that will be thrown by a failed
     // call to _releaseYT.
-    function getExpectedErrorReleaseYT(ReleaseYTTestCase memory testCase)
+    function _getExpectedErrorReleaseYT(ReleaseYTTestCase memory testCase)
         internal
         view
-        returns (bytes memory)
+        returns (bool, bytes memory)
     {
         if (testCase.totalSupply == 0) {
-            return stdError.divisionError;
+            return (true, stdError.divisionError);
         } else if (testCase.currentPricePerShare == 0) {
-            return stdError.divisionError;
+            return (true, stdError.divisionError);
         }
         (
             uint256 sourceShares,
             uint256 sourceInterest
-        ) = getExpectedReturnValuesReleaseYT(testCase);
+        ) = _getExpectedReturnValuesReleaseYT(testCase);
         if (sourceShares > testCase.sharesPerExpiry) {
-            return stdError.arithmeticError;
+            return (true, stdError.arithmeticError);
         } else if (sourceInterest > testCase.finalState.interest) {
-            return stdError.arithmeticError;
+            return (true, stdError.arithmeticError);
         } else if (
             testCase.amount > testCase.sourceBalance ||
             testCase.amount > testCase.totalSupply
         ) {
-            return stdError.arithmeticError;
+            return (true, stdError.arithmeticError);
         }
-        return new bytes(0);
+        return (false, new bytes(0));
     }
 
     // Given a test case, validate the state transitions and return values of a
     // successful call to _releaseYT.
-    function validateReleaseYTSuccess(
+    function _validateReleaseYTSuccess(
         ReleaseYTTestCase memory testCase,
         uint256 assetId,
         uint256 shares,
@@ -1141,13 +1158,13 @@ contract TermTest is Test {
         (
             uint256 expectedShares,
             uint256 expectedValue
-        ) = getExpectedReturnValuesReleaseYT(testCase);
+        ) = _getExpectedReturnValuesReleaseYT(testCase);
         if (shares != expectedShares) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertEq(shares, expectedShares, "unexpected shares");
         }
         if (value != expectedValue) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertEq(value, expectedValue, "unexpected value");
         }
 
@@ -1158,7 +1175,7 @@ contract TermTest is Test {
         );
         // TODO: These could be helper functions in Test.sol
         if (pricePerShare != testCase.finalState.pricePerShare) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertEq(
                 pricePerShare,
                 testCase.finalState.pricePerShare,
@@ -1166,7 +1183,7 @@ contract TermTest is Test {
             );
         }
         if (interest != testCase.finalState.interest - expectedValue) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertEq(
                 interest,
                 testCase.finalState.interest - expectedValue,
@@ -1177,7 +1194,7 @@ contract TermTest is Test {
             _term.sharesPerExpiry(expiry) !=
             testCase.sharesPerExpiry - expectedShares
         ) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertEq(
                 _term.sharesPerExpiry(expiry),
                 testCase.sharesPerExpiry - expectedShares,
@@ -1187,7 +1204,7 @@ contract TermTest is Test {
         if (
             _term.totalSupply(assetId) != testCase.totalSupply - testCase.amount
         ) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertEq(
                 _term.totalSupply(assetId),
                 testCase.totalSupply - testCase.amount,
@@ -1198,7 +1215,7 @@ contract TermTest is Test {
             _term.balanceOf(assetId, source) !=
             testCase.sourceBalance - testCase.amount
         ) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertEq(
                 _term.balanceOf(assetId, source),
                 testCase.sourceBalance - testCase.amount,
@@ -1212,7 +1229,7 @@ contract TermTest is Test {
                 (testCase.yieldState.shares * testCase.amount) /
                 testCase.totalSupply
         ) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertEq(
                 shares,
                 testCase.yieldState.shares -
@@ -1227,7 +1244,7 @@ contract TermTest is Test {
                 (testCase.yieldState.pt * testCase.amount) /
                 testCase.totalSupply
         ) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertEq(
                 pt,
                 testCase.yieldState.pt -
@@ -1244,7 +1261,7 @@ contract TermTest is Test {
             (testCase.currentPricePerShare * testCase.sharesPerExpiry) /
                 _term.one()
         ) {
-            logTestCaseReleaseYT("success case", testCase);
+            _logTestCaseReleaseYT("success case", testCase);
             assertFalse(
                 value >
                     (testCase.currentPricePerShare * testCase.sharesPerExpiry) /
@@ -1254,7 +1271,7 @@ contract TermTest is Test {
         }
     }
 
-    function logTestCaseReleaseYT(
+    function _logTestCaseReleaseYT(
         string memory prelude,
         ReleaseYTTestCase memory testCase
     ) internal view {
@@ -1303,7 +1320,7 @@ contract TermTest is Test {
         for (uint256 i = 0; i < inputs.length; i++) {
             inputs[i] = innerInputs;
         }
-        ReleasePTTestCase[] memory testCases = convertToReleasePTTestCase(
+        ReleasePTTestCase[] memory testCases = _convertToReleasePTTestCase(
             Utils.generateTestingMatrix(inputs)
         );
 
@@ -1324,10 +1341,11 @@ contract TermTest is Test {
             _term.setUserBalance(assetId, source, testCases[i].sourceBalance);
             _term.setTotalSupply(assetId, testCases[i].totalSupply);
 
-            bytes memory expectedError = getExpectedErrorReleasePT(
-                testCases[i]
-            );
-            if (expectedError.length > 0) {
+            (
+                bool shouldExpectError,
+                bytes memory expectedError
+            ) = _getExpectedErrorReleasePT(testCases[i]);
+            if (shouldExpectError) {
                 try
                     _term.releasePTExternal(
                         finalState,
@@ -1336,14 +1354,11 @@ contract TermTest is Test {
                         testCases[i].amount
                     )
                 {
-                    logTestCaseReleasePT("failure case", testCases[i]);
+                    _logTestCaseReleasePT("failure case", testCases[i]);
                     revert("succeeded unexpectedly");
                 } catch (bytes memory error) {
-                    if (
-                        keccak256(abi.encodePacked(error)) !=
-                        keccak256(abi.encodePacked(expectedError))
-                    ) {
-                        logTestCaseReleasePT("failure case", testCases[i]);
+                    if (Utils.neq(error, expectedError)) {
+                        _logTestCaseReleasePT("failure case", testCases[i]);
                         assertEq(error, expectedError);
                     }
                 }
@@ -1356,14 +1371,14 @@ contract TermTest is Test {
                         testCases[i].amount
                     )
                 returns (uint256 shares, uint256 value) {
-                    validateReleasePTSuccess(
+                    _validateReleasePTSuccess(
                         testCases[i],
                         assetId,
                         shares,
                         value
                     );
                 } catch {
-                    logTestCaseReleasePT("success case", testCases[i]);
+                    _logTestCaseReleasePT("success case", testCases[i]);
                     revert("fails unexpectedly");
                 }
             }
@@ -1389,7 +1404,7 @@ contract TermTest is Test {
     }
 
     // Converts a raw testing matrix to a structured array.
-    function convertToReleasePTTestCase(uint256[][] memory rawTestCases)
+    function _convertToReleasePTTestCase(uint256[][] memory rawTestCases)
         internal
         pure
         returns (ReleasePTTestCase[] memory testCases)
@@ -1413,33 +1428,33 @@ contract TermTest is Test {
 
     // Given a test case, get the expected error that will be thrown by a failed
     // call to _releasePT.
-    function getExpectedErrorReleasePT(ReleasePTTestCase memory testCase)
+    function _getExpectedErrorReleasePT(ReleasePTTestCase memory testCase)
         internal
         view
-        returns (bytes memory)
+        returns (bool, bytes memory)
     {
         if (testCase.currentPricePerShare == 0) {
-            return stdError.divisionError;
+            return (true, stdError.divisionError);
         } else if (
             (testCase.interest * _term.one()) / testCase.currentPricePerShare >
             testCase.sharesPerExpiry
         ) {
             // TODO: Re-evaluate this case in the context of _releaseYT.
-            return stdError.arithmeticError;
+            return (true, stdError.arithmeticError);
         } else if (testCase.totalSupply == 0) {
-            return stdError.divisionError;
+            return (true, stdError.divisionError);
         } else if (
             testCase.amount > testCase.sourceBalance ||
             testCase.amount > testCase.totalSupply
         ) {
-            return stdError.arithmeticError;
+            return (true, stdError.arithmeticError);
         }
-        return new bytes(0);
+        return (false, new bytes(0));
     }
 
     // Given a test case, validate the state transitions and return values of a
     // successful call to _releasePT.
-    function validateReleasePTSuccess(
+    function _validateReleasePTSuccess(
         ReleasePTTestCase memory testCase,
         uint256 assetId,
         uint256 shares,
@@ -1454,11 +1469,11 @@ contract TermTest is Test {
         uint256 expectedValue = (expectedShares *
             testCase.currentPricePerShare) / 1e18;
         if (shares != expectedShares) {
-            logTestCaseReleasePT("success case", testCase);
+            _logTestCaseReleasePT("success case", testCase);
             assertEq(shares, expectedShares);
         }
         if (value != expectedValue) {
-            logTestCaseReleasePT("success case", testCase);
+            _logTestCaseReleasePT("success case", testCase);
             assertEq(value, expectedValue);
         }
 
@@ -1466,7 +1481,7 @@ contract TermTest is Test {
         if (
             _term.totalSupply(assetId) != testCase.totalSupply - testCase.amount
         ) {
-            logTestCaseReleasePT("success case", testCase);
+            _logTestCaseReleasePT("success case", testCase);
             assertEq(
                 _term.totalSupply(assetId),
                 testCase.totalSupply - testCase.amount
@@ -1476,7 +1491,7 @@ contract TermTest is Test {
             _term.balanceOf(assetId, source) !=
             testCase.sourceBalance - testCase.amount
         ) {
-            logTestCaseReleasePT("success case", testCase);
+            _logTestCaseReleasePT("success case", testCase);
             assertEq(
                 _term.balanceOf(assetId, source),
                 testCase.sourceBalance - testCase.amount
@@ -1486,7 +1501,7 @@ contract TermTest is Test {
             _term.sharesPerExpiry(assetId) !=
             testCase.sharesPerExpiry - expectedShares
         ) {
-            logTestCaseReleasePT("success case", testCase);
+            _logTestCaseReleasePT("success case", testCase);
             assertEq(
                 _term.sharesPerExpiry(assetId),
                 testCase.sharesPerExpiry - expectedShares
@@ -1494,7 +1509,7 @@ contract TermTest is Test {
         }
     }
 
-    function logTestCaseReleasePT(
+    function _logTestCaseReleasePT(
         string memory prelude,
         ReleasePTTestCase memory testCase
     ) internal view {
