@@ -149,6 +149,22 @@ contract MockPool is Pool {
         return _mockTrade();
     }
 
+    function sellBondsExternal(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        address receiver
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return super._sellBonds(poolId, amount, cachedReserve, receiver);
+    }
+
     function normalize(uint256 input) external view returns (uint256) {
         return super._normalize(input);
     }

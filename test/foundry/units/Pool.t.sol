@@ -1075,4 +1075,236 @@ contract PoolTest is ElementTest {
         console2.log("    govFee                 = ", testCase.govFee);
         console2.log("");
     }
+
+    // ------------------- _sellBonds unit tests ------------------ //
+
+    struct SellBondsTestCase {
+        uint256 amount;
+        LP.Reserve cachedReserve;
+    }
+
+    function testSellBonds() public {
+        startHoax(user);
+
+        uint256[][] memory inputs = new uint256[][](9);
+
+        SellBondsTestCase[] memory testCases = _convertSellBondsTestCase(
+            Utils.generateTestingMatrix2(inputs)
+        );
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            SellBondsTestCase memory testCase = testCases[i];
+            _setupSellBondsTestCase(testCase);
+            (
+                bool testCaseIsError,
+                bytes memory expectedError
+            ) = _getExpectedSellBondsError(testCase);
+
+            if (testCaseIsError) {
+                try
+                    pool.sellBondsExternal(
+                        TERM_END,
+                        testCase.amount,
+                        LP.Reserve({
+                            shares: testCase.cachedShareReserves,
+                            bonds: testCase.cachedBondReserves
+                        }),
+                        user
+                    )
+                {
+                    _logSellBondsTestCase(testCase);
+                    revert ExpectedFailingTestPasses(expectedError);
+                } catch Error(string memory err) {
+                    if (Utils.neq(bytes(err), expectedError)) {
+                        _logSellBondsTestCase(testCase);
+                        revert ExpectedDifferentFailureReasonString(
+                            err,
+                            string(expectedError)
+                        );
+                    }
+                } catch (bytes memory err) {
+                    if (Utils.neq(err, expectedError)) {
+                        _logSellBondsTestCase(testCase);
+                        revert ExpectedDifferentFailureReason(
+                            err,
+                            expectedError
+                        );
+                    }
+                }
+            } else {
+                uint256 userUnderlyingBalanceBefore = underlying.balanceOf(
+                    address(user)
+                );
+
+                uint256 poolPtBalanceBefore = term.balanceOf(
+                    TERM_END,
+                    address(pool)
+                );
+
+                _registerExpectedSellBondsEvents(testCase);
+                try
+                    pool.sellBondsExternal(
+                        TERM_END,
+                        testCase.amount,
+                        LP.Reserve({
+                            shares: testCase.cachedShareReserves,
+                            bonds: testCase.cachedBondReserves
+                        }),
+                        user
+                    )
+                returns (
+                    uint256 newShareReserve,
+                    uint256 newBondReserve,
+                    uint256 bondsAmount
+                ) {
+                    _validateSellBondsSuccess(
+                        testCase,
+                        newShareReserve,
+                        newBondReserve,
+                        bondsAmount,
+                        userUnderlyingBalanceBefore,
+                        poolPtBalanceBefore
+                    );
+                } catch (bytes memory err) {
+                    _logSellBondsTestCase(testCase);
+                    revert ExpectedPassingTestFails(err);
+                }
+            }
+        }
+        console.log("###    %s combinations passing    ###", testCases.length);
+    }
+
+    function _validateSellBondsSuccess(
+        SellBondsTestCase memory testCase,
+        uint256 newShareReserve,
+        uint256 newBondReserve,
+        uint256 bondsAmount,
+        uint256 userUnderlyingBalanceBefore,
+        uint256 poolPtBalanceBefore
+    ) internal {}
+
+    function _convertSellBondsTestCase(uint256[][] memory rawTestCases)
+        internal
+        pure
+        returns (SellBondsTestCase[] memory testCases)
+    {
+        testCases = new SellBondsTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            // uint256 valuePaid = rawTestCases[i][4];
+            // uint256 changeInBonds = rawTestCases[i][6];
+            // uint128 tradeFee = uint128(rawTestCases[i][7]);
+            // uint128 governanceFeePercent = uint128(rawTestCases[i][8]);
+            // uint256 impliedInterest;
+            // uint256 totalFee;
+            // uint256 govFee;
+            // if (changeInBonds >= valuePaid) {
+            //     impliedInterest = changeInBonds - valuePaid;
+            //     totalFee = (impliedInterest * tradeFee) / 1e18;
+            //     govFee = (totalFee * governanceFeePercent) / 1e18;
+            // }
+            // testCases[i] = SellBondsTestCase({
+            //     amount: rawTestCases[i][0],
+            //     cachedShareReserves: uint128(rawTestCases[i][1]),
+            //     cachedBondReserves: uint128(rawTestCases[i][1]),
+            //     userMintAmount: rawTestCases[i][2],
+            //     poolPtMintAmount: rawTestCases[i][3],
+            //     valuePaid: valuePaid,
+            //     addedShares: rawTestCases[i][5],
+            //     changeInBonds: changeInBonds,
+            //     tradeFee: tradeFee,
+            //     governanceFeePercent: governanceFeePercent,
+            //     impliedInterest: impliedInterest,
+            //     totalFee: totalFee,
+            //     govFee: govFee
+            // });
+        }
+    }
+
+    function _getExpectedSellBondsError(SellBondsTestCase memory testCase)
+        internal
+        view
+        returns (bool testCaseIsError, bytes memory reason)
+    {
+        return (false, new bytes(0));
+    }
+
+    function _setupSellBondsTestCase(SellBondsTestCase memory testCase)
+        internal
+    {
+        underlying = new MockERC20Permit("Test", "TEST", 18);
+        term = new MockTerm(
+            factory.ERC20LINK_HASH(),
+            address(factory),
+            IERC20(underlying),
+            governance
+        );
+        pool = new MockPool(
+            ITerm(address(term)),
+            IERC20(address(underlying)),
+            testCase.tradeFee,
+            factory.ERC20LINK_HASH(),
+            governance,
+            address(factory)
+        );
+
+        // changePrank(governance);
+        // pool.updateGovernanceFeePercent(testCase.governanceFeePercent);
+        // changePrank(user);
+
+        // underlying.approve(address(pool), type(uint256).max);
+        // underlying.mint(user, testCase.userMintAmount);
+
+        // if (testCase.changeInBonds >= testCase.totalFee) {
+        //     term.mintExternal(
+        //         TERM_END,
+        //         address(pool),
+        //         testCase.poolPtMintAmount
+        //     );
+        // }
+
+        // term.setDepositUnlockedReturnValues(
+        //     testCase.valuePaid,
+        //     testCase.addedShares
+        // );
+
+        // pool.setTradeCalculationReturnValue(testCase.changeInBonds);
+    }
+
+    function _registerExpectedSellBondsEvents(SellBondsTestCase memory testCase)
+        internal
+    {}
+
+    function _logSellBondsTestCase(SellBondsTestCase memory testCase)
+        internal
+        view
+    {
+        console2.log("    Pool._sellBonds");
+        console2.log("    -----------------------------------------------    ");
+        // console2.log("    amount                 = ", testCase.amount);
+        // console2.log(
+        //     "    cachedShareReserves    = ",
+        //     testCase.cachedShareReserves
+        // );
+        // console2.log(
+        //     "    cachedBondReserves     = ",
+        //     testCase.cachedBondReserves
+        // );
+        // console2.log("    userMintAmount         = ", testCase.userMintAmount);
+        // console2.log(
+        //     "    ptPoolMintAmount       = ",
+        //     testCase.poolPtMintAmount
+        // );
+        // console2.log("    valuePaid              = ", testCase.valuePaid);
+        // console2.log("    addedShares            = ", testCase.addedShares);
+        // console2.log("    changeInBonds          = ", testCase.changeInBonds);
+        // console2.log("    tradeFee               = ", testCase.tradeFee);
+        // console2.log(
+        //     "    governanceFeePercent   = ",
+        //     testCase.governanceFeePercent
+        // );
+        // console2.log("    impliedInterest        = ", testCase.impliedInterest);
+        // console2.log("    totalFee               = ", testCase.totalFee);
+        // console2.log("    govFee                 = ", testCase.govFee);
+        console2.log("");
+    }
 }
