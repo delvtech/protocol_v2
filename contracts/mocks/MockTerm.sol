@@ -123,6 +123,16 @@ contract MockTerm is Term {
         return (_currentPricePerShare * _shares) / one;
     }
 
+    uint256 internal _pricePerUnlockedShare;
+
+    function setPricePerUnlockedShare(uint256 _price) external {
+        _pricePerUnlockedShare = _price;
+    }
+
+    function unlockedSharePrice() external view override returns (uint256) {
+        return _pricePerUnlockedShare;
+    }
+
     function setFinalizedState(
         uint256 expiry,
         FinalizedState memory finalizedState
@@ -180,6 +190,28 @@ contract MockTerm is Term {
             _depositUnlockedLeftReturnValue,
             _depositUnlockedRightReturnValue
         );
+    }
+
+    uint256 internal _unlockValue;
+
+    function setUnlockReturnValue(uint256 _value) external {
+        _unlockValue = _value;
+    }
+
+    event Unlock(address destination, uint256 tokenId, uint256 amount);
+
+    function unlock(
+        address destination,
+        uint256[] memory tokenIds,
+        uint256[] memory amounts
+    ) external override returns (uint256) {
+        emit Unlock({
+            destination: destination,
+            tokenId: tokenIds[0],
+            amount: amounts[0]
+        });
+
+        return _unlockValue;
     }
 
     function createYTExternal(

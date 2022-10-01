@@ -219,7 +219,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         address destination,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external override returns (uint256) {
+    ) external virtual override returns (uint256) {
         // To release shares we delete any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
@@ -275,7 +275,13 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
     /// @notice Quotes the price per share for unlocked tokens
     /// @return the price per share of unlocked shares
-    function unlockedSharePrice() external view override returns (uint256) {
+    function unlockedSharePrice()
+        external
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         return _underlying(one, ShareState.Unlocked);
     }
 

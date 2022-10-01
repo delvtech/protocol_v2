@@ -1080,7 +1080,13 @@ contract PoolTest is ElementTest {
 
     struct SellBondsTestCase {
         uint256 amount;
-        LP.Reserve cachedReserve;
+        LP.Reserve reserve;
+        uint256 pricePerUnlockedShare;
+        uint256 userMintAmount;
+        uint256 newShareReserve;
+        uint256 newBondReserve;
+        uint256 outputShares;
+        uint256 valueSent;
     }
 
     function testSellBonds() public {
@@ -1088,8 +1094,61 @@ contract PoolTest is ElementTest {
 
         uint256[][] memory inputs = new uint256[][](9);
 
+        // amount
+        inputs[0] = new uint256[](3);
+        inputs[0][0] = 0;
+        inputs[0][1] = 1 ether;
+        inputs[0][2] = 1267126 ether + 1211212;
+
+        // reserve.shares
+        inputs[1] = new uint256[](3);
+        inputs[1][0] = 0;
+        inputs[1][1] = 1000 ether;
+        inputs[1][2] = 5555111.9999999999 ether;
+
+        // reserve.bonds
+        inputs[2] = new uint256[](3);
+        inputs[2][0] = 0;
+        inputs[2][1] = 10000 ether;
+        inputs[2][2] = 53333222.167777777777 ether;
+
+        // pricePerUnlockedShare
+        inputs[3] = new uint256[](3);
+        inputs[3][0] = 0;
+        inputs[3][1] = 1 ether;
+        inputs[3][2] = 1.1111 ether;
+
+        // userMintAmount
+        inputs[4] = new uint256[](2);
+        inputs[4][0] = 0;
+        inputs[4][1] = 100000000 ether;
+
+        // newShareReserve
+        inputs[5] = new uint256[](3);
+        inputs[5][0] = 0;
+        inputs[5][1] = 6126 ether + 1;
+        inputs[5][2] = 1212121 ether + 99999999999;
+
+        // newBondReserve
+        inputs[6] = new uint256[](3);
+        inputs[6][0] = 0;
+        inputs[6][1] = 5999 ether + 36e4;
+        inputs[6][2] = 9997999 ether + 1;
+
+        // outputShares
+        inputs[7] = new uint256[](3);
+        inputs[7][0] = 0;
+        inputs[7][1] = 0.99 ether;
+        inputs[7][2] = 111111111 ether;
+
+        // valueSent
+        inputs[8] = new uint256[](3);
+        inputs[8][0] = 0;
+        inputs[8][1] = 0.6666 ether;
+        inputs[8][2] = 9878777 ether;
+
         SellBondsTestCase[] memory testCases = _convertSellBondsTestCase(
-            Utils.generateTestingMatrix2(inputs)
+            Utils.generateTestingMatrix(inputs)
         );
 
         for (uint256 i = 0; i < testCases.length; i++) {
@@ -1105,10 +1164,7 @@ contract PoolTest is ElementTest {
                     pool.sellBondsExternal(
                         TERM_END,
                         testCase.amount,
-                        LP.Reserve({
-                            shares: testCase.cachedShareReserves,
-                            bonds: testCase.cachedBondReserves
-                        }),
+                        testCase.reserve,
                         user
                     )
                 {
@@ -1132,38 +1188,24 @@ contract PoolTest is ElementTest {
                     }
                 }
             } else {
-                uint256 userUnderlyingBalanceBefore = underlying.balanceOf(
-                    address(user)
-                );
-
-                uint256 poolPtBalanceBefore = term.balanceOf(
-                    TERM_END,
-                    address(pool)
-                );
-
                 _registerExpectedSellBondsEvents(testCase);
                 try
                     pool.sellBondsExternal(
                         TERM_END,
                         testCase.amount,
-                        LP.Reserve({
-                            shares: testCase.cachedShareReserves,
-                            bonds: testCase.cachedBondReserves
-                        }),
+                        testCase.reserve,
                         user
                     )
                 returns (
                     uint256 newShareReserve,
                     uint256 newBondReserve,
-                    uint256 bondsAmount
+                    uint256 valueSent
                 ) {
                     _validateSellBondsSuccess(
                         testCase,
                         newShareReserve,
                         newBondReserve,
-                        bondsAmount,
-                        userUnderlyingBalanceBefore,
-                        poolPtBalanceBefore
+                        valueSent
                     );
                 } catch (bytes memory err) {
                     _logSellBondsTestCase(testCase);
@@ -1178,9 +1220,7 @@ contract PoolTest is ElementTest {
         SellBondsTestCase memory testCase,
         uint256 newShareReserve,
         uint256 newBondReserve,
-        uint256 bondsAmount,
-        uint256 userUnderlyingBalanceBefore,
-        uint256 poolPtBalanceBefore
+        uint256 valueSent
     ) internal {}
 
     function _convertSellBondsTestCase(uint256[][] memory rawTestCases)
@@ -1190,33 +1230,22 @@ contract PoolTest is ElementTest {
     {
         testCases = new SellBondsTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
-            // uint256 valuePaid = rawTestCases[i][4];
-            // uint256 changeInBonds = rawTestCases[i][6];
-            // uint128 tradeFee = uint128(rawTestCases[i][7]);
-            // uint128 governanceFeePercent = uint128(rawTestCases[i][8]);
-            // uint256 impliedInterest;
-            // uint256 totalFee;
-            // uint256 govFee;
-            // if (changeInBonds >= valuePaid) {
-            //     impliedInterest = changeInBonds - valuePaid;
-            //     totalFee = (impliedInterest * tradeFee) / 1e18;
-            //     govFee = (totalFee * governanceFeePercent) / 1e18;
-            // }
-            // testCases[i] = SellBondsTestCase({
-            //     amount: rawTestCases[i][0],
-            //     cachedShareReserves: uint128(rawTestCases[i][1]),
-            //     cachedBondReserves: uint128(rawTestCases[i][1]),
-            //     userMintAmount: rawTestCases[i][2],
-            //     poolPtMintAmount: rawTestCases[i][3],
-            //     valuePaid: valuePaid,
-            //     addedShares: rawTestCases[i][5],
-            //     changeInBonds: changeInBonds,
-            //     tradeFee: tradeFee,
-            //     governanceFeePercent: governanceFeePercent,
-            //     impliedInterest: impliedInterest,
-            //     totalFee: totalFee,
-            //     govFee: govFee
-            // });
+            uint256[] memory rawTestCase = rawTestCases[i];
+            _validateTestCaseLength(rawTestCase, 9);
+
+            testCases[i] = SellBondsTestCase({
+                amount: rawTestCase[0],
+                reserve: LP.Reserve({
+                    shares: uint128(rawTestCase[1]),
+                    bonds: uint128(rawTestCase[2])
+                }),
+                pricePerUnlockedShare: rawTestCase[3],
+                userMintAmount: rawTestCase[4],
+                newShareReserve: rawTestCase[5],
+                newBondReserve: rawTestCase[6],
+                outputShares: rawTestCase[7],
+                valueSent: rawTestCase[8]
+            });
         }
     }
 
@@ -1241,33 +1270,22 @@ contract PoolTest is ElementTest {
         pool = new MockPool(
             ITerm(address(term)),
             IERC20(address(underlying)),
-            testCase.tradeFee,
+            TRADE_FEE,
             factory.ERC20LINK_HASH(),
             governance,
             address(factory)
         );
 
-        // changePrank(governance);
-        // pool.updateGovernanceFeePercent(testCase.governanceFeePercent);
-        // changePrank(user);
+        term.setApproval(TERM_END, address(pool), type(uint256).max);
+        term.mintExternal(TERM_END, user, testCase.userMintAmount);
 
-        // underlying.approve(address(pool), type(uint256).max);
-        // underlying.mint(user, testCase.userMintAmount);
-
-        // if (testCase.changeInBonds >= testCase.totalFee) {
-        //     term.mintExternal(
-        //         TERM_END,
-        //         address(pool),
-        //         testCase.poolPtMintAmount
-        //     );
-        // }
-
-        // term.setDepositUnlockedReturnValues(
-        //     testCase.valuePaid,
-        //     testCase.addedShares
-        // );
-
-        // pool.setTradeCalculationReturnValue(testCase.changeInBonds);
+        term.setPricePerUnlockedShare(testCase.pricePerUnlockedShare);
+        pool.setQuoteSaleAndFeesReturnValues(
+            testCase.newShareReserve,
+            testCase.newBondReserve,
+            testCase.outputShares
+        );
+        term.setUnlockReturnValue(testCase.valueSent);
     }
 
     function _registerExpectedSellBondsEvents(SellBondsTestCase memory testCase)
@@ -1280,31 +1298,40 @@ contract PoolTest is ElementTest {
     {
         console2.log("    Pool._sellBonds");
         console2.log("    -----------------------------------------------    ");
-        // console2.log("    amount                 = ", testCase.amount);
-        // console2.log(
-        //     "    cachedShareReserves    = ",
-        //     testCase.cachedShareReserves
-        // );
-        // console2.log(
-        //     "    cachedBondReserves     = ",
-        //     testCase.cachedBondReserves
-        // );
-        // console2.log("    userMintAmount         = ", testCase.userMintAmount);
-        // console2.log(
-        //     "    ptPoolMintAmount       = ",
-        //     testCase.poolPtMintAmount
-        // );
-        // console2.log("    valuePaid              = ", testCase.valuePaid);
-        // console2.log("    addedShares            = ", testCase.addedShares);
-        // console2.log("    changeInBonds          = ", testCase.changeInBonds);
-        // console2.log("    tradeFee               = ", testCase.tradeFee);
-        // console2.log(
-        //     "    governanceFeePercent   = ",
-        //     testCase.governanceFeePercent
-        // );
-        // console2.log("    impliedInterest        = ", testCase.impliedInterest);
-        // console2.log("    totalFee               = ", testCase.totalFee);
-        // console2.log("    govFee                 = ", testCase.govFee);
+        console2.log("    amount                       = ", testCase.amount);
+        console2.log(
+            "    reserve.shares               = ",
+            testCase.reserve.shares
+        );
+        console2.log(
+            "    reserve.bonds                = ",
+            testCase.reserve.bonds
+        );
+        console2.log(
+            "    pricePerUnlockedShare        = ",
+            testCase.pricePerUnlockedShare
+        );
+        console2.log(
+            "    userMintAmount               = ",
+            testCase.userMintAmount
+        );
+        console2.log(
+            "    poolUnderlyingMintAmount     = ",
+            testCase.userMintAmount
+        );
+        console2.log(
+            "    newShareReserve              = ",
+            testCase.newShareReserve
+        );
+        console2.log(
+            "    newBondReserve               = ",
+            testCase.newBondReserve
+        );
+        console2.log(
+            "    outputShares                 = ",
+            testCase.outputShares
+        );
+        console2.log("    valueSent                    = ", testCase.valueSent);
         console2.log("");
     }
 }
