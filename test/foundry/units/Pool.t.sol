@@ -1301,9 +1301,47 @@ contract PoolTest is ElementTest {
         term.setUnlockReturnValue(testCase.valueSent);
     }
 
+    event QuoteSaleAndFees(
+        uint256 poolId,
+        uint256 amount,
+        uint128 reserveShares,
+        uint128 reserveBonds,
+        uint256 pricePerShare
+    );
+
+    event Unlock(address destination, uint256 tokenId, uint256 amount);
+
     function _registerExpectedSellBondsEvents(SellBondsTestCase memory testCase)
         internal
-    {}
+    {
+        expectStrictEmit();
+        emit TransferSingle(
+            address(pool),
+            user,
+            address(pool),
+            TERM_END,
+            testCase.amount
+        );
+
+        expectStrictEmit();
+        emit QuoteSaleAndFees(
+            TERM_END,
+            testCase.amount,
+            testCase.reserve.shares,
+            testCase.reserve.bonds,
+            testCase.pricePerUnlockedShare
+        );
+
+        expectStrictEmit();
+        emit UpdateOracle(
+            TERM_END,
+            testCase.newShareReserve,
+            testCase.newBondReserve
+        );
+
+        expectStrictEmit();
+        emit Unlock(user, term.UNLOCKED_YT_ID(), testCase.outputShares);
+    }
 
     function _logSellBondsTestCase(SellBondsTestCase memory testCase)
         internal
