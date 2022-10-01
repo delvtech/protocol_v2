@@ -1225,11 +1225,26 @@ contract PoolTest is ElementTest {
         uint256 valueSent,
         uint256 prevUserPtBalance
     ) internal {
-        uint256 postUserPtBalance = term.balanceOf(TERM_END, user);
-        assertEq(prevUserPtBalance - postUserPtBalance, testCase.amount);
-        assertEq(newShareReserve, testCase.newShareReserve);
-        assertEq(newBondReserve, testCase.newBondReserve);
-        assertEq(valueSent, testCase.valueSent);
+        uint256 userBalanceDiff = prevUserPtBalance -
+            term.balanceOf(TERM_END, user);
+
+        if (userBalanceDiff != testCase.amount) {
+            _logSellBondsTestCase(testCase);
+            assertEq(userBalanceDiff, testCase.amount);
+        }
+
+        if (newShareReserve != testCase.newShareReserve) {
+            _logSellBondsTestCase(testCase);
+            assertEq(newShareReserve, testCase.newShareReserve);
+        }
+        if (newBondReserve != testCase.newBondReserve) {
+            _logSellBondsTestCase(testCase);
+            assertEq(newBondReserve, testCase.newBondReserve);
+        }
+        if (valueSent != testCase.valueSent) {
+            _logSellBondsTestCase(testCase);
+            assertEq(valueSent, testCase.valueSent);
+        }
     }
 
     function _convertSellBondsTestCase(uint256[][] memory rawTestCases)
