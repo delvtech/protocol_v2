@@ -449,9 +449,8 @@ contract Pool is LP, Authorizable, TWAROracle {
         // Calculate the new reserves
         // The new share reserve is the added shares plus current and
         uint256 newShareReserve = cachedReserve.shares + addedShares;
-        // the new bonds reserve is the current - change + (totalFee - govFee)
-        uint256 newBondReserve = cachedReserve.bonds -
-            changeInBonds +
+        // the new bonds reserve is the (current - change) + (totalFee - govFee)
+        uint256 newBondReserve = (cachedReserve.bonds - changeInBonds) +
             (totalFee - govFee);
 
         // Update oracle
@@ -601,7 +600,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 poolId,
         uint256 newShareReserve,
         uint256 newBondReserve
-    ) internal {
+    ) internal virtual {
         // NOTE - While the oracle prevent updates to un-initialized buffers this logic makes several sloads
         //        so by checking the initialization before calling into the oracle we optimize for gas.
         if (_buffers[poolId].length != 0) {
@@ -638,7 +637,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 bondReserve,
         uint256 pricePerShare,
         bool isBondOut
-    ) internal view returns (uint256) {
+    ) internal view virtual returns (uint256) {
         // Load the mu and time stretch
         SubPoolParameters memory params = parameters[expiry];
         // Normalize the seconds till expiry into 18 point

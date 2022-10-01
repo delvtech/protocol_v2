@@ -245,6 +245,14 @@ contract MockTerm is Term {
         return (1, 2);
     }
 
+    function mintExternal(
+        uint256 tokenID,
+        address to,
+        uint256 amount
+    ) external {
+        _mint(tokenID, to, amount);
+    }
+
     function parseAssetIdExternal(uint256 _assetId)
         external
         view

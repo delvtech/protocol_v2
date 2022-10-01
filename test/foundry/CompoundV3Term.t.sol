@@ -180,7 +180,7 @@ library CompoundV3TermHelper {
     }
 }
 
-contract CompoundV3TermTest is Test {
+contract CompoundV3TermIntegrationTest is Test {
     CompoundV3Term public term;
     Comet public compound;
 
