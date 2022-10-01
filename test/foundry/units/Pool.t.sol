@@ -1188,6 +1188,7 @@ contract PoolTest is ElementTest {
                     }
                 }
             } else {
+                uint256 prevUserPtBalance = term.balanceOf(TERM_END, user);
                 _registerExpectedSellBondsEvents(testCase);
                 try
                     pool.sellBondsExternal(
@@ -1205,7 +1206,8 @@ contract PoolTest is ElementTest {
                         testCase,
                         newShareReserve,
                         newBondReserve,
-                        valueSent
+                        valueSent,
+                        prevUserPtBalance
                     );
                 } catch (bytes memory err) {
                     _logSellBondsTestCase(testCase);
@@ -1220,8 +1222,15 @@ contract PoolTest is ElementTest {
         SellBondsTestCase memory testCase,
         uint256 newShareReserve,
         uint256 newBondReserve,
-        uint256 valueSent
-    ) internal {}
+        uint256 valueSent,
+        uint256 prevUserPtBalance
+    ) internal {
+        uint256 postUserPtBalance = term.balanceOf(TERM_END, user);
+        assertEq(prevUserPtBalance - postUserPtBalance, testCase.amount);
+        assertEq(newShareReserve, testCase.newShareReserve);
+        assertEq(newBondReserve, testCase.newBondReserve);
+        assertEq(valueSent, testCase.valueSent);
+    }
 
     function _convertSellBondsTestCase(uint256[][] memory rawTestCases)
         internal
