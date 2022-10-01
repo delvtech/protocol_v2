@@ -1254,6 +1254,10 @@ contract PoolTest is ElementTest {
         view
         returns (bool testCaseIsError, bytes memory reason)
     {
+        if (testCase.userMintAmount < testCase.amount) {
+            return (true, stdError.arithmeticError);
+        }
+
         return (false, new bytes(0));
     }
 
