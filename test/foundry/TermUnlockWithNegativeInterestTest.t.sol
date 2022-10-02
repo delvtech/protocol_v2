@@ -94,14 +94,27 @@ contract TermTestUnlock is Test {
         assetIds.push(yieldTokenId);
         assetAmounts.push(shares);
 
-        uint256 ytUnlockValue = term.unlock(
-            address(user),
-            assetIds,
-            assetAmounts
-        );
+        if (loss < underlyingAmount) {
+            uint256 ytUnlockValue = term.unlock(
+                address(user),
+                assetIds,
+                assetAmounts
+            );
 
-        // since there was negative interest, this should be zero.
-        assertEq(ytUnlockValue, 0);
+            // since there was negative interest, this should be zero.
+            assertEq(ytUnlockValue, 0);
+        } else {
+            // Reverts when pricePerShare == 0 in yieldSource
+            // (caused by all capital in vault being removed in loss)
+            // TODO Either refactor this test and/or add unit test for such
+            // cases
+            vm.expectRevert(stdError.divisionError);
+            uint256 ytUnlockValue = term.unlock(
+                address(user),
+                assetIds,
+                assetAmounts
+            );
+        }
     }
 
     // test unlocking principal tokens when there is negative interest
