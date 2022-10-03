@@ -86,15 +86,17 @@ contract LPTest is ElementTest {
         inputs[2][3] = 2 ether;
 
         // totalSupply
-        inputs[3] = new uint256[](2);
-        inputs[3][0] = 1 ether;
-        inputs[3][1] = 2 ether;
+        inputs[3] = new uint256[](3);
+        inputs[3][0] = 0;
+        inputs[3][1] = 1 ether;
+        inputs[3][2] = 2 ether;
 
         //pricePerShare
-        inputs[4] = new uint256[](2);
-        inputs[4][0] = 1 ether;
-        inputs[4][1] = 1.5 ether;
-        inputs[4][1] = 3 ether; // higher than 100% interest
+        inputs[4] = new uint256[](4);
+        inputs[4][0] = 0;
+        inputs[4][1] = 1 ether;
+        inputs[4][2] = 1.5 ether;
+        inputs[4][3] = 3 ether; // higher than 100% interest
 
         // poolId
         inputs[5] = new uint256[](2);
@@ -226,6 +228,10 @@ contract LPTest is ElementTest {
                 true,
                 abi.encodeWithSelector(ElementError.TermExpired.selector)
             );
+        }
+
+        if (testCase.pricePerShare == 0) {
+            return (true, stdError.divisionError);
         }
     }
 
