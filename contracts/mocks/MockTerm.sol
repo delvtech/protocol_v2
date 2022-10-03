@@ -305,7 +305,7 @@ contract MockTerm is Term {
 
     function parseAssetIdExternal(uint256 _assetId)
         external
-        view
+        pure
         returns (
             bool,
             uint256,

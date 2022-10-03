@@ -676,7 +676,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     /// @param assetId A YT or PT id
     function _parseAssetId(uint256 assetId)
         internal
-        view
+        pure
         returns (
             bool isYieldToken,
             uint256 startDate,

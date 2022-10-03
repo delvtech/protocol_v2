@@ -20,7 +20,7 @@ contract MockPool is Pool {
             _governanceContract,
             _erc20ForwarderFactory
         )
-    {}
+    {} // solhint-disable-line no-empty-blocks
 
     function setFees(
         uint256 poolId,
@@ -59,6 +59,7 @@ contract MockPool is Pool {
 
     function _mockTrade()
         internal
+        view
         returns (
             uint256,
             uint256,
@@ -187,19 +188,21 @@ contract MockPool is Pool {
         emit Update(poolId, newBondBalance, newSharesBalance);
     }
 
-    uint256 _tradeCalculationOutput;
+    uint256 internal _tradeCalculationOutput;
 
     function setTradeCalculationReturnValue(uint256 val) external {
         _tradeCalculationOutput = val;
     }
 
+    // NOTE: we cannot emit an event here since this is a view function.
+    // emitting an event is considered modifying state.
     function _tradeCalculation(
-        uint256 expiry,
-        uint256 input,
-        uint256 shareReserve,
-        uint256 bondReserve,
-        uint256 pricePerShare,
-        bool isBondOut
+        uint256, // expiry
+        uint256, // input
+        uint256, // shareReserve
+        uint256, // bondReserve
+        uint256, // pricePerShare
+        bool // isBondOut
     ) internal view override returns (uint256) {
         return _tradeCalculationOutput;
     }

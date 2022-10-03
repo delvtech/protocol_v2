@@ -166,7 +166,7 @@ contract LPTest is ElementTest {
                 }
                 // otherwise call the method and check the result
             } else {
-                _validateDepositSharesTestCase(testCase, i);
+                _validateDepositSharesTestCase(testCase);
             }
         }
     }
@@ -333,12 +333,12 @@ contract LPTest is ElementTest {
         uint256 sharesToLock,
         uint256 newLpToken
     ) internal {
-        expectStrictEmit();
         uint256[] memory assetIds = new uint256[](1);
         uint256[] memory assetAmounts = new uint256[](1);
         assetIds[0] = _UNLOCKED_TERM_ID;
         assetAmounts[0] = sharesToLock;
 
+        expectStrictEmit();
         emit Lock(
             assetIds,
             assetAmounts,
@@ -350,6 +350,7 @@ contract LPTest is ElementTest {
             testCase.poolId
         );
 
+        expectStrictEmit();
         emit TransferSingle(
             address(user),
             address(0),
