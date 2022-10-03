@@ -44,7 +44,7 @@ contract MockCompoundV3Term is CompoundV3Term {
             _yieldSharesIssued);
     }
 
-    function get_yieldSharesIssued() public returns (uint256) {
+    function getYieldSharesIssued() public returns (uint256) {
         return (_yieldSharesIssued);
     }
 
