@@ -41,11 +41,11 @@ contract MockCompoundV3Term is CompoundV3Term {
         returns (uint256)
     {
         return ((shares * yieldSource.balanceOf(address(this))) /
-            yieldSharesIssued);
+            _yieldSharesIssued);
     }
 
-    function getYieldSharesIssued() public returns (uint256) {
-        return (yieldSharesIssued);
+    function get_yieldSharesIssued() public returns (uint256) {
+        return (_yieldSharesIssued);
     }
 
     function underlyingAsYieldShares(uint256 underlying)
@@ -53,7 +53,7 @@ contract MockCompoundV3Term is CompoundV3Term {
         view
         returns (uint256)
     {
-        return ((underlying * yieldSharesIssued) /
+        return ((underlying * _yieldSharesIssued) /
             yieldSource.balanceOf(address(this)));
     }
 }
