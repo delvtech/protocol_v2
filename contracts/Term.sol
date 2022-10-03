@@ -79,7 +79,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         address ptDestination,
         uint256 ytBeginDate,
         uint256 expiration
-    ) external returns (uint256, uint256) {
+    ) external virtual returns (uint256, uint256) {
         // If the user enters something larger than the current timestamp we set the yt
         // expiry to the current timestamp
         ytBeginDate = ytBeginDate >= block.timestamp

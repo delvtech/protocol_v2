@@ -11,6 +11,56 @@ contract MockTerm is Term {
         address _owner
     ) Term(_linkerCodeHash, _factory, _token, _owner) {} /* solhint-disable-line no-empty-blocks */
 
+    // ####################
+    // ###     lock     ###
+    // ####################
+    event Lock(
+        uint256[] assetIds,
+        uint256[] assetAmounts,
+        uint256 underlyingAmount,
+        bool hasPreFunding,
+        address ytDestination,
+        address ptDestination,
+        uint256 ytBeginDate,
+        uint256 expiration
+    );
+
+    uint256 internal _lockPrincipalTokensReturnValue;
+    uint256 internal _lockYieldTokensReturnValue;
+
+    function setLockValues(uint256 principalTokens, uint256 yieldTokens)
+        external
+    {
+        _lockPrincipalTokensReturnValue = principalTokens;
+        _lockYieldTokensReturnValue = yieldTokens;
+    }
+
+    function lock(
+        uint256[] memory assetIds,
+        uint256[] memory assetAmounts,
+        uint256 underlyingAmount,
+        bool hasPreFunding,
+        address ytDestination,
+        address ptDestination,
+        uint256 ytBeginDate,
+        uint256 expiration
+    ) external override returns (uint256, uint256) {
+        emit Lock(
+            assetIds,
+            assetAmounts,
+            underlyingAmount,
+            hasPreFunding,
+            ytDestination,
+            ptDestination,
+            ytBeginDate,
+            expiration
+        );
+        return (_lockPrincipalTokensReturnValue, _lockYieldTokensReturnValue);
+    }
+
+    // ####################
+    // ###   _convert   ###
+    // ####################
     uint256 internal _convertReturnValue;
 
     function setConvertReturnValue(uint256 _value) external {
