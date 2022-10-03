@@ -357,14 +357,5 @@ contract LPTest is ElementTest {
             testCase.poolId,
             newLpToken
         );
-
-        expectStrictEmit();
-        emit TransferSingle(
-            address(user),
-            address(0),
-            address(user),
-            testCase.poolId,
-            newLpToken
-        );
     }
 }
