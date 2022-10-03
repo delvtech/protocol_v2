@@ -193,27 +193,27 @@ contract CompoundV3Term is Term {
 
     /// @notice Withdraws underlying from Compound
     /// @param _shares Amount of "shares" user will redeem for underlying
-    /// @param _dest Address underlying will be sent to
+    /// @param _destination Address underlying will be sent to
     /// @param _state The context designation of the shares
     /// @return Returns the amount of underlying redeemed for amount of shares
     function _withdraw(
         uint256 _shares,
-        address _dest,
+        address _destination,
         ShareState _state
     ) internal override returns (uint256) {
         return
             _state == ShareState.Locked
-                ? _withdrawLocked(_shares, _dest)
-                : _withdrawUnlocked(_shares, _dest);
+                ? _withdrawLocked(_shares, _destination)
+                : _withdrawUnlocked(_shares, _destination);
     }
 
     /// @notice Withdraws underlying directly from Compound using
     ///         "shares" which are directly proportional to "yieldShares"
     /// @param _shares Amount of "shares" user will redeem for underlying
-    /// @param _dest Address underlying will be sent to
+    /// @param _destination Address underlying will be sent to
     /// @return underlying Returns the amount of underlying redeemed for amount
     ///         of shares
-    function _withdrawLocked(uint256 _shares, address _dest)
+    function _withdrawLocked(uint256 _shares, address _destination)
         internal
         returns (uint256 underlying)
     {
@@ -221,7 +221,7 @@ contract CompoundV3Term is Term {
         underlying = yieldSharesAsUnderlying(_shares);
 
         /// Withdraw `underlying` from Compound
-        yieldSource.withdrawTo(_dest, address(token), underlying);
+        yieldSource.withdrawTo(_destination, address(token), underlying);
 
         /// Redeem back the `yieldShares`
         yieldSharesIssued -= _shares;
@@ -231,10 +231,10 @@ contract CompoundV3Term is Term {
     ///         `underlyingReserve` or by redeeming a portion of the
     ///         `yieldShareReserve` for more underlying
     /// @param _shares Amount of "shares" user will redeem for underlying
-    /// @param _dest Address underlying will be sent to
+    /// @param _destination Address underlying will be sent to
     /// @return underlying Returns the amount of underlying redeemed for amount
     ///         of shares
-    function _withdrawUnlocked(uint256 _shares, address _dest)
+    function _withdrawUnlocked(uint256 _shares, address _destination)
         internal
         returns (uint256 underlying)
     {
@@ -284,7 +284,7 @@ contract CompoundV3Term is Term {
             _setReserves(underlyingReserve_ - underlying, yieldShareReserve_);
 
             /// Transfers underlying due to `_dest`
-            token.transfer(_dest, underlying);
+            token.transfer(_destination, underlying);
         } else {
             /// Check if underlying value of yieldShareReserve can cover the
             /// amount of underlying due to the user
@@ -296,7 +296,7 @@ contract CompoundV3Term is Term {
                 );
 
                 /// Transfer underlying due to `_dest`
-                token.transfer(_dest, underlying);
+                token.transfer(_destination, underlying);
 
                 /// Account for yieldShares being redeemed
                 yieldSharesIssued -= yieldShareReserve_;
@@ -317,7 +317,11 @@ contract CompoundV3Term is Term {
                     underlying) / accruedUnderlying;
 
                 /// Withdraws `underlying`
-                yieldSource.withdrawTo(_dest, address(token), underlying);
+                yieldSource.withdrawTo(
+                    _destination,
+                    address(token),
+                    underlying
+                );
 
                 /// Account for yieldShares being redeemed
                 yieldSharesIssued -= underlyingAsYieldShares_;

@@ -128,34 +128,45 @@ contract MockTerm is Term {
         return (_depositLeftReturnValue, _depositRightReturnValue);
     }
 
-    uint256 internal _withdrawReturnValue;
-
-    function setWithdrawReturnValue(uint256 _value) external {
-        _withdrawReturnValue = _value;
-    }
+    event Withdraw(uint256 shares, address destination, ShareState shareState);
 
     function _withdraw(
-        uint256,
-        address,
-        ShareState
-    ) internal view override returns (uint256) {
-        return _withdrawReturnValue;
+        uint256 _shares,
+        address _destination,
+        ShareState _shareState
+    ) internal override returns (uint256) {
+        emit Withdraw(_shares, _destination, _shareState);
+        if (_shareState == ShareState.Locked) {
+            return (_shares * _currentPricePerShareLocked) / one;
+        } else {
+            return (_shares * _currentPricePerShareUnlocked) / one;
+        }
     }
 
-    uint256 internal _currentPricePerShare;
+    uint256 internal _currentPricePerShareLocked;
+    uint256 internal _currentPricePerShareUnlocked;
 
-    // TODO: We may ultimately want to set this value for locked and unlocked.
-    function setCurrentPricePerShare(uint256 _price) external {
-        _currentPricePerShare = _price;
+    function setCurrentPricePerShare(uint256 _price, ShareState _shareState)
+        external
+    {
+        if (_shareState == ShareState.Locked) {
+            _currentPricePerShareLocked = _price;
+        } else {
+            _currentPricePerShareUnlocked = _price;
+        }
     }
 
-    function _underlying(uint256 _shares, ShareState)
+    function _underlying(uint256 _shares, ShareState _shareState)
         internal
         view
         override
         returns (uint256)
     {
-        return (_currentPricePerShare * _shares) / one;
+        if (_shareState == ShareState.Locked) {
+            return (_currentPricePerShareLocked * _shares) / one;
+        } else {
+            return (_currentPricePerShareUnlocked * _shares) / one;
+        }
     }
 
     uint256 internal _pricePerUnlockedShare;
@@ -244,12 +255,24 @@ contract MockTerm is Term {
             );
     }
 
+    event ReleaseAsset(uint256 assetId, address source, uint256 amount);
+
     function releaseAssetExternal(
         uint256 assetId,
         address source,
         uint256 amount
     ) external returns (uint256, uint256) {
         return super._releaseAsset(assetId, source, amount);
+    }
+
+    function _releaseAsset(
+        uint256 assetId,
+        address source,
+        uint256 amount
+    ) internal override returns (uint256, uint256) {
+        emit ReleaseAsset(assetId, source, amount);
+        // TODO: Is there a better return value here?
+        return (amount, amount);
     }
 
     event FinalizeTerm(uint256 expiry);
