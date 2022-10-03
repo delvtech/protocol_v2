@@ -13,8 +13,9 @@ import { ElementTest } from "test/ElementTest.sol";
 import { Utils } from "test/Utils.sol";
 
 contract LPTest is ElementTest {
-    error ExpectedLpTokensNotEqual(uint256 value, uint256 expected);
+    error ExpectedSharesNotEqual(uint256 value, uint256 expected);
     error ExpectedBondsNotEqual(uint256 value, uint256 expected);
+    error ExpectedLpTokensNotEqual(uint256 value, uint256 expected);
 
     uint256 internal constant _UNLOCKED_TERM_ID = 1 << 255;
     address public user = makeAddress("User");
@@ -264,19 +265,28 @@ contract LPTest is ElementTest {
             address(user)
         );
         (uint128 shares, uint128 bonds) = lp.reserves(poolId);
-        if (
-            shares != currentShares + increaseInShares ||
-            bonds != currentBonds + neededBonds
-        ) {
+        // make sure reserve state for shares checks out
+        if (shares != currentShares + increaseInShares) {
             assertEq(
                 shares,
                 currentShares + increaseInShares,
                 "shares not equal"
             );
+            _logDepositSharesTestCase(testCase);
+            revert ExpectedSharesNotEqual(
+                shares,
+                currentShares + increaseInShares
+            );
+        }
+
+        // make sure reserve state for bonds checks out
+        if (bonds != currentBonds + neededBonds) {
             assertEq(bonds, currentBonds + neededBonds, "bonds not equal");
             _logDepositSharesTestCase(testCase);
             revert ExpectedBondsNotEqual(bonds, currentBonds + neededBonds);
         }
+
+        // make sure correct number of lp tokens are created
         if (result != newLpToken) {
             assertEq(result, newLpToken, "lp token result unexpected");
             _logDepositSharesTestCase(testCase);
