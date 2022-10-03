@@ -302,7 +302,7 @@ contract LP is MultiToken {
         uint256 poolId,
         uint256 amount,
         address source
-    ) internal returns (uint256 userShares, uint256 userBonds) {
+    ) internal virtual returns (uint256 userShares, uint256 userBonds) {
         // Load the reserves
         uint256 reserveBonds = uint256(reserves[poolId].bonds);
         uint256 reserveShares = uint256(reserves[poolId].shares);

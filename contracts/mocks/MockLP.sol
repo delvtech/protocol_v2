@@ -38,6 +38,9 @@ contract MockLP is LP {
         _mint(poolId, owner, value);
     }
 
+    // ##############################
+    // ###   _depositFromShares   ###
+    // ##############################
     event DepositFromShares(
         uint256 poolId,
         uint256 currentShares,
@@ -86,4 +89,40 @@ contract MockLP is LP {
                 to
             );
     }
+
+    // #############################
+    // ###   _withdrawToShares   ###
+    // #############################
+    event WithdrawToShares(uint256 poolId, uint256 amount, address source);
+
+    uint256 internal _withdrawSharesValue;
+    uint256 internal _withdrawBondsValue;
+
+    function setWithdrawToSharesReturnValues(
+        uint256 sharesValue,
+        uint256 bondsValue
+    ) public {
+        _withdrawSharesValue = sharesValue;
+        _withdrawBondsValue = bondsValue;
+    }
+
+    // use this to stub calls to _withdrawFromShares
+    function _withdrawToShares(
+        uint256 poolId,
+        uint256 amount,
+        address source
+    ) internal override returns (uint256, uint256) {
+        emit WithdrawToShares(poolId, amount, source);
+        return (_withdrawSharesValue, _withdrawBondsValue);
+    }
+
+    // use this to test the actual _withdrawToShares method
+    function withdrawToSharesExternal(
+        uint256 poolId,
+        uint256 amount,
+        address source
+    ) external returns (uint256, uint256) {
+        return super._withdrawToShares(poolId, amount, source);
+    }
+    // ------------------------- //
 }
