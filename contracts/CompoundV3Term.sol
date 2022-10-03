@@ -2,13 +2,13 @@
 
 pragma solidity ^0.8.15;
 
-import "./GasReserveTerm.sol";
+import "./TransactionCacheTerm.sol";
 import "./interfaces/ICompoundV3.sol";
 
 /// Docs: https://c3-docs.compound.finance/
-contract CompoundV3Term is GasReserveTerm {
+contract CompoundV3Term is TransactionCacheTerm {
     /// This implements the Compound Comet protocol as a yield source via
-    /// the GasReserveTerm.
+    /// the TransactionCacheTerm.
 
     // Inheritance Map -
     //
@@ -18,7 +18,7 @@ contract CompoundV3Term is GasReserveTerm {
     //                          Term
     //                            |
     //                            v
-    //                        GasReserve
+    //                     TransactionCache
     //                        |        \
     //                        v          v
     // YOU ARE HERE -> CompoundTerm   4626Term
@@ -45,7 +45,7 @@ contract CompoundV3Term is GasReserveTerm {
         uint256 _maxReserve,
         address _owner
     )
-        GasReserveTerm(
+        TransactionCacheTerm(
             _linkerCodeHash,
             _factory,
             _maxReserve,
@@ -60,6 +60,7 @@ contract CompoundV3Term is GasReserveTerm {
     /// @notice Adds new funds to Compound and returns a share amount which
     ///         accounts for the interest from previous users.
     /// @param  amount The number of underlying to supply.
+    /// @return shares The shares that have been produced by this deposit
     function _depositToYieldSource(uint256 amount)
         internal
         override
@@ -91,8 +92,9 @@ contract CompoundV3Term is GasReserveTerm {
 
     /// @notice Withdraws the user from compound by calculating how much of the underlying and interest
     ///         that their percent of the held assets are. Sends the assets to a destination
-    /// @param shares The number of yield shares the user owns.
+    /// @param shares The number of yielding shares the user owns.
     /// @param dest The address to send the result of the withdraw to
+    /// @return amount The underlying released by this withdraw
     function _withdrawFromYieldSource(uint256 shares, address dest)
         internal
         override

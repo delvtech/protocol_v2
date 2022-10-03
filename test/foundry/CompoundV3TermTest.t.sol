@@ -161,7 +161,7 @@ library CompoundV3TermHelper {
         MockCompoundV3Term term,
         uint256 underlying
     ) public view returns (uint256 shares) {
-        (, , , uint256 impliedUnderlyingReserve) = term.reserveDetails();
+        (, , , uint256 impliedUnderlyingReserve) = term.cacheDetails();
         shares =
             (underlying * term.totalSupply(term.UNLOCKED_YT_ID())) /
             impliedUnderlyingReserve;
@@ -172,7 +172,7 @@ library CompoundV3TermHelper {
         view
         returns (uint256 underlying)
     {
-        (, , , uint256 impliedUnderlyingReserve) = term.reserveDetails();
+        (, , , uint256 impliedUnderlyingReserve) = term.cacheDetails();
         underlying =
             (shares * impliedUnderlyingReserve) /
             term.totalSupply(term.UNLOCKED_YT_ID());
@@ -261,7 +261,7 @@ contract CompoundV3TermTest is Test {
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
@@ -315,7 +315,7 @@ contract CompoundV3TermTest is Test {
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
             uint256 prevImpliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
@@ -340,7 +340,7 @@ contract CompoundV3TermTest is Test {
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
@@ -386,7 +386,7 @@ contract CompoundV3TermTest is Test {
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
             uint256 prevImpliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
@@ -399,7 +399,7 @@ contract CompoundV3TermTest is Test {
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
@@ -442,7 +442,7 @@ contract CompoundV3TermTest is Test {
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
             uint256 prevImpliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
         uint256 targetReserve = term.targetReserve();
@@ -472,7 +472,7 @@ contract CompoundV3TermTest is Test {
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
@@ -542,7 +542,7 @@ contract CompoundV3TermTest is Test {
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
             uint256 prevImpliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
         uint256 prevPrincipalTokenBalance = term.balanceOf(PT_ID, user);
@@ -569,7 +569,7 @@ contract CompoundV3TermTest is Test {
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
@@ -622,7 +622,7 @@ contract CompoundV3TermTest is Test {
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
             uint256 prevImpliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
@@ -650,7 +650,7 @@ contract CompoundV3TermTest is Test {
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
@@ -703,7 +703,7 @@ contract CompoundV3TermTest is Test {
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
             uint256 prevImpliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
@@ -732,7 +732,7 @@ contract CompoundV3TermTest is Test {
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
@@ -802,7 +802,7 @@ contract CompoundV3TermTest is Test {
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
             uint256 prevImpliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
         uint256 prevLockedShares = prevYieldSharesIssued -
             prevYieldShareReserve;
@@ -827,7 +827,7 @@ contract CompoundV3TermTest is Test {
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
         uint256 lockedShares = yieldSharesIssued - yieldShareReserve;
         uint256 unlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
@@ -884,7 +884,7 @@ contract CompoundV3TermTest is Test {
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
             uint256 prevImpliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
 
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
         uint256 prevLockedShares = prevYieldSharesIssued -
@@ -922,7 +922,7 @@ contract CompoundV3TermTest is Test {
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
             uint256 impliedUnderlyingReserve
-        ) = term.reserveDetails();
+        ) = term.cacheDetails();
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
         uint256 lockedShares = yieldSharesIssued - yieldShareReserve;
         uint256 unlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);

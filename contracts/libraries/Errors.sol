@@ -30,7 +30,7 @@ library ElementError {
     error StartDateMustBeNonZero();
     error InvalidYieldTokenCreation();
     error IncongruentPrincipalAndYieldTokenIds();
-    error VaultShareReserveTooLow();
+    error TransactionCacheTooLow();
     error NegativeInterest();
     error InvalidStart();
 

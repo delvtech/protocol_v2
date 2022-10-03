@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.15;
 
-import "./GasReserveTerm.sol";
+import "./TransactionCacheTerm.sol";
 import "./interfaces/IERC4626.sol";
 import "./interfaces/IERC20.sol";
 import "./MultiToken.sol";
@@ -10,9 +10,9 @@ import "./libraries/Errors.sol";
 
 /// @title Term contract instance for the EIP-4626 Tokenized Vault Standard
 
-/// @notice ERC4626Term is an implementation of the GasReserveTerm which is used
+/// @notice ERC4626Term is an implementation of the TransactionCacheTerm which is used
 /// to interface the Element Protocol with yield bearing positions. This code
-/// only handles external calls to the 4626 vault and the abtract GasReserveTerm
+/// only handles external calls to the 4626 vault and the abstract TransactionCacheTerm
 /// handles the rest.
 
 // Inheritance Map -
@@ -23,7 +23,7 @@ import "./libraries/Errors.sol";
 //        Term
 //         |
 //         v
-//       GasReserve
+//    TransactionCache
 //       |        \
 //       v          v
 //  CompoundTerm   4626Term <- YOU ARE HERE
@@ -38,7 +38,7 @@ import "./libraries/Errors.sol";
 /// NOTE: To disambiguate ERC4626's conception of "shares" and the Element
 /// Protocol's version, ERC4626's "shares" have been renamed here as "vaultShares"
 
-contract ERC4626Term is GasReserveTerm {
+contract ERC4626Term is TransactionCacheTerm {
     /// address of ERC4626 vault
     IERC4626 public immutable vault;
 
@@ -56,7 +56,7 @@ contract ERC4626Term is GasReserveTerm {
         uint256 _maxReserve,
         address _owner
     )
-        GasReserveTerm(
+        TransactionCacheTerm(
             _linkerCodeHash,
             _factory,
             _maxReserve,
@@ -71,6 +71,7 @@ contract ERC4626Term is GasReserveTerm {
 
     /// @notice Deposits into the 4626 vault then returns the number of shares created
     /// @param amount The tokens to send from this contract's balances
+    /// @return shares The shares created by this deposit
     function _depositToYieldSource(uint256 amount)
         internal
         override

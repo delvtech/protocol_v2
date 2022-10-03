@@ -24,7 +24,7 @@ contract MockCompoundV3Term is CompoundV3Term {
         uint256 _newUnderlyingReserve,
         uint256 _newYieldShareReserve
     ) external {
-        _setReserves(_newUnderlyingReserve, _newYieldShareReserve);
+        _setCacheInfo(_newUnderlyingReserve, _newYieldShareReserve);
     }
 
     function getUnderlyingReserve() public view returns (uint128) {
