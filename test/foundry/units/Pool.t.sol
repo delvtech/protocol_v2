@@ -1712,4 +1712,418 @@ contract PoolTest is ElementTest {
         console2.log("    lpFee                        = ", testCase.lpFee);
         console2.log("");
     }
+
+    // ------------------- purchaseYt unit tests ------------------ //
+
+    struct PurchaseYtTestCase {
+        // args
+        uint256 poolId;
+        uint256 amount;
+        uint256 maxInput;
+        // state
+        uint256 userMintAmount;
+        LP.Reserve reserve;
+        uint256 pricePerUnlockedShare;
+        uint256 outputShares;
+        uint256 pt;
+        uint256 yt;
+        // internal calcs
+        uint256 newShareReserve;
+        uint256 newBondReserve;
+        uint256 underlyingOwed;
+    }
+
+    function testPurchaseYt() public {
+        startHoax(user);
+
+        uint256[][] memory inputs = new uint256[][](10);
+
+        // poolId
+        inputs[0] = new uint256[](3);
+        inputs[0][0] = 0;
+        inputs[0][1] = block.timestamp;
+        inputs[0][2] = TERM_END;
+
+        // amount
+        inputs[1] = new uint256[](3);
+        inputs[1][0] = 0;
+        inputs[1][1] = 1 ether;
+        inputs[1][2] = 22 ether + 376;
+
+        // maxInput
+        inputs[2] = new uint256[](2);
+        inputs[2][0] = 0;
+        inputs[2][1] = 1 ether; // override this case with underlyingOwed
+
+        // userMintAmount
+        inputs[3] = new uint256[](2);
+        inputs[3][0] = 0;
+        inputs[3][1] = 100000000000000 ether;
+
+        // reserve.shares
+        inputs[4] = new uint256[](2);
+        inputs[4][0] = 0;
+        inputs[4][1] = 999999999999999 ether;
+
+        // reserve.bonds
+        inputs[5] = new uint256[](2);
+        inputs[5][0] = 0;
+        inputs[5][1] = 10000000000000 ether;
+
+        // pricePerUnlockedShare
+        inputs[6] = new uint256[](4);
+        inputs[6][0] = 0;
+        inputs[6][1] = 0.9 ether;
+        inputs[6][2] = 1 ether;
+        inputs[6][3] = 1.2 ether;
+
+        // outputShares
+        inputs[7] = new uint256[](3);
+        inputs[7][0] = 0;
+        inputs[7][1] = 1 ether;
+        inputs[7][2] = 22 ether + 1221e7;
+
+        // pt
+        inputs[8] = new uint256[](3);
+        inputs[8][0] = 0;
+        inputs[8][1] = 1 ether;
+        inputs[8][2] = 22 ether + 375;
+
+        // yt
+        inputs[9] = new uint256[](3);
+        inputs[9][0] = 0;
+        inputs[9][1] = 1 ether;
+        inputs[9][2] = 22 ether + 375;
+
+        PurchaseYtTestCase[] memory testCases = _convertPurchaseYtTestCase(
+            Utils.generateTestingMatrix(inputs)
+        );
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            PurchaseYtTestCase memory testCase = testCases[i];
+            _setupPurchaseYtTestCase(testCase);
+            (
+                bool testCaseIsError,
+                bytes memory expectedError
+            ) = _getExpectedPurchaseYtError(testCase);
+
+            if (testCaseIsError) {
+                try
+                    pool.purchaseYt(
+                        testCase.poolId,
+                        testCase.amount,
+                        user,
+                        testCase.maxInput
+                    )
+                {
+                    _logPurchaseYtTestCase(testCase);
+                    revert ExpectedFailingTestPasses(expectedError);
+                } catch Error(string memory err) {
+                    if (Utils.neq(bytes(err), expectedError)) {
+                        _logPurchaseYtTestCase(testCase);
+                        revert ExpectedDifferentFailureReasonString(
+                            err,
+                            string(expectedError)
+                        );
+                    }
+                } catch (bytes memory err) {
+                    if (Utils.neq(err, expectedError)) {
+                        _logPurchaseYtTestCase(testCase);
+                        revert ExpectedDifferentFailureReason(
+                            err,
+                            expectedError
+                        );
+                    }
+                }
+            } else {
+                uint256 prevUserBalance = underlying.balanceOf(user);
+                uint256 prevPoolBalance = underlying.balanceOf(address(pool));
+                _registerExpectedPurchaseYtEvents(testCase);
+                try
+                    pool.purchaseYt(
+                        testCase.poolId,
+                        testCase.amount,
+                        user,
+                        testCase.maxInput
+                    )
+                {
+                    _validatePurchaseYtSuccess(
+                        testCase,
+                        prevUserBalance,
+                        prevPoolBalance
+                    );
+                } catch (bytes memory err) {
+                    _logPurchaseYtTestCase(testCase);
+                    revert ExpectedPassingTestFails(err);
+                }
+            }
+        }
+        console.log("###    %s combinations passing    ###", testCases.length);
+    }
+
+    function _validatePurchaseYtSuccess(
+        PurchaseYtTestCase memory testCase,
+        uint256 prevUserBalance,
+        uint256 prevPoolBalance
+    ) internal {
+        uint256 userBalanceDiff = prevUserBalance - underlying.balanceOf(user);
+        if (testCase.underlyingOwed != userBalanceDiff) {
+            _logPurchaseYtTestCase(testCase);
+            assertEq(testCase.underlyingOwed, userBalanceDiff);
+        }
+
+        uint256 poolBalanceDiff = underlying.balanceOf(address(pool)) -
+            prevPoolBalance;
+        if (testCase.underlyingOwed != poolBalanceDiff) {
+            _logPurchaseYtTestCase(testCase);
+            assertEq(testCase.underlyingOwed, userBalanceDiff);
+        }
+    }
+
+    event YtPurchased(
+        uint256 indexed poolId,
+        address indexed receiver,
+        uint256 amountOfYtMinted,
+        uint256 sharesIn
+    );
+
+    event Lock(
+        uint256 assetId,
+        uint256 assetAmount,
+        uint256 underlyingAmount,
+        bool hasPreFunding,
+        address ytDestination,
+        address ptDestination,
+        uint256 ytBeginDate,
+        uint256 expiration
+    );
+
+    function _registerExpectedPurchaseYtEvents(
+        PurchaseYtTestCase memory testCase
+    ) internal {
+        expectStrictEmit();
+        emit QuoteSaleAndFees(
+            testCase.poolId,
+            testCase.amount,
+            testCase.reserve.shares,
+            testCase.reserve.bonds,
+            testCase.pricePerUnlockedShare
+        );
+
+        expectStrictEmit();
+        emit Transfer(user, address(pool), testCase.underlyingOwed);
+
+        expectStrictEmit();
+        emit Lock(
+            term.UNLOCKED_YT_ID(),
+            testCase.amount,
+            testCase.underlyingOwed,
+            false,
+            user,
+            address(pool),
+            block.timestamp,
+            testCase.poolId
+        );
+
+        expectStrictEmit();
+        emit UpdateOracle(
+            testCase.poolId,
+            testCase.newShareReserve,
+            testCase.newBondReserve
+        );
+
+        expectStrictEmit();
+        emit Update(
+            testCase.poolId,
+            uint128(testCase.newBondReserve),
+            uint128(testCase.newShareReserve)
+        );
+
+        expectStrictEmit();
+        emit YtPurchased(
+            testCase.poolId,
+            user,
+            testCase.yt,
+            testCase.underlyingOwed
+        );
+    }
+
+    function _convertPurchaseYtTestCase(uint256[][] memory rawTestCases)
+        internal
+        pure
+        returns (PurchaseYtTestCase[] memory testCases)
+    {
+        testCases = new PurchaseYtTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            uint256[] memory rawTestCase = rawTestCases[i];
+            _validateTestCaseLength(rawTestCase, 10);
+
+            uint256 amount = rawTestCase[1];
+            uint256 pricePerUnlockedShare = rawTestCase[6];
+            uint256 outputShares = rawTestCase[7];
+
+            uint256 saleUnderlying = (outputShares * pricePerUnlockedShare) /
+                1e18;
+            uint256 underlyingOwed = amount >= saleUnderlying
+                ? amount - saleUnderlying
+                : 0;
+
+            LP.Reserve memory reserve = LP.Reserve({
+                shares: uint128(rawTestCase[4]),
+                bonds: uint128(rawTestCase[5])
+            });
+
+            uint256 newShareReserve = reserve.shares >= outputShares
+                ? reserve.shares - outputShares
+                : 0;
+            uint256 newBondReserve = reserve.bonds + amount;
+
+            testCases[i] = PurchaseYtTestCase({
+                poolId: rawTestCase[0],
+                amount: amount,
+                maxInput: rawTestCase[2] == 0 ? 0 : underlyingOwed,
+                userMintAmount: rawTestCase[3],
+                reserve: reserve,
+                pricePerUnlockedShare: pricePerUnlockedShare,
+                outputShares: rawTestCase[7],
+                pt: rawTestCase[8],
+                yt: rawTestCase[9],
+                newShareReserve: newShareReserve,
+                newBondReserve: newBondReserve,
+                underlyingOwed: underlyingOwed
+            });
+        }
+    }
+
+    function _getExpectedPurchaseYtError(PurchaseYtTestCase memory testCase)
+        internal
+        view
+        returns (bool testCaseIsError, bytes memory reason)
+    {
+        if (testCase.poolId <= block.timestamp) {
+            return (
+                true,
+                abi.encodeWithSelector(ElementError.TermExpired.selector)
+            );
+        }
+
+        if (testCase.reserve.shares == 0 && testCase.reserve.bonds == 0) {
+            return (
+                true,
+                abi.encodeWithSelector(ElementError.PoolNotInitialized.selector)
+            );
+        }
+
+        if (
+            testCase.amount <
+            ((testCase.outputShares * testCase.pricePerUnlockedShare) / 1e18)
+        ) {
+            return (true, stdError.arithmeticError);
+        }
+
+        if (testCase.underlyingOwed > testCase.maxInput) {
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError.ExceededSlippageLimit.selector
+                )
+            );
+        }
+
+        if (testCase.userMintAmount < testCase.underlyingOwed) {
+            return (true, bytes("ERC20: insufficient-balance"));
+        }
+
+        if (testCase.pt != testCase.amount) {
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError.InaccurateUnlockShareTrade.selector
+                )
+            );
+        }
+
+        return (false, new bytes(0));
+    }
+
+    function _setupPurchaseYtTestCase(PurchaseYtTestCase memory testCase)
+        internal
+    {
+        underlying = new MockERC20Permit("Test", "TEST", 18);
+        term = new MockTerm(
+            factory.ERC20LINK_HASH(),
+            address(factory),
+            IERC20(underlying),
+            governance
+        );
+        pool = new MockPool(
+            ITerm(address(term)),
+            IERC20(address(underlying)),
+            TRADE_FEE,
+            factory.ERC20LINK_HASH(),
+            governance,
+            address(factory)
+        );
+
+        pool.setReserves(
+            testCase.poolId,
+            testCase.reserve.shares,
+            testCase.reserve.bonds
+        );
+
+        term.setPricePerUnlockedShare(testCase.pricePerUnlockedShare);
+        pool.setQuoteSaleAndFeesReturnValues(
+            testCase.newShareReserve,
+            testCase.newBondReserve,
+            testCase.outputShares
+        );
+        underlying.approve(address(pool), type(uint256).max);
+        underlying.mint(user, testCase.userMintAmount);
+        term.setLockReturnValues(testCase.pt, testCase.yt);
+    }
+
+    function _logPurchaseYtTestCase(PurchaseYtTestCase memory testCase)
+        internal
+        view
+    {
+        console2.log("    Pool.purchaseYt");
+        console2.log("    -----------------------------------------------    ");
+        console2.log("    poolId                       = ", testCase.poolId);
+        console2.log("    amount                       = ", testCase.amount);
+        console2.log("    maxInput                     = ", testCase.maxInput);
+        console2.log(
+            "    userMintAmount               = ",
+            testCase.userMintAmount
+        );
+        console2.log(
+            "    reserve.shares               = ",
+            testCase.reserve.shares
+        );
+        console2.log(
+            "    reserve.bonds                = ",
+            testCase.reserve.bonds
+        );
+        console2.log(
+            "    pricePerUnlockedShare        = ",
+            testCase.pricePerUnlockedShare
+        );
+        console2.log(
+            "    outputShares                 = ",
+            testCase.outputShares
+        );
+        console2.log("    pt                           = ", testCase.pt);
+        console2.log("    yt                           = ", testCase.yt);
+        console2.log(
+            "    newShareReserve              = ",
+            testCase.newShareReserve
+        );
+        console2.log(
+            "    newBondReserve               = ",
+            testCase.newBondReserve
+        );
+        console2.log(
+            "    underlyingOwed               = ",
+            testCase.underlyingOwed
+        );
+    }
 }
