@@ -58,6 +58,41 @@ contract MockTerm is Term {
         return (_lockPrincipalTokensReturnValue, _lockYieldTokensReturnValue);
     }
 
+    // ##################
+    // ###   unlock   ###
+    // ##################
+    event Unlock(address destination, uint256 tokenId, uint256 amount);
+
+    uint256 internal _unlockValue;
+
+    function setUnlockReturnValue(uint256 _value) external {
+        _unlockValue = _value;
+    }
+
+    // stubs unlock function
+    function unlock(
+        address destination,
+        uint256[] memory tokenIds,
+        uint256[] memory amounts
+    ) public override returns (uint256) {
+        emit Unlock({
+            destination: destination,
+            tokenId: tokenIds[0],
+            amount: amounts[0]
+        });
+
+        return _unlockValue;
+    }
+
+    // call this to test unlock() itself
+    function unlockExternal(
+        address destination,
+        uint256[] memory tokenIds,
+        uint256[] memory amounts
+    ) external returns (uint256) {
+        return super.unlock(destination, tokenIds, amounts);
+    }
+
     // ####################
     // ###   _convert   ###
     // ####################
@@ -190,28 +225,6 @@ contract MockTerm is Term {
             _depositUnlockedLeftReturnValue,
             _depositUnlockedRightReturnValue
         );
-    }
-
-    uint256 internal _unlockValue;
-
-    function setUnlockReturnValue(uint256 _value) external {
-        _unlockValue = _value;
-    }
-
-    event Unlock(address destination, uint256 tokenId, uint256 amount);
-
-    function unlock(
-        address destination,
-        uint256[] memory tokenIds,
-        uint256[] memory amounts
-    ) external override returns (uint256) {
-        emit Unlock({
-            destination: destination,
-            tokenId: tokenIds[0],
-            amount: amounts[0]
-        });
-
-        return _unlockValue;
     }
 
     function createYTExternal(

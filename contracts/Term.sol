@@ -219,7 +219,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         address destination,
         uint256[] memory tokenIds,
         uint256[] memory amounts
-    ) external virtual override returns (uint256) {
+    ) public virtual override returns (uint256) {
         // To release shares we delete any input PT and YT, these may be unlocked or locked
         uint256 releasedSharesLocked = 0;
         uint256 releasedSharesUnlocked = 0;
