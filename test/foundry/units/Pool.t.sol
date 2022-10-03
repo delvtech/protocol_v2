@@ -182,7 +182,7 @@ contract PoolTest is ElementTest {
 
     function _convertRegisterPoolIdTestCase(uint256[][] memory rawTestCases)
         internal
-        view
+        pure
         returns (RegisterPoolIdTestCase[] memory testCases)
     {
         testCases = new RegisterPoolIdTestCase[](rawTestCases.length);
@@ -382,6 +382,125 @@ contract PoolTest is ElementTest {
     }
 
     // ------------------- tradeBonds unit tests ------------------ //
+
+    function testTradeBonds() public {
+        startHoax(user);
+
+        uint256[][] memory inputs = new uint256[][](9);
+
+        // poolId
+        inputs[0] = new uint256[](3);
+        inputs[0][0] = 0;
+        inputs[0][1] = block.timestamp;
+        inputs[0][2] = TERM_END;
+
+        // amount
+        inputs[1] = new uint256[](2);
+        inputs[1][0] = 0;
+        inputs[1][1] = 1 ether;
+
+        // minAmountOut
+        inputs[2] = new uint256[](3);
+        inputs[2][0] = 0;
+        inputs[2][1] = 1 ether;
+        inputs[2][2] = 2 ether;
+
+        // isBuy - to be converted
+        inputs[3] = new uint256[](2);
+        inputs[3][0] = 0;
+        inputs[3][1] = 1;
+
+        // shareReserves
+        inputs[4] = new uint256[](2);
+        inputs[4][0] = 0;
+        inputs[4][1] = 1 ether;
+
+        // bondReserves
+        inputs[5] = new uint256[](2);
+        inputs[5][0] = 0;
+        inputs[5][1] = 1 ether;
+
+        // newShareReserves
+        inputs[6] = new uint256[](3);
+        inputs[6][0] = 0;
+        inputs[6][1] = 1 ether;
+        inputs[6][1] = 10 ether;
+
+        // newBondReserves
+        inputs[7] = new uint256[](3);
+        inputs[7][0] = 0;
+        inputs[7][1] = 1 ether;
+        inputs[7][1] = 10 ether;
+
+        // outputAmount
+        inputs[8] = new uint256[](3);
+        inputs[8][0] = 0;
+        inputs[8][1] = 1 ether;
+        inputs[8][1] = 2 ether;
+
+        TradeBondsTestCase[] memory testCases = _convertTradeBondsTestCase(
+            Utils.generateTestingMatrix2(inputs)
+        );
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            TradeBondsTestCase memory testCase = testCases[i];
+            _setupTradeBondsTestCase(testCase);
+            (
+                bool testCaseIsError,
+                bytes memory expectedError
+            ) = _getExpectedTradeBondsError(testCase);
+
+            if (testCaseIsError) {
+                try
+                    pool.tradeBonds(
+                        testCase.poolId,
+                        testCase.amount,
+                        testCase.minAmountOut,
+                        user,
+                        testCase.isBuy
+                    )
+                {
+                    _logTradeBondsTestCase(
+                        "Expected fail, test case passes",
+                        i,
+                        testCase
+                    );
+                    revert TestFail();
+                } catch (bytes memory err) {
+                    if (Utils.neq(err, expectedError)) {
+                        _logTradeBondsTestCase(
+                            "Expected different failure reason (bytes)",
+                            i,
+                            testCase
+                        );
+                        assertEq(err, expectedError);
+                        revert TestFail();
+                    }
+                }
+            } else {
+                _registerExpectedTradeBondsEvents(testCase);
+                try
+                    pool.tradeBonds(
+                        testCase.poolId,
+                        testCase.amount,
+                        testCase.minAmountOut,
+                        user,
+                        testCase.isBuy
+                    )
+                returns (uint256 outputAmount) {
+                    assertEq(outputAmount, testCase.outputAmount);
+                } catch (bytes memory err) {
+                    _logTradeBondsTestCase(
+                        "Expected passing test, fails",
+                        i,
+                        testCase
+                    );
+                    revert TestFail();
+                }
+            }
+        }
+        console.log("###    %s combinations passing    ###", testCases.length);
+    }
 
     struct TradeBondsTestCase {
         // args
