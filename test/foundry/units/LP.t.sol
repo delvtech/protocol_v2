@@ -13,7 +13,9 @@ import { ElementTest } from "test/ElementTest.sol";
 import { Utils } from "test/Utils.sol";
 
 contract LPTest is ElementTest {
-    error TestFail();
+    error ExpectedLpTokensNotEqual(uint256 value, uint256 expected);
+    error ExpectedBondsNotEqual(uint256 value, uint256 expected);
+
     uint256 internal constant _UNLOCKED_TERM_ID = 1 << 255;
     address public user = vm.addr(0xDEAD_BEEF);
 
@@ -142,31 +144,23 @@ contract LPTest is ElementTest {
                         address(user)
                     )
                 {
-                    _logDepositSharesTestCase(
-                        "Expected fail, test case passes",
-                        i,
-                        testCase
-                    );
-                    revert TestFail();
+                    _logDepositSharesTestCase(testCase);
+                    revert ExpectedFailingTestPasses(expectedError);
                 } catch Error(string memory err) {
                     if (Utils.neq(bytes(err), expectedError)) {
-                        _logDepositSharesTestCase(
-                            "Expected different failure reason (string)",
-                            i,
-                            testCase
+                        _logDepositSharesTestCase(testCase);
+                        revert ExpectedDifferentFailureReasonString(
+                            err,
+                            string(expectedError)
                         );
-                        assertEq(err, string(expectedError));
-                        revert TestFail();
                     }
                 } catch (bytes memory err) {
                     if (Utils.neq(err, expectedError)) {
-                        _logDepositSharesTestCase(
-                            "Expected different failure reason (bytes)",
-                            i,
-                            testCase
+                        _logDepositSharesTestCase(testCase);
+                        revert ExpectedDifferentFailureReason(
+                            err,
+                            expectedError
                         );
-                        assertEq(err, expectedError);
-                        revert TestFail();
                     }
                 }
                 // otherwise call the method and check the result
@@ -261,63 +255,40 @@ contract LPTest is ElementTest {
             sharesToLock,
             newLpToken
         );
-        try
-            lp.depositFromSharesExternal(
-                poolId,
-                currentShares,
-                currentBonds,
-                depositedShares,
-                pricePerShare,
-                address(user)
-            )
-        returns (
-            // result is the number of lp tokens created
-            uint256 result
+        uint256 result = lp.depositFromSharesExternal(
+            poolId,
+            currentShares,
+            currentBonds,
+            depositedShares,
+            pricePerShare,
+            address(user)
+        );
+        (uint128 shares, uint128 bonds) = lp.reserves(poolId);
+        if (
+            shares != currentShares + increaseInShares ||
+            bonds != currentBonds + neededBonds
         ) {
-            assertEq(result, newLpToken);
-            (uint128 shares, uint128 bonds) = lp.reserves(poolId);
-            if (
-                shares != currentShares + increaseInShares ||
-                bonds != currentBonds + neededBonds
-            ) {
-                assertEq(
-                    shares,
-                    currentShares + increaseInShares,
-                    "shares not equal"
-                );
-                assertEq(bonds, currentBonds + neededBonds, "bonds not equal");
-                _logDepositSharesTestCase(
-                    "Expected passing test, fails",
-                    testIndex,
-                    testCase
-                );
-                revert TestFail();
-            }
-            if (result != newLpToken) {
-                assertEq(result, newLpToken, "lp token result incorrect");
-                _logDepositSharesTestCase(
-                    "Expected passing test, fails",
-                    testIndex,
-                    testCase
-                );
-                revert TestFail();
-            }
-        } catch {
-            _logDepositSharesTestCase(
-                "Expected passing test, fails",
-                testIndex,
-                testCase
+            assertEq(
+                shares,
+                currentShares + increaseInShares,
+                "shares not equal"
             );
-            revert TestFail();
+            assertEq(bonds, currentBonds + neededBonds, "bonds not equal");
+            _logDepositSharesTestCase(testCase);
+            revert ExpectedBondsNotEqual(bonds, currentBonds + neededBonds);
+        }
+        if (result != newLpToken) {
+            assertEq(result, newLpToken, "lp token result unexpected");
+            _logDepositSharesTestCase(testCase);
+            revert ExpectedLpTokensNotEqual(result, newLpToken);
         }
     }
 
-    function _logDepositSharesTestCase(
-        string memory prelude,
-        uint256 index,
-        DepositSharesTestCase memory testCase
-    ) internal view {
-        console2.log("    LP.depositFromShares Test #%s :: %s", index, prelude);
+    function _logDepositSharesTestCase(DepositSharesTestCase memory testCase)
+        internal
+        view
+    {
+        console2.log("    LP.depositFromShares");
         console2.log("    -----------------------------------------------    ");
         console2.log("    poolId           = ", testCase.poolId);
         console2.log("    depositedShares  = ", testCase.depositedShares);
