@@ -890,8 +890,6 @@ contract CompoundV3TermTest is Test {
         uint256 prevLockedShares = prevYieldSharesIssued -
             prevYieldShareReserve;
         uint256 prevUnlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
-        uint256 prevPrincipalTokenBalance = term.balanceOf(TERM_END, user);
-
         uint256 unlockedYts = 10000e6;
         uint256 unlockedYtsAsUnderlying = CompoundV3TermHelper
             .unlockedSharesAsUnderlying(term, unlockedYts);
@@ -926,7 +924,6 @@ contract CompoundV3TermTest is Test {
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
         uint256 lockedShares = yieldSharesIssued - yieldShareReserve;
         uint256 unlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
-        uint256 principalTokenBalance = term.balanceOf(TERM_END, user);
 
         assertEq(
             underlyingReserve,

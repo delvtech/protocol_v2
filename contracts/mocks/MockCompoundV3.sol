@@ -26,8 +26,8 @@ contract MockCompoundV3 is ICompoundV3 {
 
     // withdraw an amount of an asset to this contract to a specified address
     function withdrawTo(
-        address to,
-        address asset,
+        address,
+        address,
         uint256 amount
     ) external override {
         // assume assets 1-1 with baseToken

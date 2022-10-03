@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "../Pool.sol";
+import "contracts/Pool.sol";
 
 contract MockPool is Pool {
     constructor(
@@ -34,7 +34,121 @@ contract MockPool is Pool {
         totalSupply[_poolId] = _amount;
     }
 
-    function normalize(uint256 input) external returns (uint256) {
+    function setReserves(
+        uint256 _poolId,
+        uint128 _shares,
+        uint128 _bonds
+    ) external {
+        reserves[_poolId].shares = _shares;
+        reserves[_poolId].bonds = _bonds;
+    }
+
+    uint128 _newShareReserves;
+    uint128 _newBondReserves;
+    uint256 _tradeBondsOutputAmount;
+
+    function setMockTradeReturnValues(
+        uint128 __newShareReserves,
+        uint128 __newBondReserves,
+        uint256 __tradeBondsOutputAmount
+    ) external {
+        _newShareReserves = __newShareReserves;
+        _newBondReserves = __newBondReserves;
+        _tradeBondsOutputAmount = __tradeBondsOutputAmount;
+    }
+
+    function _mockTrade()
+        internal
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return (_newShareReserves, _newBondReserves, _tradeBondsOutputAmount);
+    }
+
+    event BuyBonds(
+        uint256 poolId,
+        uint256 amount,
+        uint128 reserveShares,
+        uint128 reserveBonds,
+        address receiver
+    );
+
+    function _buyBonds(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        address receiver
+    )
+        internal
+        override
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        emit BuyBonds(
+            poolId,
+            amount,
+            cachedReserve.shares,
+            cachedReserve.bonds,
+            receiver
+        );
+        return _mockTrade();
+    }
+
+    function buyBondsExternal(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        address receiver
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return super._buyBonds(poolId, amount, cachedReserve, receiver);
+    }
+
+    event SellBonds(
+        uint256 poolId,
+        uint256 amount,
+        uint128 reserveShares,
+        uint128 reserveBonds,
+        address receiver
+    );
+
+    function _sellBonds(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        address receiver
+    )
+        internal
+        override
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        emit SellBonds(
+            poolId,
+            amount,
+            cachedReserve.shares,
+            cachedReserve.bonds,
+            receiver
+        );
+        return _mockTrade();
+    }
+
+    function normalize(uint256 input) external view returns (uint256) {
         return super._normalize(input);
     }
 
@@ -71,5 +185,36 @@ contract MockPool is Pool {
         uint128 newSharesBalance
     ) internal override {
         emit Update(poolId, newBondBalance, newSharesBalance);
+    }
+
+    uint256 _tradeCalculationOutput;
+
+    function setTradeCalculationReturnValue(uint256 val) external {
+        _tradeCalculationOutput = val;
+    }
+
+    function _tradeCalculation(
+        uint256 expiry,
+        uint256 input,
+        uint256 shareReserve,
+        uint256 bondReserve,
+        uint256 pricePerShare,
+        bool isBondOut
+    ) internal view override returns (uint256) {
+        return _tradeCalculationOutput;
+    }
+
+    event UpdateOracle(
+        uint256 poolId,
+        uint256 newShareReserve,
+        uint256 newBondReserve
+    );
+
+    function _updateOracle(
+        uint256 poolId,
+        uint256 newShareReserve,
+        uint256 newBondReserve
+    ) internal override {
+        emit UpdateOracle(poolId, newShareReserve, newBondReserve);
     }
 }
