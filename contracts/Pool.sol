@@ -530,6 +530,7 @@ contract Pool is LP, Authorizable, TWAROracle {
         uint256 pricePerShare
     )
         internal
+        virtual
         returns (
             uint256,
             uint256,

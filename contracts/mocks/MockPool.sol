@@ -149,6 +149,73 @@ contract MockPool is Pool {
         return _mockTrade();
     }
 
+    function sellBondsExternal(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        address receiver
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return super._sellBonds(poolId, amount, cachedReserve, receiver);
+    }
+
+    event QuoteSaleAndFees(
+        uint256 poolId,
+        uint256 amount,
+        uint128 reserveShares,
+        uint128 reserveBonds,
+        uint256 pricePerShare
+    );
+
+    uint256 internal _quoteSaleAndFees_newShareReserve;
+    uint256 internal _quoteSaleAndFees_newBondReserve;
+    uint256 internal _quoteSaleAndFees_outputShares;
+
+    function setQuoteSaleAndFeesReturnValues(
+        uint256 _newShareReserve,
+        uint256 _newBondReserve,
+        uint256 _outputShares
+    ) external {
+        _quoteSaleAndFees_newShareReserve = _newShareReserve;
+        _quoteSaleAndFees_newBondReserve = _newBondReserve;
+        _quoteSaleAndFees_outputShares = _outputShares;
+    }
+
+    function _quoteSaleAndFees(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        uint256 pricePerShare
+    )
+        internal
+        override
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        emit QuoteSaleAndFees(
+            poolId,
+            amount,
+            cachedReserve.shares,
+            cachedReserve.bonds,
+            pricePerShare
+        );
+
+        return (
+            _quoteSaleAndFees_newShareReserve,
+            _quoteSaleAndFees_newBondReserve,
+            _quoteSaleAndFees_outputShares
+        );
+    }
+
     function normalize(uint256 input) external view returns (uint256) {
         return super._normalize(input);
     }

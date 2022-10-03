@@ -175,6 +175,7 @@ contract PoolTest is ElementTest {
     {
         testCases = new RegisterPoolIdTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
+            _validateTestCaseLength(rawTestCases[i], 9);
             testCases[i] = RegisterPoolIdTestCase({
                 poolId: rawTestCases[i][0],
                 underlyingIn: rawTestCases[i][1],
@@ -499,6 +500,7 @@ contract PoolTest is ElementTest {
     {
         testCases = new TradeBondsTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
+            _validateTestCaseLength(rawTestCases[i], 9);
             testCases[i] = TradeBondsTestCase({
                 poolId: rawTestCases[i][0],
                 amount: rawTestCases[i][1],
@@ -886,6 +888,7 @@ contract PoolTest is ElementTest {
     {
         testCases = new BuyBondsTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
+            _validateTestCaseLength(rawTestCases[i], 10);
             uint256 valuePaid = rawTestCases[i][5];
             uint256 changeInBonds = rawTestCases[i][7];
             uint128 tradeFee = uint128(rawTestCases[i][8]);
@@ -1073,6 +1076,331 @@ contract PoolTest is ElementTest {
         console2.log("    impliedInterest        = ", testCase.impliedInterest);
         console2.log("    totalFee               = ", testCase.totalFee);
         console2.log("    govFee                 = ", testCase.govFee);
+        console2.log("");
+    }
+
+    // ------------------- _sellBonds unit tests ------------------ //
+
+    struct SellBondsTestCase {
+        uint256 amount;
+        LP.Reserve reserve;
+        uint256 pricePerUnlockedShare;
+        uint256 userMintAmount;
+        uint256 newShareReserve;
+        uint256 newBondReserve;
+        uint256 outputShares;
+        uint256 valueSent;
+    }
+
+    function testSellBonds() public {
+        startHoax(user);
+
+        uint256[][] memory inputs = new uint256[][](9);
+
+        // amount
+        inputs[0] = new uint256[](3);
+        inputs[0][0] = 0;
+        inputs[0][1] = 1 ether;
+        inputs[0][2] = 1267126 ether + 1211212;
+
+        // reserve.shares
+        inputs[1] = new uint256[](3);
+        inputs[1][0] = 0;
+        inputs[1][1] = 1000 ether;
+        inputs[1][2] = 5555111.9999999999 ether;
+
+        // reserve.bonds
+        inputs[2] = new uint256[](3);
+        inputs[2][0] = 0;
+        inputs[2][1] = 10000 ether;
+        inputs[2][2] = 53333222.167777777777 ether;
+
+        // pricePerUnlockedShare
+        inputs[3] = new uint256[](3);
+        inputs[3][0] = 0;
+        inputs[3][1] = 1 ether;
+        inputs[3][2] = 1.1111 ether;
+
+        // userMintAmount
+        inputs[4] = new uint256[](2);
+        inputs[4][0] = 0;
+        inputs[4][1] = 100000000 ether;
+
+        // newShareReserve
+        inputs[5] = new uint256[](3);
+        inputs[5][0] = 0;
+        inputs[5][1] = 6126 ether + 1;
+        inputs[5][2] = 1212121 ether + 99999999999;
+
+        // newBondReserve
+        inputs[6] = new uint256[](3);
+        inputs[6][0] = 0;
+        inputs[6][1] = 5999 ether + 36e4;
+        inputs[6][2] = 9997999 ether + 1;
+
+        // outputShares
+        inputs[7] = new uint256[](3);
+        inputs[7][0] = 0;
+        inputs[7][1] = 0.99 ether;
+        inputs[7][2] = 111111111 ether;
+
+        // valueSent
+        inputs[8] = new uint256[](3);
+        inputs[8][0] = 0;
+        inputs[8][1] = 0.6666 ether;
+        inputs[8][2] = 9878777 ether;
+
+        SellBondsTestCase[] memory testCases = _convertSellBondsTestCase(
+            Utils.generateTestingMatrix(inputs)
+        );
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            SellBondsTestCase memory testCase = testCases[i];
+            _setupSellBondsTestCase(testCase);
+            (
+                bool testCaseIsError,
+                bytes memory expectedError
+            ) = _getExpectedSellBondsError(testCase);
+
+            if (testCaseIsError) {
+                try
+                    pool.sellBondsExternal(
+                        TERM_END,
+                        testCase.amount,
+                        testCase.reserve,
+                        user
+                    )
+                {
+                    _logSellBondsTestCase(testCase);
+                    revert ExpectedFailingTestPasses(expectedError);
+                } catch Error(string memory err) {
+                    if (Utils.neq(bytes(err), expectedError)) {
+                        _logSellBondsTestCase(testCase);
+                        revert ExpectedDifferentFailureReasonString(
+                            err,
+                            string(expectedError)
+                        );
+                    }
+                } catch (bytes memory err) {
+                    if (Utils.neq(err, expectedError)) {
+                        _logSellBondsTestCase(testCase);
+                        revert ExpectedDifferentFailureReason(
+                            err,
+                            expectedError
+                        );
+                    }
+                }
+            } else {
+                uint256 prevUserPtBalance = term.balanceOf(TERM_END, user);
+                _registerExpectedSellBondsEvents(testCase);
+                try
+                    pool.sellBondsExternal(
+                        TERM_END,
+                        testCase.amount,
+                        testCase.reserve,
+                        user
+                    )
+                returns (
+                    uint256 newShareReserve,
+                    uint256 newBondReserve,
+                    uint256 valueSent
+                ) {
+                    _validateSellBondsSuccess(
+                        testCase,
+                        newShareReserve,
+                        newBondReserve,
+                        valueSent,
+                        prevUserPtBalance
+                    );
+                } catch (bytes memory err) {
+                    _logSellBondsTestCase(testCase);
+                    revert ExpectedPassingTestFails(err);
+                }
+            }
+        }
+        console.log("###    %s combinations passing    ###", testCases.length);
+    }
+
+    function _validateSellBondsSuccess(
+        SellBondsTestCase memory testCase,
+        uint256 newShareReserve,
+        uint256 newBondReserve,
+        uint256 valueSent,
+        uint256 prevUserPtBalance
+    ) internal {
+        uint256 userBalanceDiff = prevUserPtBalance -
+            term.balanceOf(TERM_END, user);
+
+        if (userBalanceDiff != testCase.amount) {
+            _logSellBondsTestCase(testCase);
+            assertEq(userBalanceDiff, testCase.amount);
+        }
+
+        if (newShareReserve != testCase.newShareReserve) {
+            _logSellBondsTestCase(testCase);
+            assertEq(newShareReserve, testCase.newShareReserve);
+        }
+        if (newBondReserve != testCase.newBondReserve) {
+            _logSellBondsTestCase(testCase);
+            assertEq(newBondReserve, testCase.newBondReserve);
+        }
+        if (valueSent != testCase.valueSent) {
+            _logSellBondsTestCase(testCase);
+            assertEq(valueSent, testCase.valueSent);
+        }
+    }
+
+    function _convertSellBondsTestCase(uint256[][] memory rawTestCases)
+        internal
+        pure
+        returns (SellBondsTestCase[] memory testCases)
+    {
+        testCases = new SellBondsTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            uint256[] memory rawTestCase = rawTestCases[i];
+            _validateTestCaseLength(rawTestCase, 9);
+
+            testCases[i] = SellBondsTestCase({
+                amount: rawTestCase[0],
+                reserve: LP.Reserve({
+                    shares: uint128(rawTestCase[1]),
+                    bonds: uint128(rawTestCase[2])
+                }),
+                pricePerUnlockedShare: rawTestCase[3],
+                userMintAmount: rawTestCase[4],
+                newShareReserve: rawTestCase[5],
+                newBondReserve: rawTestCase[6],
+                outputShares: rawTestCase[7],
+                valueSent: rawTestCase[8]
+            });
+        }
+    }
+
+    function _getExpectedSellBondsError(SellBondsTestCase memory testCase)
+        internal
+        view
+        returns (bool testCaseIsError, bytes memory reason)
+    {
+        if (testCase.userMintAmount < testCase.amount) {
+            return (true, stdError.arithmeticError);
+        }
+
+        return (false, new bytes(0));
+    }
+
+    function _setupSellBondsTestCase(SellBondsTestCase memory testCase)
+        internal
+    {
+        underlying = new MockERC20Permit("Test", "TEST", 18);
+        term = new MockTerm(
+            factory.ERC20LINK_HASH(),
+            address(factory),
+            IERC20(underlying),
+            governance
+        );
+        pool = new MockPool(
+            ITerm(address(term)),
+            IERC20(address(underlying)),
+            TRADE_FEE,
+            factory.ERC20LINK_HASH(),
+            governance,
+            address(factory)
+        );
+
+        term.setApproval(TERM_END, address(pool), type(uint256).max);
+        term.mintExternal(TERM_END, user, testCase.userMintAmount);
+
+        term.setPricePerUnlockedShare(testCase.pricePerUnlockedShare);
+        pool.setQuoteSaleAndFeesReturnValues(
+            testCase.newShareReserve,
+            testCase.newBondReserve,
+            testCase.outputShares
+        );
+        term.setUnlockReturnValue(testCase.valueSent);
+    }
+
+    event QuoteSaleAndFees(
+        uint256 poolId,
+        uint256 amount,
+        uint128 reserveShares,
+        uint128 reserveBonds,
+        uint256 pricePerShare
+    );
+
+    event Unlock(address destination, uint256 tokenId, uint256 amount);
+
+    function _registerExpectedSellBondsEvents(SellBondsTestCase memory testCase)
+        internal
+    {
+        expectStrictEmit();
+        emit TransferSingle(
+            address(pool),
+            user,
+            address(pool),
+            TERM_END,
+            testCase.amount
+        );
+
+        expectStrictEmit();
+        emit QuoteSaleAndFees(
+            TERM_END,
+            testCase.amount,
+            testCase.reserve.shares,
+            testCase.reserve.bonds,
+            testCase.pricePerUnlockedShare
+        );
+
+        expectStrictEmit();
+        emit UpdateOracle(
+            TERM_END,
+            testCase.newShareReserve,
+            testCase.newBondReserve
+        );
+
+        expectStrictEmit();
+        emit Unlock(user, term.UNLOCKED_YT_ID(), testCase.outputShares);
+    }
+
+    function _logSellBondsTestCase(SellBondsTestCase memory testCase)
+        internal
+        view
+    {
+        console2.log("    Pool._sellBonds");
+        console2.log("    -----------------------------------------------    ");
+        console2.log("    amount                       = ", testCase.amount);
+        console2.log(
+            "    reserve.shares               = ",
+            testCase.reserve.shares
+        );
+        console2.log(
+            "    reserve.bonds                = ",
+            testCase.reserve.bonds
+        );
+        console2.log(
+            "    pricePerUnlockedShare        = ",
+            testCase.pricePerUnlockedShare
+        );
+        console2.log(
+            "    userMintAmount               = ",
+            testCase.userMintAmount
+        );
+        console2.log(
+            "    poolUnderlyingMintAmount     = ",
+            testCase.userMintAmount
+        );
+        console2.log(
+            "    newShareReserve              = ",
+            testCase.newShareReserve
+        );
+        console2.log(
+            "    newBondReserve               = ",
+            testCase.newBondReserve
+        );
+        console2.log(
+            "    outputShares                 = ",
+            testCase.outputShares
+        );
+        console2.log("    valueSent                    = ", testCase.valueSent);
         console2.log("");
     }
 }

@@ -166,10 +166,7 @@ contract TermTest is ElementTest {
             rawTestMatrix.length
         );
         for (uint256 i = 0; i < rawTestMatrix.length; i++) {
-            require(
-                rawTestMatrix[i].length == 7,
-                "Raw test case must have length of 7."
-            );
+            _validateTestCaseLength(rawTestMatrix[i], 7);
             result[i] = CreateYTTestCase({
                 value: rawTestMatrix[i][0],
                 totalShares: rawTestMatrix[i][1],
@@ -513,10 +510,7 @@ contract TermTest is ElementTest {
             rawTestMatrix.length
         );
         for (uint256 i = 0; i < rawTestMatrix.length; i++) {
-            require(
-                rawTestMatrix[i].length == 3,
-                "Raw test case must have length of 3."
-            );
+            _validateTestCaseLength(rawTestMatrix[i], 3);
             result[i] = ReleaseAssetTestCase({
                 amount: rawTestMatrix[i][0],
                 assetId: rawTestMatrix[i][1],
@@ -675,10 +669,7 @@ contract TermTest is ElementTest {
             rawTestMatrix.length
         );
         for (uint256 i = 0; i < rawTestMatrix.length; i++) {
-            require(
-                rawTestMatrix[i].length == 3,
-                "Raw test case must have length of 3."
-            );
+            _validateTestCaseLength(rawTestMatrix[i], 3);
             result[i] = FinalizeTermTestCase({
                 currentPricePerShare: rawTestMatrix[i][0],
                 sharesPerExpiry: rawTestMatrix[i][1],
@@ -865,10 +856,7 @@ contract TermTest is ElementTest {
             rawTestMatrix.length
         );
         for (uint256 i = 0; i < rawTestMatrix.length; i++) {
-            require(
-                rawTestMatrix[i].length == 5,
-                "Raw test case must have length of 5."
-            );
+            _validateTestCaseLength(rawTestMatrix[i], 5);
             result[i] = ReleaseUnlockedTestCase({
                 amount: rawTestMatrix[i][0],
                 currentPricePerShare: rawTestMatrix[i][1],
@@ -1076,10 +1064,7 @@ contract TermTest is ElementTest {
     {
         testCases = new ReleaseYTTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
-            require(
-                rawTestCases[i].length == 9,
-                "Raw test case must have length of 9."
-            );
+            _validateTestCaseLength(rawTestCases[i], 9);
             testCases[i] = ReleaseYTTestCase({
                 amount: rawTestCases[i][0],
                 currentPricePerShare: rawTestCases[i][1],
@@ -1411,10 +1396,7 @@ contract TermTest is ElementTest {
     {
         testCases = new ReleasePTTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
-            require(
-                rawTestCases[i].length == 6,
-                "Raw test case must have length of 6."
-            );
+            _validateTestCaseLength(rawTestCases[i], 6);
             testCases[i] = ReleasePTTestCase({
                 amount: rawTestCases[i][0],
                 interest: uint128(rawTestCases[i][1]),
