@@ -231,8 +231,7 @@ contract LPTest is ElementTest {
     }
 
     function _validateDepositSharesTestCase(
-        DepositSharesTestCase memory testCase,
-        uint256 testIndex
+        DepositSharesTestCase memory testCase
     ) internal {
         uint256 totalSupply = testCase.totalSupply;
         uint256 currentShares = testCase.currentShares;
@@ -348,6 +347,15 @@ contract LPTest is ElementTest {
             address(lp),
             block.timestamp,
             testCase.poolId
+        );
+
+        expectStrictEmit();
+        emit TransferSingle(
+            address(user),
+            address(0),
+            address(user),
+            testCase.poolId,
+            newLpToken
         );
 
         expectStrictEmit();
