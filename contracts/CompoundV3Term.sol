@@ -70,7 +70,7 @@ contract CompoundV3Term is TransactionCacheTerm {
         /// interest accrued on those deposits
         uint256 accruedUnderlying = yieldSource.balanceOf(address(this));
 
-        /// Deposits `underlying` into Compound
+        /// Deposits `amount` into Compound
         yieldSource.supply(address(token), amount);
 
         /// Initial case where `shares` are valued 1:1 with underlying
@@ -90,7 +90,7 @@ contract CompoundV3Term is TransactionCacheTerm {
         yieldSharesIssued += shares;
     }
 
-    /// @notice Withdraws the user from compound by calculating how much of the underlying and interest
+    /// @notice Calls Compound to withdraw shares, the vault should send them to the destination address
     ///         that their percent of the held assets are. Sends the assets to a destination
     /// @param shares The number of yielding shares the user owns.
     /// @param dest The address to send the result of the withdraw to
