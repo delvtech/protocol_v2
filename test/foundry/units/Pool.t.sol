@@ -923,7 +923,7 @@ contract PoolTest is ElementTest {
 
     function _getExpectedBuyBondsError(BuyBondsTestCase memory testCase)
         internal
-        view
+        pure
         returns (bool testCaseIsError, bytes memory reason)
     {
         if (testCase.amount > testCase.userMintAmount) {

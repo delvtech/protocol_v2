@@ -206,7 +206,7 @@ contract TermTest is ElementTest {
             }
             (
                 uint256 expectedImpliedShareValue,
-                uint256 expectedInterestEarned,
+                ,
                 uint256 expectedTotalDiscount
             ) = _getExpectedCalculationsCreateYT(testCase);
             if (expectedImpliedShareValue < uint256(testCase.yieldState.pt)) {
@@ -652,7 +652,7 @@ contract TermTest is ElementTest {
                         finalState,
                         expiry
                     );
-                } catch (bytes memory error) {
+                } catch {
                     _logTestCaseFinalizeTerm("success case", testCases[i]);
                     revert("failed unexpectedly");
                 }

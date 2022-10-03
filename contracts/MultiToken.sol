@@ -40,7 +40,7 @@ contract MultiToken is IMultiToken {
 
     // EIP712
     // DOMAIN_SEPARATOR changes based on token name
-    bytes32 public DOMAIN_SEPARATOR;
+    bytes32 public immutable DOMAIN_SEPARATOR; // solhint-disable-line var-name-mixedcase
     // PERMIT_TYPEHASH changes based on function inputs
     bytes32 public constant PERMIT_TYPEHASH =
         keccak256(

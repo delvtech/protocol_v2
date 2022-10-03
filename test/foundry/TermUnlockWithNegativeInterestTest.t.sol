@@ -109,11 +109,7 @@ contract TermTestUnlock is Test {
             // TODO Either refactor this test and/or add unit test for such
             // cases
             vm.expectRevert(stdError.divisionError);
-            uint256 ytUnlockValue = term.unlock(
-                address(user),
-                assetIds,
-                assetAmounts
-            );
+            term.unlock(address(user), assetIds, assetAmounts);
         }
     }
 

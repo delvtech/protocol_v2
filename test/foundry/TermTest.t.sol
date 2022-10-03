@@ -181,7 +181,6 @@ contract TermTest is Test {
         uint256 unlockYtId = term.UNLOCKED_YT_ID();
         assetIds.push(unlockYtId);
         sharesList.push(1 ether);
-        uint256 redeemValue = term.unlock(address(user), assetIds, sharesList);
     }
 
     function testDepositUnlocked_OnlyPt() public {
@@ -203,7 +202,7 @@ contract TermTest is Test {
         token.setBalance(address(user), 10 ether);
         token.approve(address(term), UINT256_MAX);
 
-        (uint256 shares, uint256 value) = term.depositUnlocked(
+        (uint256 shares, ) = term.depositUnlocked(
             underlyingAmount,
             ptAmount,
             ptExpiry,

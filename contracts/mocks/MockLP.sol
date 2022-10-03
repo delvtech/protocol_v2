@@ -5,14 +5,14 @@ import "contracts/LP.sol";
 import "contracts/interfaces/IERC20.sol";
 
 contract MockLP is LP {
-    uint256 _lpShares;
+    uint256 internal _lpShares;
 
     constructor(
         IERC20 _token,
         ITerm _term,
         bytes32 _linkerCodeHash,
         address _factory
-    ) LP(_token, _term, _linkerCodeHash, _factory) {}
+    ) LP(_token, _term, _linkerCodeHash, _factory) {} // solhint-disable-line no-empty-blocks
 
     function setLpShares(uint256 value) public {
         _lpShares = value;
@@ -30,7 +30,22 @@ contract MockLP is LP {
         reserves[poolId].bonds = value;
     }
 
-    event DepositFromShares();
+    function setLpBalance(
+        uint256 poolId,
+        address owner,
+        uint256 value
+    ) public {
+        _mint(poolId, owner, value);
+    }
+
+    event DepositFromShares(
+        uint256 poolId,
+        uint256 currentShares,
+        uint256 currentBonds,
+        uint256 depositedShares,
+        uint256 pricePerShare,
+        address to
+    );
 
     // use this to stub calls to _depositFromShares
     function _depositFromShares(
@@ -41,7 +56,14 @@ contract MockLP is LP {
         uint256 pricePerShare,
         address to
     ) internal override returns (uint256) {
-        emit DepositFromShares();
+        emit DepositFromShares(
+            poolId,
+            currentShares,
+            currentBonds,
+            depositedShares,
+            pricePerShare,
+            to
+        );
         return _lpShares;
     }
 

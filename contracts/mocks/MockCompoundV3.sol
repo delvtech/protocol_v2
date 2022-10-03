@@ -13,13 +13,19 @@ contract MockCompoundV3 is ICompoundV3 {
     }
 
     // supply an amount of an asset to this contract
-    function supply(address asset, uint256 amount) external override {
+    function supply(
+        address, // asset
+        uint256 amount
+    ) external override {
         // assume assets 1-1 with baseToken
         _balances[msg.sender] += amount;
     }
 
     // withdraw an amount of an asset to this contract
-    function withdraw(address asset, uint256 amount) external override {
+    function withdraw(
+        address, // asset
+        uint256 amount
+    ) external override {
         // assume assets 1-1 with baseToken
         _balances[msg.sender] -= amount;
     }
