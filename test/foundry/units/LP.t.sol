@@ -13,6 +13,7 @@ import { ElementTest } from "test/ElementTest.sol";
 import { Utils } from "test/Utils.sol";
 
 contract LPTest is ElementTest {
+    error TestFail();
     uint256 internal constant _UNLOCKED_TERM_ID = 1 << 255;
     address public user = vm.addr(0xDEAD_BEEF);
 
@@ -102,7 +103,7 @@ contract LPTest is ElementTest {
 
         DepositSharesTestCase[]
             memory testCases = _convertToDepositSharesTestCase(
-                Utils.generateTestingMatrix2(inputs)
+                Utils.generateTestingMatrix(inputs)
             );
 
         // Set the address.
@@ -168,84 +169,7 @@ contract LPTest is ElementTest {
                 }
                 // otherwise call the method and check the result
             } else {
-                // --- get the increase in shares --- //
-                uint256 totalValue = (currentShares * pricePerShare) /
-                    1 ether +
-                    currentBonds;
-                uint256 depositedAmount = (depositedShares * pricePerShare) /
-                    1 ether;
-                uint256 neededBonds = (depositedAmount * currentBonds) /
-                    totalValue;
-                uint256 sharesToLock = (neededBonds * 1 ether) / pricePerShare;
-                uint256 increaseInShares = depositedShares - sharesToLock;
-                // ------ //
-                _registerExpectedDepositSharesEvents(testCase, sharesToLock);
-                try
-                    lp.depositFromSharesExternal(
-                        poolId,
-                        currentShares,
-                        currentBonds,
-                        depositedShares,
-                        pricePerShare,
-                        address(user)
-                    )
-                returns (
-                    // result is the number of lp tokens created
-                    uint256 result
-                ) {
-                    uint256 newLpToken = (totalSupply * increaseInShares) /
-                        currentShares;
-
-                    assertEq(result, newLpToken);
-                    (uint128 shares, uint128 bonds) = lp.reserves(poolId);
-                    if (
-                        shares != currentShares + increaseInShares ||
-                        bonds != currentBonds + neededBonds
-                    ) {
-                        assertEq(
-                            shares,
-                            currentShares + increaseInShares,
-                            "shares not equal"
-                        );
-                        assertEq(
-                            bonds,
-                            currentBonds + neededBonds,
-                            "bonds not equal"
-                        );
-                        console.log("shares", shares);
-                        console.log("bonds", bonds);
-                        console.log("increaseInShares", increaseInShares);
-                        console.log("neededBonds", neededBonds);
-                        _logDepositSharesTestCase(
-                            "Expected passing test, fails",
-                            i,
-                            testCase
-                        );
-                        revert TestFail();
-                    }
-                    if (result != newLpToken) {
-                        assertEq(
-                            result,
-                            newLpToken,
-                            "lp token result incorrect"
-                        );
-                        console.log("result", result);
-                        console.log("newLpToken", newLpToken);
-                        _logDepositSharesTestCase(
-                            "Expected passing test, fails",
-                            i,
-                            testCase
-                        );
-                        revert TestFail();
-                    }
-                } catch {
-                    _logDepositSharesTestCase(
-                        "Expected passing test, fails",
-                        i,
-                        testCase
-                    );
-                    revert TestFail();
-                }
+                _validateDepositSharesTestCase(testCase, i);
             }
         }
     }
@@ -305,6 +229,83 @@ contract LPTest is ElementTest {
         }
     }
 
+    function _validateDepositSharesTestCase(
+        DepositSharesTestCase memory testCase,
+        uint256 testIndex
+    ) internal {
+        uint256 totalSupply = testCase.totalSupply;
+        uint256 currentShares = testCase.currentShares;
+        uint256 currentBonds = testCase.currentBonds;
+        uint256 depositedShares = testCase.depositedShares;
+        uint256 pricePerShare = testCase.pricePerShare;
+        uint256 poolId = testCase.poolId;
+        // --- get the increase in shares --- //
+        uint256 totalValue = (currentShares * pricePerShare) /
+            1 ether +
+            currentBonds;
+        uint256 depositedAmount = (depositedShares * pricePerShare) / 1 ether;
+        uint256 neededBonds = (depositedAmount * currentBonds) / totalValue;
+        uint256 sharesToLock = (neededBonds * 1 ether) / pricePerShare;
+        uint256 increaseInShares = depositedShares - sharesToLock;
+        // ------ //
+        uint256 newLpToken = (totalSupply * increaseInShares) / currentShares;
+
+        _registerExpectedDepositSharesEvents(
+            testCase,
+            sharesToLock,
+            newLpToken
+        );
+        try
+            lp.depositFromSharesExternal(
+                poolId,
+                currentShares,
+                currentBonds,
+                depositedShares,
+                pricePerShare,
+                address(user)
+            )
+        returns (
+            // result is the number of lp tokens created
+            uint256 result
+        ) {
+            assertEq(result, newLpToken);
+            (uint128 shares, uint128 bonds) = lp.reserves(poolId);
+            if (
+                shares != currentShares + increaseInShares ||
+                bonds != currentBonds + neededBonds
+            ) {
+                assertEq(
+                    shares,
+                    currentShares + increaseInShares,
+                    "shares not equal"
+                );
+                assertEq(bonds, currentBonds + neededBonds, "bonds not equal");
+                _logDepositSharesTestCase(
+                    "Expected passing test, fails",
+                    testIndex,
+                    testCase
+                );
+                revert TestFail();
+            }
+            if (result != newLpToken) {
+                assertEq(result, newLpToken, "lp token result incorrect");
+                _logDepositSharesTestCase(
+                    "Expected passing test, fails",
+                    testIndex,
+                    testCase
+                );
+                revert TestFail();
+            }
+        } catch {
+            _logDepositSharesTestCase(
+                "Expected passing test, fails",
+                testIndex,
+                testCase
+            );
+            revert TestFail();
+        }
+    }
+
     function _logDepositSharesTestCase(
         string memory prelude,
         uint256 index,
@@ -332,9 +333,18 @@ contract LPTest is ElementTest {
         uint256 expiration
     );
 
+    event TransferSingle(
+        address indexed operator,
+        address indexed from,
+        address indexed to,
+        uint256 id,
+        uint256 value
+    );
+
     function _registerExpectedDepositSharesEvents(
         DepositSharesTestCase memory testCase,
-        uint256 sharesToLock
+        uint256 sharesToLock,
+        uint256 newLpToken
     ) internal {
         expectStrictEmit();
         uint256[] memory assetIds = new uint256[](1);
@@ -351,6 +361,14 @@ contract LPTest is ElementTest {
             address(lp),
             block.timestamp,
             testCase.poolId
+        );
+
+        emit TransferSingle(
+            address(user),
+            address(0),
+            address(user),
+            testCase.poolId,
+            newLpToken
         );
     }
 }
