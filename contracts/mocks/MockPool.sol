@@ -216,6 +216,28 @@ contract MockPool is Pool {
         );
     }
 
+    function quoteSaleAndFeesExternal(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        uint256 pricePerShare
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return
+            super._quoteSaleAndFees(
+                poolId,
+                amount,
+                cachedReserve,
+                pricePerShare
+            );
+    }
+
     function normalize(uint256 input) external view returns (uint256) {
         return super._normalize(input);
     }

@@ -1403,4 +1403,312 @@ contract PoolTest is ElementTest {
         console2.log("    valueSent                    = ", testCase.valueSent);
         console2.log("");
     }
+
+    // ------------------- _sellBonds unit tests ------------------ //
+    struct QuoteSaleAndFeesTestCase {
+        // args
+        uint256 amount;
+        LP.Reserve reserve;
+        uint256 pricePerShare;
+        // state
+        uint256 outputShares;
+        uint128 tradeFee;
+        uint128 governanceFeePercent;
+        // internal calcs
+        uint256 shareValue;
+        uint256 fee;
+        uint256 shareFee;
+        uint256 governanceFee;
+        uint256 lpFee;
+    }
+
+    function testQuoteSaleAndFees() public {
+        startHoax(user);
+
+        uint256[][] memory inputs = new uint256[][](7);
+
+        // amount
+        inputs[0] = new uint256[](3);
+        inputs[0][0] = 0;
+        inputs[0][1] = 1 ether;
+        inputs[0][2] = 13333 ether + 676767676767;
+
+        // reserve.shares
+        inputs[1] = new uint256[](3);
+        inputs[1][0] = 0;
+        inputs[1][1] = 1000 ether;
+        inputs[1][2] = 5555111.9999999999 ether;
+
+        // reserve.bonds
+        inputs[2] = new uint256[](3);
+        inputs[2][0] = 0;
+        inputs[2][1] = 10000 ether;
+        inputs[2][2] = 53333222.167777777777 ether;
+
+        // pricePerShare
+        inputs[3] = new uint256[](4);
+        inputs[3][0] = 0;
+        inputs[3][1] = 0.5 ether;
+        inputs[3][2] = 1 ether;
+        inputs[3][3] = 2 ether;
+
+        // outputShares
+        inputs[4] = new uint256[](3);
+        inputs[4][0] = 0;
+        inputs[4][1] = 1 ether;
+        inputs[4][2] = 20000000 ether;
+
+        // tradeFee
+        inputs[5] = new uint256[](2);
+        inputs[5][0] = 0.01 ether;
+        inputs[5][1] = 1.01 ether;
+
+        // governanceFeePercent
+        inputs[6] = new uint256[](2);
+        inputs[6][0] = 0.01 ether;
+        inputs[6][1] = 1.01 ether;
+
+        QuoteSaleAndFeesTestCase[]
+            memory testCases = _convertQuoteSaleAndFeesTestCase(
+                Utils.generateTestingMatrix(inputs)
+            );
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            QuoteSaleAndFeesTestCase memory testCase = testCases[i];
+            _setupQuoteSaleAndFeesTestCase(testCase);
+            (
+                bool testCaseIsError,
+                bytes memory expectedError
+            ) = _getExpectedQuoteSaleAndFeesError(testCase);
+
+            if (testCaseIsError) {
+                try
+                    pool.quoteSaleAndFeesExternal(
+                        TERM_END,
+                        testCase.amount,
+                        testCase.reserve,
+                        testCase.pricePerShare
+                    )
+                {
+                    _logQuoteSaleAndFeesTestCase(testCase);
+                    revert ExpectedFailingTestPasses(expectedError);
+                } catch Error(string memory err) {
+                    if (Utils.neq(bytes(err), expectedError)) {
+                        _logQuoteSaleAndFeesTestCase(testCase);
+                        revert ExpectedDifferentFailureReasonString(
+                            err,
+                            string(expectedError)
+                        );
+                    }
+                } catch (bytes memory err) {
+                    if (Utils.neq(err, expectedError)) {
+                        _logQuoteSaleAndFeesTestCase(testCase);
+                        revert ExpectedDifferentFailureReason(
+                            err,
+                            expectedError
+                        );
+                    }
+                }
+            } else {
+                try
+                    pool.quoteSaleAndFeesExternal(
+                        TERM_END,
+                        testCase.amount,
+                        testCase.reserve,
+                        testCase.pricePerShare
+                    )
+                returns (
+                    uint256 newShareReserve,
+                    uint256 newBondReserve,
+                    uint256 valueSent
+                ) {
+                    _validateQuoteSaleAndFeesSuccess(
+                        testCase,
+                        newShareReserve,
+                        newBondReserve,
+                        valueSent
+                    );
+                } catch (bytes memory err) {
+                    _logQuoteSaleAndFeesTestCase(testCase);
+                    revert ExpectedPassingTestFails(err);
+                }
+            }
+        }
+        console.log("###    %s combinations passing    ###", testCases.length);
+    }
+
+    function _validateQuoteSaleAndFeesSuccess(
+        QuoteSaleAndFeesTestCase memory testCase,
+        uint256 newShareReserve,
+        uint256 newBondReserve,
+        uint256 valueSent
+    ) internal {
+        uint256 computedNewShareReserve = (testCase.reserve.shares -
+            testCase.outputShares) + testCase.lpFee;
+        if (newShareReserve != computedNewShareReserve) {
+            _logQuoteSaleAndFeesTestCase(testCase);
+            assertEq(newShareReserve, computedNewShareReserve);
+        }
+
+        uint256 computedNewBondReserve = testCase.reserve.bonds +
+            testCase.amount;
+        if (newBondReserve != computedNewBondReserve) {
+            _logQuoteSaleAndFeesTestCase(testCase);
+            assertEq(newBondReserve, computedNewBondReserve);
+        }
+
+        uint256 computedValueSent = testCase.outputShares - testCase.shareFee;
+        if (computedValueSent != valueSent) {
+            _logQuoteSaleAndFeesTestCase(testCase);
+            assertEq(valueSent, computedValueSent);
+        }
+
+        (uint256 feesInShares, ) = pool.governanceFees(TERM_END);
+        if (feesInShares != testCase.governanceFee) {
+            _logQuoteSaleAndFeesTestCase(testCase);
+            assertEq(feesInShares, testCase.governanceFee);
+        }
+    }
+
+    function _convertQuoteSaleAndFeesTestCase(uint256[][] memory rawTestCases)
+        internal
+        pure
+        returns (QuoteSaleAndFeesTestCase[] memory testCases)
+    {
+        testCases = new QuoteSaleAndFeesTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            uint256[] memory rawTestCase = rawTestCases[i];
+            _validateTestCaseLength(rawTestCase, 7);
+
+            uint256 amount = rawTestCase[0];
+            uint256 pricePerShare = rawTestCase[3];
+            uint256 outputShares = rawTestCase[4];
+            uint128 tradeFee = uint128(rawTestCase[5]);
+            uint128 governanceFeePercent = uint128(rawTestCase[6]);
+
+            uint256 shareValue = (outputShares * pricePerShare) / 1e18;
+
+            uint256 impliedInterest = amount >= shareValue
+                ? amount - shareValue
+                : 0;
+            uint256 fee = (impliedInterest * uint256(tradeFee)) / 1e18;
+            uint256 shareFee = pricePerShare > 0
+                ? (fee * 1e18) / pricePerShare
+                : 0;
+
+            uint256 governanceFee = (shareFee * uint256(governanceFeePercent)) /
+                1e18;
+            uint256 lpFee = shareFee >= governanceFee
+                ? shareFee - governanceFee
+                : 0;
+
+            testCases[i] = QuoteSaleAndFeesTestCase({
+                amount: amount,
+                reserve: LP.Reserve({
+                    shares: uint128(rawTestCase[1]),
+                    bonds: uint128(rawTestCase[2])
+                }),
+                pricePerShare: pricePerShare,
+                outputShares: outputShares,
+                tradeFee: tradeFee,
+                governanceFeePercent: governanceFeePercent,
+                shareValue: shareValue,
+                fee: fee,
+                shareFee: shareFee,
+                governanceFee: governanceFee,
+                lpFee: lpFee
+            });
+        }
+    }
+
+    function _getExpectedQuoteSaleAndFeesError(
+        QuoteSaleAndFeesTestCase memory testCase
+    ) internal view returns (bool testCaseIsError, bytes memory reason) {
+        if (testCase.shareValue > testCase.amount) {
+            return (true, stdError.arithmeticError);
+        }
+        if (testCase.pricePerShare == 0) {
+            return (true, stdError.divisionError);
+        }
+
+        if (testCase.shareFee < testCase.governanceFee) {
+            return (true, stdError.arithmeticError);
+        }
+
+        if (testCase.reserve.shares < testCase.outputShares) {
+            return (true, stdError.arithmeticError);
+        }
+
+        if (testCase.outputShares < testCase.shareFee) {
+            return (true, stdError.arithmeticError);
+        }
+
+        return (false, new bytes(0));
+    }
+
+    function _setupQuoteSaleAndFeesTestCase(
+        QuoteSaleAndFeesTestCase memory testCase
+    ) internal {
+        underlying = new MockERC20Permit("Test", "TEST", 18);
+        term = new MockTerm(
+            factory.ERC20LINK_HASH(),
+            address(factory),
+            IERC20(underlying),
+            governance
+        );
+        pool = new MockPool(
+            ITerm(address(term)),
+            IERC20(address(underlying)),
+            testCase.tradeFee,
+            factory.ERC20LINK_HASH(),
+            governance,
+            address(factory)
+        );
+
+        changePrank(governance);
+        pool.updateGovernanceFeePercent(testCase.governanceFeePercent);
+        changePrank(user);
+        pool.setTradeCalculationReturnValue(testCase.outputShares);
+    }
+
+    function _logQuoteSaleAndFeesTestCase(
+        QuoteSaleAndFeesTestCase memory testCase
+    ) internal view {
+        console2.log("    Pool._quoteSaleAndFees");
+        console2.log("    -----------------------------------------------    ");
+        console2.log("    amount                       = ", testCase.amount);
+        console2.log(
+            "    reserve.shares               = ",
+            testCase.reserve.shares
+        );
+        console2.log(
+            "    reserve.bonds                = ",
+            testCase.reserve.bonds
+        );
+        console2.log(
+            "    pricePerShare                = ",
+            testCase.pricePerShare
+        );
+        console2.log(
+            "    outputShares                 = ",
+            testCase.outputShares
+        );
+        console2.log("    tradeFee                     = ", testCase.tradeFee);
+        console2.log(
+            "    governanceFeePercent         = ",
+            testCase.governanceFeePercent
+        );
+        console2.log(
+            "    shareValue                   = ",
+            testCase.shareValue
+        );
+        console2.log("    fee                          = ", testCase.fee);
+        console2.log("    shareFee                     = ", testCase.shareFee);
+        console2.log(
+            "    governanceFee                = ",
+            testCase.governanceFee
+        );
+        console2.log("    lpFee                        = ", testCase.lpFee);
+        console2.log("");
+    }
 }
