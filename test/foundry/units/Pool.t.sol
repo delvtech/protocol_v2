@@ -1888,8 +1888,8 @@ contract PoolTest is ElementTest {
     );
 
     event Lock(
-        uint256 assetId,
-        uint256 assetAmount,
+        uint256[] assetIds,
+        uint256[] assetAmounts,
         uint256 underlyingAmount,
         bool hasPreFunding,
         address ytDestination,
@@ -1913,10 +1913,15 @@ contract PoolTest is ElementTest {
         expectStrictEmit();
         emit Transfer(user, address(pool), testCase.underlyingOwed);
 
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = term.UNLOCKED_YT_ID();
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = testCase.outputShares;
+
         expectStrictEmit();
         emit Lock(
-            term.UNLOCKED_YT_ID(),
-            testCase.amount,
+            ids,
+            amounts,
             testCase.underlyingOwed,
             false,
             user,
@@ -2079,7 +2084,7 @@ contract PoolTest is ElementTest {
         );
         underlying.approve(address(pool), type(uint256).max);
         underlying.mint(user, testCase.userMintAmount);
-        term.setLockReturnValues(testCase.pt, testCase.yt);
+        term.setLockValues(testCase.pt, testCase.yt);
     }
 
     function _logPurchaseYtTestCase(PurchaseYtTestCase memory testCase)
