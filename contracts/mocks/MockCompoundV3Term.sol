@@ -18,7 +18,7 @@ contract MockCompoundV3Term is CompoundV3Term {
             _maxReserve,
             _owner
         )
-    {}
+    {} // solhint-disable-line no-empty-blocks
 
     function setReservesExternal(
         uint256 _newUnderlyingReserve,

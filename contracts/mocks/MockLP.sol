@@ -12,7 +12,7 @@ contract MockLP is LP {
         ITerm _term,
         bytes32 _linkerCodeHash,
         address _factory
-    ) LP(_token, _term, _linkerCodeHash, _factory) {}
+    ) LP(_token, _term, _linkerCodeHash, _factory) {} // solhint-disable-line no-empty-blocks
 
     function setLpShares(uint256 value) public {
         _lpShares = value;

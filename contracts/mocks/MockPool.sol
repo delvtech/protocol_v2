@@ -43,9 +43,9 @@ contract MockPool is Pool {
         reserves[_poolId].bonds = _bonds;
     }
 
-    uint128 _newShareReserves;
-    uint128 _newBondReserves;
-    uint256 _tradeBondsOutputAmount;
+    uint128 internal _newShareReserves;
+    uint128 internal _newBondReserves;
+    uint256 internal _tradeBondsOutputAmount;
 
     function setMockTradeReturnValues(
         uint128 __newShareReserves,
