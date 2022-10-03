@@ -6,7 +6,7 @@
     "node": "^14"
   },
   "scripts": {
-    "solhint": "npx solhint -f table contracts/*.sol contracts/**/*.sol contracts/**/**/*.sol",
+    "solhint": "npx solhint -f table contracts/*.sol contracts/**/*.sol",
     "spell-check": "npx cspell ./**/**/**.sol --gitignore && npx cspell ./test/**/**.ts --gitignore",
     "style-check": "npx prettier --check .",
     "prettier": "npx prettier --write .",
