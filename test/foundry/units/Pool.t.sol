@@ -175,6 +175,7 @@ contract PoolTest is ElementTest {
     {
         testCases = new RegisterPoolIdTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
+            _validateTestCaseLength(rawTestCases[i], 9);
             testCases[i] = RegisterPoolIdTestCase({
                 poolId: rawTestCases[i][0],
                 underlyingIn: rawTestCases[i][1],
@@ -499,6 +500,7 @@ contract PoolTest is ElementTest {
     {
         testCases = new TradeBondsTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
+            _validateTestCaseLength(rawTestCases[i], 9);
             testCases[i] = TradeBondsTestCase({
                 poolId: rawTestCases[i][0],
                 amount: rawTestCases[i][1],
@@ -886,6 +888,7 @@ contract PoolTest is ElementTest {
     {
         testCases = new BuyBondsTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
+            _validateTestCaseLength(rawTestCases[i], 10);
             uint256 valuePaid = rawTestCases[i][5];
             uint256 changeInBonds = rawTestCases[i][7];
             uint128 tradeFee = uint128(rawTestCases[i][8]);
