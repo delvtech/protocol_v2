@@ -14,9 +14,9 @@ contract TermTest is ElementTest {
     address public destination = makeAddress("destination");
     address public source = makeAddress("source");
 
-    ForwarderFactory _factory;
-    MockTerm _term;
-    MockERC20Permit _underlying;
+    ForwarderFactory internal _factory;
+    MockTerm internal _term;
+    MockERC20Permit internal _underlying;
 
     function setUp() public {
         // Set up the required Element contracts.
