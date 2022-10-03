@@ -44,7 +44,7 @@ jobs:
           with:
             version: nightly
         - name: Run tests
-          run: forge test -vvv
+          run: forge test -vv
     typecheck:
       runs-on: ubuntu-latest
       steps:
