@@ -1404,7 +1404,8 @@ contract PoolTest is ElementTest {
         console2.log("");
     }
 
-    // ------------------- _sellBonds unit tests ------------------ //
+    // ------------------- _quoteSaleAndFees unit tests ------------------ //
+
     struct QuoteSaleAndFeesTestCase {
         // args
         uint256 amount;
