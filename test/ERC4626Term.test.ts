@@ -94,8 +94,8 @@ describe("ERC4626Term", () => {
   describe("deployment", () => {
     it("term", async () => {
       expect(await term.vault()).to.be.eq(vault.address);
-      expect((await term.reserveDetails()).underlyingReserve).to.be.eq(ZERO);
-      expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(ZERO);
+      expect((await term.cacheDetails()).underlyingReserve).to.be.eq(ZERO);
+      expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
       expect(await term.targetReserve()).to.be.eq(TARGET_RESERVE);
       expect(await term.maxReserve()).to.be.eq(MAX_RESERVE);
       expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(ZERO);
@@ -121,13 +121,9 @@ describe("ERC4626Term", () => {
 
         it("initial state", async () => {
           // token balances, reserves and shares issued should be zero
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
-            ZERO
-          );
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(ZERO);
           expect(await token.balanceOf(term.address)).to.be.eq(ZERO);
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
-            ZERO
-          );
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
           expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
           expect(initialTotalSupply).to.be.eq(ZERO);
         });
@@ -157,13 +153,11 @@ describe("ERC4626Term", () => {
           expect(vaultDepositEvents).to.be.empty;
 
           // reserves and term token balances
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             $ether(1_000)
           );
           expect(await token.balanceOf(term.address)).to.be.eq($ether(1_000));
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
-            ZERO
-          );
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
           expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
         });
 
@@ -211,11 +205,11 @@ describe("ERC4626Term", () => {
           expect(vaultShares).to.be.eq(expectedVaultShares);
 
           // reserves and term token balances
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             TARGET_RESERVE
           );
           expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
             expectedVaultShares
           );
           expect(await vault.balanceOf(term.address)).to.be.eq(
@@ -235,13 +229,11 @@ describe("ERC4626Term", () => {
 
         it("initial state", async () => {
           // token balances, reserves and shares issued should be as expected
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             $ether(10_000)
           );
           expect(await token.balanceOf(term.address)).to.be.eq($ether(10_000));
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
-            ZERO
-          );
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
           expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
           expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
             $ether(10_000)
@@ -274,7 +266,7 @@ describe("ERC4626Term", () => {
           expect(vaultDepositEvents).to.be.empty;
 
           // underlying deposited should be added to the reserve
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             $ether(11_000)
           );
 
@@ -282,9 +274,7 @@ describe("ERC4626Term", () => {
           expect(await token.balanceOf(term.address)).to.be.eq($ether(11_000));
 
           // vaultShare reserve should be unchanged from initial state
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
-            ZERO
-          );
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
           // as only unlocked deposits, vaultShare token balance should match reserve
           expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
         });
@@ -337,14 +327,14 @@ describe("ERC4626Term", () => {
           // As the combined amount of underlyingReserve and underlying
           // deposited was above the maxReserve, the reserve and balance of
           // underlying should be at the target reserve
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             TARGET_RESERVE
           );
           expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
 
           // When the term contract deposits to the vault it gets vaultShares
           // back and accrues those vaultShares in the reserve
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
             $ether(76_500)
           );
           expect(await vault.balanceOf(term.address)).to.be.eq($ether(76_500));
@@ -361,11 +351,11 @@ describe("ERC4626Term", () => {
 
         it("initial state", async () => {
           // token balances, reserves and shares issued should be as expected
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             TARGET_RESERVE
           );
           expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
             $ether(450_000)
           );
           expect(await vault.balanceOf(term.address)).to.be.eq($ether(450_000));
@@ -400,7 +390,7 @@ describe("ERC4626Term", () => {
           expect(vaultDepositEvents).to.be.empty;
 
           // underlying deposited should be added to the reserve
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             $ether(26_000)
           );
 
@@ -408,7 +398,7 @@ describe("ERC4626Term", () => {
           expect(await token.balanceOf(term.address)).to.be.eq($ether(26_000));
 
           // vaultShare reserve should be unchanged from initial state
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
             $ether(450_000)
           );
 
@@ -463,14 +453,14 @@ describe("ERC4626Term", () => {
           // As the combined amount of underlyingReserve and underlying
           // deposited was above the maxReserve, the reserve and balance of
           // underlying should be at the target reserve
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             TARGET_RESERVE
           );
           expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
 
           // When the term contract deposits to the vault it gets vaultShares
           // back and accrues those vaultShares in the reserve
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
             $ether(495_000)
           );
           expect(await vault.balanceOf(term.address)).to.be.eq($ether(495_000));
@@ -486,13 +476,11 @@ describe("ERC4626Term", () => {
         });
         it("initial state", async () => {
           // token balances, reserves and shares issued should be as expected
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             $ether(40_000)
           );
           expect(await token.balanceOf(term.address)).to.be.eq($ether(40_000));
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
-            ZERO
-          );
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
           expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
           expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq(
             $ether(40_000)
@@ -525,7 +513,7 @@ describe("ERC4626Term", () => {
           expect(vaultDepositEvents).to.be.empty;
 
           // underlying deposited should be added to the reserve
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             $ether(41_000)
           );
 
@@ -533,9 +521,7 @@ describe("ERC4626Term", () => {
           expect(await token.balanceOf(term.address)).to.be.eq($ether(41_000));
 
           // vaultShare reserve should be unchanged from initial state
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
-            ZERO
-          );
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
           expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
         });
 
@@ -586,14 +572,14 @@ describe("ERC4626Term", () => {
           // As the combined amount of underlyingReserve and underlying
           // deposited was above the maxReserve, the reserve and balance of
           // underlying should be at the target reserve
-          expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+          expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
             TARGET_RESERVE
           );
           expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
 
           // When the term contract deposits to the vault it gets vaultShares
           // back and accrues those vaultShares in the reserve
-          expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+          expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
             $ether(103_500)
           );
           expect(await vault.balanceOf(term.address)).to.be.eq($ether(103_500));
@@ -617,12 +603,12 @@ describe("ERC4626Term", () => {
         expect(await token.balanceOf(user.address)).to.be.eq(ZERO);
 
         // expect underlyingReserve to be at target
-        expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+        expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
           TARGET_RESERVE
         );
         expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
 
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
           $ether(877_500)
         );
         expect(await vault.balanceOf(term.address)).to.be.eq($ether(877_500));
@@ -648,13 +634,13 @@ describe("ERC4626Term", () => {
         expect(await token.balanceOf(user.address)).to.be.eq($ether(10));
 
         // underlying reserve should be 10 underlying less
-        expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+        expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
           $ether(24_990)
         );
         expect(await token.balanceOf(term.address)).to.be.eq($ether(24_990));
 
         // vaultShare reserve should be unchanged
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
           $ether(877_500)
         );
         expect(await vault.balanceOf(term.address)).to.be.eq($ether(877_500));
@@ -682,11 +668,11 @@ describe("ERC4626Term", () => {
         expect(await token.balanceOf(user.address)).to.be.eq(TARGET_RESERVE);
 
         // underlying reserve should 0
-        expect((await term.reserveDetails()).underlyingReserve).to.be.eq(ZERO);
+        expect((await term.cacheDetails()).underlyingReserve).to.be.eq(ZERO);
         expect(await token.balanceOf(term.address)).to.be.eq(ZERO);
 
         // vaultShare reserve should be unchanged
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
           $ether(877_500)
         );
         expect(await vault.balanceOf(term.address)).to.be.eq($ether(877_500));
@@ -698,7 +684,7 @@ describe("ERC4626Term", () => {
           $ether(975_000)
         );
       });
-      it("should withdraw underlying from a redeemed portion of the vaultShareReserve if underlyingDue > underlyingReserve && underlyingDue < underlying value of vaultShareReserve", async () => {
+      it("should withdraw underlying from a redeemed portion of the yieldShareReserve if underlyingDue > underlyingReserve && underlyingDue < underlying value of yieldShareReserve", async () => {
         // tx
         const receipt = await (
           await term
@@ -711,13 +697,13 @@ describe("ERC4626Term", () => {
         expect(await token.balanceOf(user.address)).to.be.eq($ether(30_000));
 
         // underlying reserve should be unchanged
-        expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+        expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
           TARGET_RESERVE
         );
         expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
 
         // vaultShare reserve should be 30K * vaultShare price = 27K vault shares less
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
           $ether(850_500)
         );
         expect(await vault.balanceOf(term.address)).to.be.eq($ether(850_500));
@@ -728,7 +714,7 @@ describe("ERC4626Term", () => {
           $ether(970_000)
         );
       });
-      it("should withdraw underlying from all of the vaultShareReserve if underlyingDue > underlyingReserve && underlyingDue === underlying value of vaultShareReserve", async () => {
+      it("should withdraw underlying from all of the yieldShareReserve if underlyingDue > underlyingReserve && underlyingDue === underlying value of yieldShareReserve", async () => {
         // tx
         const receipt = await (
           await term
@@ -740,12 +726,12 @@ describe("ERC4626Term", () => {
         expect(await token.balanceOf(user.address)).to.be.eq($ether(975_000));
 
         // underlying reserve should be unchanged
-        expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+        expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
           TARGET_RESERVE
         );
         expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
 
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(ZERO);
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
         expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
 
         expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
@@ -754,7 +740,7 @@ describe("ERC4626Term", () => {
         expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq($ether(25_000));
       });
 
-      it("should withdraw underlying from all of the vaultShareReserve with a portion of the underlyingReserve if underlyingDue > underlyingReserve && underlyingDue > underlying value of vaultShareReserve", async () => {
+      it("should withdraw underlying from all of the yieldShareReserve with a portion of the underlyingReserve if underlyingDue > underlyingReserve && underlyingDue > underlying value of yieldShareReserve", async () => {
         const receipt = await (
           await term
             .connect(user)
@@ -764,12 +750,12 @@ describe("ERC4626Term", () => {
 
         expect(await token.balanceOf(user.address)).to.be.eq($ether(985_000));
 
-        expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+        expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
           $ether(15_000)
         );
         expect(await token.balanceOf(term.address)).to.be.eq($ether(15_000));
 
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(ZERO);
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
         expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
 
         expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
@@ -778,7 +764,7 @@ describe("ERC4626Term", () => {
         expect(await term.totalSupply(UNLOCKED_YT_ID)).to.be.eq($ether(15_000));
       });
 
-      it("should withdraw underlying from all of the vaultShareReserve and all of the underlyingReserve if underlyingDue === underlyingReserve + underlying value of vaultShareReserve", async () => {
+      it("should withdraw underlying from all of the yieldShareReserve and all of the underlyingReserve if underlyingDue === underlyingReserve + underlying value of yieldShareReserve", async () => {
         const receipt = await (
           await term
             .connect(user)
@@ -788,10 +774,10 @@ describe("ERC4626Term", () => {
 
         expect(await token.balanceOf(user.address)).to.be.eq($ether(1_000_000));
 
-        expect((await term.reserveDetails()).underlyingReserve).to.be.eq(ZERO);
+        expect((await term.cacheDetails()).underlyingReserve).to.be.eq(ZERO);
         expect(await token.balanceOf(term.address)).to.be.eq(ZERO);
 
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(ZERO);
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(ZERO);
         expect(await vault.balanceOf(term.address)).to.be.eq(ZERO);
 
         expect(await term.balanceOf(UNLOCKED_YT_ID, user.address)).to.be.eq(
@@ -811,11 +797,11 @@ describe("ERC4626Term", () => {
 
       it("initial state", async () => {
         // token balances, reserves and shares issued should be as expected
-        expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+        expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
           TARGET_RESERVE
         );
         expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
           $ether(67_500)
         );
         expect(await vault.balanceOf(term.address)).to.be.eq($ether(67_500));
@@ -850,7 +836,7 @@ describe("ERC4626Term", () => {
 
         const totalVaultShares = await vault.balanceOf(term.address);
 
-        const unlockedShares = (await term.reserveDetails()).vaultShareReserve;
+        const unlockedShares = (await term.cacheDetails()).yieldShareReserve;
         const lockedShares = totalVaultShares.sub(unlockedShares);
 
         expect(totalSupplyOfUnlockedShares).to.be.eq($ether(99_000));
@@ -874,7 +860,7 @@ describe("ERC4626Term", () => {
             TERM_END
           );
 
-        await expect(tx).to.be.revertedWith("VaultShareReserveTooLow()");
+        await expect(tx).to.be.revertedWith("TransactionCacheTooLow()");
       });
     });
   });
@@ -993,12 +979,12 @@ describe("ERC4626Term", () => {
 
       it("initial state", async () => {
         // token balances, reserves and shares issued should be as expected
-        expect((await term.reserveDetails()).underlyingReserve).to.be.eq(
+        expect((await term.cacheDetails()).underlyingReserve).to.be.eq(
           TARGET_RESERVE
         );
         expect(await token.balanceOf(term.address)).to.be.eq(TARGET_RESERVE);
 
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
           $ether(67_500)
         );
         expect(await vault.balanceOf(term.address)).to.be.eq($ether(157_500));
@@ -1039,7 +1025,7 @@ describe("ERC4626Term", () => {
           $ether(99_000)
         );
 
-        expect((await term.reserveDetails()).vaultShareReserve).to.be.eq(
+        expect((await term.cacheDetails()).yieldShareReserve).to.be.eq(
           $ether(68_400)
         ); // +900 vaultShares
         expect(await vault.balanceOf(term.address)).to.be.eq($ether(157_500));

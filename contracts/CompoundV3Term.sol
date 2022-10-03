@@ -27,7 +27,7 @@ contract CompoundV3Term is TransactionCacheTerm {
     ICompoundV3 public immutable yieldSource;
 
     /// Accumulates the inferred amount of invested shares of underlying by this contract
-    uint256 internal yieldSharesIssued;
+    uint256 internal _yieldSharesIssued;
 
     /// @notice Associates the Compound contract to the protocol and sets
     ///         reserve limits
@@ -75,7 +75,7 @@ contract CompoundV3Term is TransactionCacheTerm {
 
         /// Initial case where `shares` are valued 1:1 with underlying
         if (accruedUnderlying == 0) {
-            yieldSharesIssued += amount;
+            _yieldSharesIssued += amount;
             return (amount);
         }
 
@@ -84,10 +84,10 @@ contract CompoundV3Term is TransactionCacheTerm {
         /// growing amount of underlying. Compound accounts for yield in a
         /// rebasing mechanism and so we must infer to calculate claims of
         /// depositors for this system
-        shares = (yieldSharesIssued * amount) / accruedUnderlying;
+        shares = (_yieldSharesIssued * amount) / accruedUnderlying;
 
         /// Increments "yieldShares"
-        yieldSharesIssued += shares;
+        _yieldSharesIssued += shares;
     }
 
     /// @notice Calls Compound to withdraw shares, the vault should send them to the destination address
@@ -103,13 +103,13 @@ contract CompoundV3Term is TransactionCacheTerm {
         /// Calculates how much `underlying` the `_shares` are worth
         amount =
             (yieldSource.balanceOf(address(this)) * shares) /
-            yieldSharesIssued;
+            _yieldSharesIssued;
 
         /// Withdraw `underlying` from Compound
         yieldSource.withdrawTo(dest, address(token), amount);
 
         /// Redeem back the `yieldShares`
-        yieldSharesIssued -= shares;
+        _yieldSharesIssued -= shares;
     }
 
     /// @notice Converts from user shares to how many underlying they are worth on withdraw
@@ -123,6 +123,6 @@ contract CompoundV3Term is TransactionCacheTerm {
     {
         amount =
             (yieldSource.balanceOf(address(this)) * shares) /
-            yieldSharesIssued;
+            _yieldSharesIssued;
     }
 }

@@ -329,10 +329,7 @@ abstract contract TransactionCacheTerm is Term {
                     yieldShareReserve) / yieldShareReserveAsUnderlying;
                 // Directly withdraws the shares needed to cover the underlying value from the yield source
                 // and sends the tokens to the destination
-                uint256 yieldingShares = _withdrawFromYieldSource(
-                    yieldSharesToWithdraw,
-                    _dest
-                );
+                _withdrawFromYieldSource(yieldSharesToWithdraw, _dest);
                 /// The `underlyingReserve` is unchanged. Deducts `yieldingShares`
                 /// burned from the withdrawal from the `yieldShareReserve`
                 _setCacheInfo(
