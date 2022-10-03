@@ -17,7 +17,7 @@ contract LPTest is ElementTest {
     error ExpectedBondsNotEqual(uint256 value, uint256 expected);
 
     uint256 internal constant _UNLOCKED_TERM_ID = 1 << 255;
-    address public user = vm.addr(0xDEAD_BEEF);
+    address public user = makeAddress("User");
 
     ForwarderFactory public factory;
     MockTerm public term;
