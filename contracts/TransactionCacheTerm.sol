@@ -30,21 +30,17 @@ import "./Term.sol";
 
 /// ### ShareState.Unlocked ###
 
-/// "shares" here differ from the "Locked" context so that the protocol can
-/// implement a transaction cache for an improved LP experience for small users and an
-/// overall more performative position for all LPers than version 1 of the
-/// Element Protocol by comparison.
 /// In context of the wider architecture outside of this contract, the "shares"
 /// here represent a perpetual claim on a capped reserve of underlying withheld
 /// in the contract and underlying deposits generating yield in the yield source
 /// This means that because the total sum of underlying is not deposited
 /// into the yield source, by comparison with ShareState.Locked, there will
 /// be marginally less yield accrued throughout the duration of a term and price
-/// "unlocked" shares marginally worse than the equivalent "locked" shares.
+/// "unlocked" shares preform marginally worse than the equivalent "locked" shares.
 /// The tradeoff for having this reserve of underlying withheld from being
-/// deposited and accruing yield is so that smaller users can cheaply enter
-/// and exit LP positions by depositing and withdrawing underlying to and from
-/// the cache instead of directly depositing to the yield source.
+/// deposited and accruing yield is so that smaller users can cheaply trade
+/// by depositing and withdrawing underlying to and from the cache instead of
+/// directly depositing to the yield source.
 
 abstract contract TransactionCacheTerm is Term {
     /// accounts for the balance of "unlocked" underlying for this term
