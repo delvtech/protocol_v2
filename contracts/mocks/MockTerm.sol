@@ -11,9 +11,8 @@ contract MockTerm is Term {
         address _owner
     ) Term(_linkerCodeHash, _factory, _token, _owner) {} /* solhint-disable-line no-empty-blocks */
 
-    // ####################
-    // ###     lock     ###
-    // ####################
+    // ----------------------- lock ----------------------- //
+
     event Lock(
         uint256[] assetIds,
         uint256[] assetAmounts,
@@ -58,10 +57,9 @@ contract MockTerm is Term {
         return (_lockPrincipalTokensReturnValue, _lockYieldTokensReturnValue);
     }
 
-    // ##################
-    // ###   unlock   ###
-    // ##################
-    event Unlock(address destination, uint256 tokenId, uint256 amount);
+    // ----------------------- unlock ----------------------- //
+
+    event Unlock(address destination, uint256[] assetIds, uint256[] amounts);
 
     uint256 internal _unlockValue;
 
@@ -69,22 +67,6 @@ contract MockTerm is Term {
         _unlockValue = _value;
     }
 
-    // stubs unlock function
-    function unlock(
-        address destination,
-        uint256[] memory tokenIds,
-        uint256[] memory amounts
-    ) public override returns (uint256) {
-        emit Unlock({
-            destination: destination,
-            tokenId: tokenIds[0],
-            amount: amounts[0]
-        });
-
-        return _unlockValue;
-    }
-
-    // call this to test unlock() itself
     function unlockExternal(
         address destination,
         uint256[] memory tokenIds,
@@ -93,23 +75,42 @@ contract MockTerm is Term {
         return super.unlock(destination, tokenIds, amounts);
     }
 
-    // ####################
-    // ###   _convert   ###
-    // ####################
+    function unlock(
+        address destination,
+        uint256[] memory assetIds,
+        uint256[] memory amounts
+    ) external override returns (uint256) {
+        emit Unlock({
+            destination: destination,
+            tokenId: assetIds,
+            amount: amounts
+        });
+
+        return _unlockValue;
+    }
+
+    // ----------------------- convert ----------------------- //
+
+    event Convert(ShareState shareState, uint256 shares);
+
     uint256 internal _convertReturnValue;
 
     function setConvertReturnValue(uint256 _value) external {
         _convertReturnValue = _value;
     }
 
-    function _convert(ShareState, uint256)
+    function _convert(ShareState shareState, uint256 shares)
         internal
-        view
         override
         returns (uint256)
     {
+        emit Convert(shareState, shares);
         return _convertReturnValue;
     }
+
+    // ----------------------- deposit ----------------------- //
+
+    event Deposit(ShareState shareState);
 
     uint256 internal _depositLeftReturnValue;
     uint256 internal _depositRightReturnValue;
@@ -119,14 +120,16 @@ contract MockTerm is Term {
         _depositRightReturnValue = _right;
     }
 
-    function _deposit(ShareState)
+    function _deposit(ShareState shareState)
         internal
-        view
         override
         returns (uint256, uint256)
     {
+        emit Deposit(shareState);
         return (_depositLeftReturnValue, _depositRightReturnValue);
     }
+
+    // ----------------------- _withdraw ----------------------- //
 
     event Withdraw(uint256 shares, address destination, ShareState shareState);
 
@@ -142,6 +145,8 @@ contract MockTerm is Term {
             return (_shares * _currentPricePerShareUnlocked) / one;
         }
     }
+
+    // ----------------------- _underlying ----------------------- //
 
     uint256 internal _currentPricePerShareLocked;
     uint256 internal _currentPricePerShareUnlocked;
@@ -169,44 +174,13 @@ contract MockTerm is Term {
         }
     }
 
-    uint256 internal _pricePerUnlockedShare;
-
-    function setPricePerUnlockedShare(uint256 _price) external {
-        _pricePerUnlockedShare = _price;
-    }
+    // ----------------------- unlockedSharePrice ----------------------- //
 
     function unlockedSharePrice() external view override returns (uint256) {
-        return _pricePerUnlockedShare;
+        return _currentPricePerShareUnlocked
     }
 
-    function setFinalizedState(
-        uint256 expiry,
-        FinalizedState memory finalizedState
-    ) external {
-        finalizedTerms[expiry] = finalizedState;
-    }
-
-    function setSharesPerExpiry(uint256 assetId, uint256 shares) external {
-        sharesPerExpiry[assetId] = shares;
-    }
-
-    function setTotalSupply(uint256 assetId, uint256 amount) external {
-        totalSupply[assetId] = amount;
-    }
-
-    function setYieldState(uint256 assetId, YieldState memory yieldState)
-        external
-    {
-        yieldTerms[assetId] = yieldState;
-    }
-
-    function setUserBalance(
-        uint256 assetId,
-        address user,
-        uint256 amount
-    ) external {
-        balanceOf[assetId][user] = amount;
-    }
+    // ----------------------- depositUnlocked ----------------------- //
 
     uint256 internal _depositUnlockedLeftReturnValue;
     uint256 internal _depositUnlockedRightReturnValue;
@@ -230,13 +204,38 @@ contract MockTerm is Term {
         uint256 ptAmount,
         uint256 ptExpiry,
         address destination
-    ) external override returns (uint256, uint256) {
+    ) public override returns (uint256, uint256) {
         emit DepositUnlocked(underlyingAmount, ptAmount, ptExpiry, destination);
         return (
             _depositUnlockedLeftReturnValue,
             _depositUnlockedRightReturnValue
         );
     }
+
+    function depositUnlockedExternal(
+        uint256 underlyingAmount,
+        uint256 ptAmount,
+        uint256 ptExpiry,
+        address destination
+    ) external returns (uint256, uint256) {
+        return
+            super.depositUnlocked(
+                underlyingAmount,
+                ptAmount,
+                ptExpiry,
+                destination
+            );
+    }
+
+    // ----------------------- _createYT ----------------------- //
+
+    event CreateYT(
+        address destination,
+        uint256 value,
+        uint256 totalShares,
+        uint256 startTime,
+        uint256 expiration
+    );
 
     function createYTExternal(
         address destination,
@@ -255,6 +254,20 @@ contract MockTerm is Term {
             );
     }
 
+    function _createYT(
+        address destination,
+        uint256 value,
+        uint256 totalShares,
+        uint256 startTime,
+        uint256 expiration
+    ) internal override returns (uint256) {
+        emit CreateYT(destination, value, totalShares, startTime, expiration);
+        // TODO: There may be a better way to compute the discount going forward.
+        return value / 2;
+    }
+
+    // ----------------------- _releaseAsset ----------------------- //
+
     event ReleaseAsset(uint256 assetId, address source, uint256 amount);
 
     function releaseAssetExternal(
@@ -271,11 +284,19 @@ contract MockTerm is Term {
         uint256 amount
     ) internal override returns (uint256, uint256) {
         emit ReleaseAsset(assetId, source, amount);
-        // TODO: Is there a better return value here?
         return (amount, amount);
     }
 
+    // ----------------------- _finalizeTerm ----------------------- //
+
     event FinalizeTerm(uint256 expiry);
+
+    function setFinalizedState(
+        uint256 expiry,
+        FinalizedState memory finalizedState
+    ) external {
+        finalizedTerms[expiry] = finalizedState;
+    }
 
     function finalizeTermExternal(uint256 expiry)
         external
@@ -292,6 +313,8 @@ contract MockTerm is Term {
         emit FinalizeTerm(expiry);
         return FinalizedState({ pricePerShare: 1, interest: 2 });
     }
+
+    // ----------------------- _releaseUnlocked ----------------------- //
 
     event ReleaseUnlocked(address source, uint256 amount);
 
@@ -310,6 +333,8 @@ contract MockTerm is Term {
         emit ReleaseUnlocked(source, amount);
         return (1, 2);
     }
+
+    // ----------------------- _releaseYT ----------------------- //
 
     event ReleaseYT(
         FinalizedState finalState,
@@ -337,6 +362,8 @@ contract MockTerm is Term {
         return super._releaseYT(finalState, assetId, source, amount);
     }
 
+    // ----------------------- _releasePT ----------------------- //
+
     event ReleasePT(
         FinalizedState finalState,
         uint256 assetId,
@@ -363,13 +390,7 @@ contract MockTerm is Term {
         return (1, 2);
     }
 
-    function mintExternal(
-        uint256 tokenID,
-        address to,
-        uint256 amount
-    ) external {
-        _mint(tokenID, to, amount);
-    }
+    // ----------------------- _parseAssetId ----------------------- //
 
     function parseAssetIdExternal(uint256 _assetId)
         external
@@ -381,5 +402,37 @@ contract MockTerm is Term {
         )
     {
         return _parseAssetId(_assetId);
+    }
+
+    // ----------------------- setters ----------------------- //
+
+    function mintExternal(
+        uint256 tokenID,
+        address to,
+        uint256 amount
+    ) external {
+        _mint(tokenID, to, amount);
+    }
+
+    function setSharesPerExpiry(uint256 assetId, uint256 shares) external {
+        sharesPerExpiry[assetId] = shares;
+    }
+
+    function setTotalSupply(uint256 assetId, uint256 amount) external {
+        totalSupply[assetId] = amount;
+    }
+
+    function setYieldState(uint256 assetId, YieldState memory yieldState)
+        external
+    {
+        yieldTerms[assetId] = yieldState;
+    }
+
+    function setUserBalance(
+        uint256 assetId,
+        address user,
+        uint256 amount
+    ) external {
+        balanceOf[assetId][user] = amount;
     }
 }
