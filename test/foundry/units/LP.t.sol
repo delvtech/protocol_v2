@@ -398,6 +398,7 @@ contract LPTest is ElementTest {
     }
 
     function test__withdrawToSharesCombinatorial() public {
+        vm.warp(0);
         uint256[][] memory inputs = new uint256[][](7);
         // poolId
         inputs[0] = new uint256[](2);
@@ -407,31 +408,31 @@ contract LPTest is ElementTest {
         // amount
         inputs[1] = new uint256[](3);
         inputs[1][0] = 0;
-        inputs[1][1] = 1 ether;
-        inputs[1][2] = 2 ether;
+        inputs[1][1] = 1 ether + 134703;
+        inputs[1][2] = 2 ether + 719740;
 
         // lpBalance
         inputs[2] = new uint256[](2);
-        inputs[2][0] = 1 ether;
-        inputs[2][1] = 2 ether;
+        inputs[2][0] = 1 ether + 460133;
+        inputs[2][1] = 2 ether + 490900;
 
         // totalSupply
         inputs[3] = new uint256[](3);
         inputs[3][0] = 0;
-        inputs[3][1] = 2 ether;
-        inputs[3][2] = 10_000 ether;
+        inputs[3][1] = 2 ether + 565674;
+        inputs[3][2] = 10_000 ether + 660156;
 
         // bondReserves
         inputs[4] = new uint256[](3);
         inputs[4][0] = 0;
-        inputs[4][1] = 1 ether;
-        inputs[4][2] = 10_000 ether;
+        inputs[4][1] = 1 ether + 328070;
+        inputs[4][2] = 10_000 ether + 827039;
 
         // shareReserves
         inputs[5] = new uint256[](3);
         inputs[5][0] = 0;
-        inputs[5][1] = 1 ether;
-        inputs[5][2] = 10_000 ether;
+        inputs[5][1] = 1 ether + 976842;
+        inputs[5][2] = 10_000 ether + 689760;
 
         // pricePerShare
         inputs[6] = new uint256[](3);
@@ -439,8 +440,8 @@ contract LPTest is ElementTest {
         inputs[6][1] = 1 ether;
         inputs[6][2] = 2 ether;
 
-        WithdrawSharesTestCase[]
-            memory testCases = _convertToWithdrawSharesTestCase(
+        WithdrawToSharesTestCase[]
+            memory testCases = _convertToWithdrawToSharesTestCase(
                 Utils.generateTestingMatrix(inputs)
             );
 
@@ -448,25 +449,25 @@ contract LPTest is ElementTest {
         startHoax(user);
 
         for (uint256 i = 0; i < testCases.length; i++) {
-            WithdrawSharesTestCase memory testCase = testCases[i];
-            _withdrawSharesTestCaseSetup(testCase);
+            WithdrawToSharesTestCase memory testCase = testCases[i];
+            _withdrawToSharesTestCaseSetup(testCase);
             // See if we are expecting an error from the inputs
             (
                 bool testCaseIsError,
                 bytes memory expectedError
-            ) = _getExpectedWithdrawSharesError(testCase);
+            ) = _getExpectedWithdrawToSharesError(testCase);
 
             // if there is an expected error, try to catch it
             if (testCaseIsError) {
-                _validateWithdrawSharesTestCaseError(testCase, expectedError);
+                _validateWithdrawToSharesTestCaseError(testCase, expectedError);
                 // otherwise validate the test passes
             } else {
-                _validateWithdrawSharesTestCase(testCase);
+                _validateWithdrawToSharesTestCase(testCase);
             }
         }
     }
 
-    struct WithdrawSharesTestCase {
+    struct WithdrawToSharesTestCase {
         // the expiration block timestamp of the term is the pool id
         uint256 poolId;
         // amount to withdraw to shares
@@ -483,18 +484,15 @@ contract LPTest is ElementTest {
         uint256 pricePerShare;
     }
 
-    function _convertToWithdrawSharesTestCase(uint256[][] memory rawTestCases)
+    function _convertToWithdrawToSharesTestCase(uint256[][] memory rawTestCases)
         internal
         pure
-        returns (WithdrawSharesTestCase[] memory testCases)
+        returns (WithdrawToSharesTestCase[] memory testCases)
     {
-        testCases = new WithdrawSharesTestCase[](rawTestCases.length);
+        testCases = new WithdrawToSharesTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
-            require(
-                rawTestCases[i].length == 7,
-                "Raw test case must have length of 7."
-            );
-            testCases[i] = WithdrawSharesTestCase({
+            _validateTestCaseLength(rawTestCases[i], 7);
+            testCases[i] = WithdrawToSharesTestCase({
                 poolId: rawTestCases[i][0],
                 amount: rawTestCases[i][1],
                 lpBalance: rawTestCases[i][2],
@@ -506,8 +504,8 @@ contract LPTest is ElementTest {
         }
     }
 
-    function _withdrawSharesTestCaseSetup(
-        WithdrawSharesTestCase memory testCase
+    function _withdrawToSharesTestCaseSetup(
+        WithdrawToSharesTestCase memory testCase
     ) internal {
         uint256 poolId = testCase.poolId;
         uint256 lpBalance = testCase.lpBalance;
@@ -525,8 +523,8 @@ contract LPTest is ElementTest {
         vm.warp(1);
     }
 
-    function _getExpectedWithdrawSharesError(
-        WithdrawSharesTestCase memory testCase
+    function _getExpectedWithdrawToSharesError(
+        WithdrawToSharesTestCase memory testCase
     ) internal view returns (bool testCaseIsError, bytes memory reason) {
         // tries to burn more than there is
         if (testCase.amount > testCase.totalSupply) {
@@ -562,8 +560,8 @@ contract LPTest is ElementTest {
         }
     }
 
-    function _validateWithdrawSharesTestCaseError(
-        WithdrawSharesTestCase memory testCase,
+    function _validateWithdrawToSharesTestCaseError(
+        WithdrawToSharesTestCase memory testCase,
         bytes memory expectedError
     ) internal {
         try
@@ -573,16 +571,16 @@ contract LPTest is ElementTest {
                 address(user)
             )
         {
-            _logWithdrawSharesTestCase(testCase);
+            _logWithdrawToSharesTestCase(testCase);
             revert ExpectedFailingTestPasses(expectedError);
         } catch (bytes memory err) {
             if (Utils.neq(err, expectedError)) {
-                _logWithdrawSharesTestCase(testCase);
+                _logWithdrawToSharesTestCase(testCase);
                 revert ExpectedDifferentFailureReason(err, expectedError);
             }
         } catch Error(string memory err) {
             if (Utils.neq(bytes(err), expectedError)) {
-                _logWithdrawSharesTestCase(testCase);
+                _logWithdrawToSharesTestCase(testCase);
                 revert ExpectedDifferentFailureReasonString(
                     err,
                     string(expectedError)
@@ -591,10 +589,10 @@ contract LPTest is ElementTest {
         }
     }
 
-    function _validateWithdrawSharesTestCase(
-        WithdrawSharesTestCase memory testCase
+    function _validateWithdrawToSharesTestCase(
+        WithdrawToSharesTestCase memory testCase
     ) internal {
-        _registerExpectedWithdrawSharesEvents(testCase);
+        _registerExpectedWithdrawToSharesEvents(testCase);
         (uint256 userShares, uint256 userBonds) = lp.withdrawToSharesExternal(
             testCase.poolId,
             testCase.amount,
@@ -613,17 +611,17 @@ contract LPTest is ElementTest {
         uint256 expectedUserBonds = (testCase.amount * bondReserves) /
             testCase.totalSupply;
 
-        bytes memory emptyError;
+        bytes memory emptyError = new bytes(0);
 
         if (userShares != expectedUserShares) {
             assertEq(userShares, expectedUserShares, "unexpected shares value");
-            _logWithdrawSharesTestCase(testCase);
+            _logWithdrawToSharesTestCase(testCase);
             revert ExpectedPassingTestFails(emptyError);
         }
 
         if (userBonds != expectedUserBonds) {
             assertEq(userBonds, expectedUserBonds, "unexpected bonds value");
-            _logWithdrawSharesTestCase(testCase);
+            _logWithdrawToSharesTestCase(testCase);
             revert ExpectedPassingTestFails(emptyError);
         }
 
@@ -639,7 +637,7 @@ contract LPTest is ElementTest {
                 expectedReserveShares,
                 "unexpected reserve shares value"
             );
-            _logWithdrawSharesTestCase(testCase);
+            _logWithdrawToSharesTestCase(testCase);
             revert ExpectedPassingTestFails(emptyError);
         }
 
@@ -649,7 +647,7 @@ contract LPTest is ElementTest {
                 expectedReserveBonds,
                 "unexpected reserve bonds value"
             );
-            _logWithdrawSharesTestCase(testCase);
+            _logWithdrawToSharesTestCase(testCase);
             revert ExpectedPassingTestFails(emptyError);
         }
     }
@@ -661,8 +659,8 @@ contract LPTest is ElementTest {
         address destination
     );
 
-    function _registerExpectedWithdrawSharesEvents(
-        WithdrawSharesTestCase memory testCase
+    function _registerExpectedWithdrawToSharesEvents(
+        WithdrawToSharesTestCase memory testCase
     ) internal {
         if (block.timestamp >= testCase.poolId && testCase.bondReserves != 0) {
             expectStrictEmit();
@@ -684,10 +682,9 @@ contract LPTest is ElementTest {
         );
     }
 
-    function _logWithdrawSharesTestCase(WithdrawSharesTestCase memory testCase)
-        internal
-        view
-    {
+    function _logWithdrawToSharesTestCase(
+        WithdrawToSharesTestCase memory testCase
+    ) internal view {
         console2.log("    LP.withdrawToShares");
         console2.log("    -----------------------------------------------    ");
         console2.log("    poolId           = ", testCase.poolId);
