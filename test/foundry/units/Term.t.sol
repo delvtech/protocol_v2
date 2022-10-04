@@ -155,7 +155,6 @@ contract TermTest is ElementTest {
                 rawTestCases[i].length == 4,
                 "Raw test case must have length of 4."
             );
-            // TODO: I think we can improve the fixtures design pattern.
             (
                 uint256[] memory assetIds,
                 uint256[] memory amounts
@@ -177,7 +176,7 @@ contract TermTest is ElementTest {
         // Create the asset IDs fixture.
         require(
             assetIdSelector < 7,
-            "Asset ID fixture selector must be less than 4"
+            "Asset ID fixture selector must be less than 7"
         );
         if (assetIdSelector == 0) {
             assetIds = new uint256[](0);
@@ -231,7 +230,7 @@ contract TermTest is ElementTest {
         amounts = new uint256[](assetIds.length);
         require(
             amountSelector < 6,
-            "Amount fixture selector must be less than 4"
+            "Amount fixture selector must be less than 6"
         );
         if (amountSelector == 0) {
             for (uint256 i = 0; i < assetIds.length; i++) {
