@@ -83,7 +83,7 @@ contract LPTest is ElementTest {
     }
 
     function test__withdrawToSharesCombinatorial() public {
-        uint256[][] memory inputs = new uint256[][](6);
+        uint256[][] memory inputs = new uint256[][](7);
         // poolId
         inputs[0] = new uint256[](2);
         inputs[0][0] = 0; //expired
@@ -117,6 +117,12 @@ contract LPTest is ElementTest {
         inputs[5][0] = 0;
         inputs[5][1] = 1 ether;
         inputs[5][2] = 10_000 ether;
+
+        // pricePerShare
+        inputs[6] = new uint256[](3);
+        inputs[6][0] = 0.5 ether;
+        inputs[6][1] = 1 ether;
+        inputs[6][2] = 2 ether;
 
         WithdrawSharesTestCase[]
             memory testCases = _convertToWithdrawSharesTestCase(
@@ -158,6 +164,8 @@ contract LPTest is ElementTest {
         uint256 bondReserves;
         // the share reserves for the pool
         uint256 shareReserves;
+        // the number of underlying per share
+        uint256 pricePerShare;
     }
 
     function _convertToWithdrawSharesTestCase(uint256[][] memory rawTestCases)
@@ -168,8 +176,8 @@ contract LPTest is ElementTest {
         testCases = new WithdrawSharesTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
             require(
-                rawTestCases[i].length == 6,
-                "Raw test case must have length of 6."
+                rawTestCases[i].length == 7,
+                "Raw test case must have length of 7."
             );
             testCases[i] = WithdrawSharesTestCase({
                 poolId: rawTestCases[i][0],
@@ -177,7 +185,8 @@ contract LPTest is ElementTest {
                 lpBalance: rawTestCases[i][2],
                 totalSupply: rawTestCases[i][3],
                 bondReserves: rawTestCases[i][4],
-                shareReserves: rawTestCases[i][5]
+                shareReserves: rawTestCases[i][5],
+                pricePerShare: rawTestCases[i][6]
             });
         }
     }
@@ -195,8 +204,7 @@ contract LPTest is ElementTest {
         lp.setTotalSupply(poolId, totalSupply);
         lp.setBondReserves(poolId, bondReserves);
         lp.setShareReserves(poolId, shareReserves);
-        // return half the shares for deposited bonds, testing 100% interest
-        uint256 sharesCreated = bondReserves / 2;
+        uint256 sharesCreated = bondReserves / testCase.pricePerShare;
         term.setDepositUnlockedReturnValues(bondReserves, sharesCreated);
 
         vm.warp(1);
@@ -218,8 +226,7 @@ contract LPTest is ElementTest {
         uint256 bondReserves = testCase.bondReserves;
         uint256 shareReserves = testCase.shareReserves;
         if (block.timestamp >= testCase.poolId && bondReserves != 0) {
-            // sharesCreated is bondReserves / 2
-            shareReserves += bondReserves / 2;
+            shareReserves += bondReserves / testCase.pricePerShare;
             bondReserves = 0;
         }
 
@@ -282,8 +289,7 @@ contract LPTest is ElementTest {
         uint256 bondReserves = testCase.bondReserves;
         uint256 shareReserves = testCase.shareReserves;
         if (block.timestamp >= testCase.poolId && testCase.bondReserves != 0) {
-            // sharesCreated is bondReserves / 2
-            shareReserves += bondReserves / 2;
+            shareReserves += bondReserves / testCase.pricePerShare;
             bondReserves = 0;
         }
 
@@ -383,6 +389,7 @@ contract LPTest is ElementTest {
         console2.log("    totalSupply      = ", testCase.totalSupply);
         console2.log("    bondReserves     = ", testCase.bondReserves);
         console2.log("    shareReserves    = ", testCase.shareReserves);
+        console2.log("    pricePerShare    = ", testCase.pricePerShare);
         console2.log("");
     }
 }
