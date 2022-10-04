@@ -20,7 +20,7 @@ contract MockPool is Pool {
             _governanceContract,
             _erc20ForwarderFactory
         )
-    {}
+    {} // solhint-disable-line no-empty-blocks
 
     function setFees(
         uint256 poolId,
@@ -43,9 +43,9 @@ contract MockPool is Pool {
         reserves[_poolId].bonds = _bonds;
     }
 
-    uint128 _newShareReserves;
-    uint128 _newBondReserves;
-    uint256 _tradeBondsOutputAmount;
+    uint128 internal _newShareReserves;
+    uint128 internal _newBondReserves;
+    uint256 internal _tradeBondsOutputAmount;
 
     function setMockTradeReturnValues(
         uint128 __newShareReserves,
@@ -59,6 +59,7 @@ contract MockPool is Pool {
 
     function _mockTrade()
         internal
+        view
         returns (
             uint256,
             uint256,
@@ -148,6 +149,95 @@ contract MockPool is Pool {
         return _mockTrade();
     }
 
+    function sellBondsExternal(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        address receiver
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return super._sellBonds(poolId, amount, cachedReserve, receiver);
+    }
+
+    event QuoteSaleAndFees(
+        uint256 poolId,
+        uint256 amount,
+        uint128 reserveShares,
+        uint128 reserveBonds,
+        uint256 pricePerShare
+    );
+
+    uint256 internal _quoteSaleAndFees_newShareReserve;
+    uint256 internal _quoteSaleAndFees_newBondReserve;
+    uint256 internal _quoteSaleAndFees_outputShares;
+
+    function setQuoteSaleAndFeesReturnValues(
+        uint256 _newShareReserve,
+        uint256 _newBondReserve,
+        uint256 _outputShares
+    ) external {
+        _quoteSaleAndFees_newShareReserve = _newShareReserve;
+        _quoteSaleAndFees_newBondReserve = _newBondReserve;
+        _quoteSaleAndFees_outputShares = _outputShares;
+    }
+
+    function _quoteSaleAndFees(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        uint256 pricePerShare
+    )
+        internal
+        override
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        emit QuoteSaleAndFees(
+            poolId,
+            amount,
+            cachedReserve.shares,
+            cachedReserve.bonds,
+            pricePerShare
+        );
+
+        return (
+            _quoteSaleAndFees_newShareReserve,
+            _quoteSaleAndFees_newBondReserve,
+            _quoteSaleAndFees_outputShares
+        );
+    }
+
+    function quoteSaleAndFeesExternal(
+        uint256 poolId,
+        uint256 amount,
+        Reserve memory cachedReserve,
+        uint256 pricePerShare
+    )
+        external
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return
+            super._quoteSaleAndFees(
+                poolId,
+                amount,
+                cachedReserve,
+                pricePerShare
+            );
+    }
+
     function normalize(uint256 input) external view returns (uint256) {
         return super._normalize(input);
     }
@@ -187,19 +277,21 @@ contract MockPool is Pool {
         emit Update(poolId, newBondBalance, newSharesBalance);
     }
 
-    uint256 _tradeCalculationOutput;
+    uint256 internal _tradeCalculationOutput;
 
     function setTradeCalculationReturnValue(uint256 val) external {
         _tradeCalculationOutput = val;
     }
 
+    // NOTE: we cannot emit an event here since this is a view function.
+    // emitting an event is considered modifying state.
     function _tradeCalculation(
-        uint256 expiry,
-        uint256 input,
-        uint256 shareReserve,
-        uint256 bondReserve,
-        uint256 pricePerShare,
-        bool isBondOut
+        uint256, // expiry
+        uint256, // input
+        uint256, // shareReserve
+        uint256, // bondReserve
+        uint256, // pricePerShare
+        bool // isBondOut
     ) internal view override returns (uint256) {
         return _tradeCalculationOutput;
     }

@@ -6,7 +6,7 @@ import "../MultiToken.sol";
 contract MockMultiToken is MultiToken {
     constructor(bytes32 _linkerCodeHash, address _factory)
         MultiToken(_linkerCodeHash, _factory)
-    {}
+    {} // solhint-disable-line no-empty-blocks
 
     function setNameAndSymbol(
         uint256 tokenId,

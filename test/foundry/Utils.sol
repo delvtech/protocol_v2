@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.15;
 
+import "forge-std/console2.sol";
+
 library Utils {
     function eq(bytes memory b1, bytes memory b2) public pure returns (bool) {
         return
@@ -74,5 +76,21 @@ library Utils {
             }
         }
         return result;
+    }
+
+    function logArray(string memory prelude, uint256[] memory array)
+        internal
+        view
+    {
+        console2.log(prelude, "[");
+        for (uint256 i = 0; i < array.length; i++) {
+            if (i < array.length - 1) {
+                console2.log("        ", array[i], ",");
+            } else {
+                console2.log("        ", array[i]);
+            }
+        }
+        console2.log("    ]");
+        console2.log("");
     }
 }

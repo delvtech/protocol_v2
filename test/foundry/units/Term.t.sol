@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.15;
 
-import "forge-std/console.sol";
+import "forge-std/console2.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/interfaces/IERC20.sol";
+import "contracts/interfaces/IYieldAdapter.sol";
 import "contracts/libraries/Errors.sol";
 import "contracts/mocks/MockTerm.sol";
 import "contracts/mocks/MockERC20Permit.sol";
@@ -14,9 +15,9 @@ contract TermTest is ElementTest {
     address public destination = makeAddress("destination");
     address public source = makeAddress("source");
 
-    ForwarderFactory _factory;
-    MockTerm _term;
-    MockERC20Permit _underlying;
+    ForwarderFactory internal _factory;
+    MockTerm internal _term;
+    MockERC20Permit internal _underlying;
 
     function setUp() public {
         // Set up the required Element contracts.
@@ -30,9 +31,10 @@ contract TermTest is ElementTest {
         );
     }
 
-    // ----------------------- mock events -----------------------//
+    // ----------------------- mock events ----------------------- //
 
     event FinalizeTerm(uint256 expiry);
+    event ReleaseAsset(uint256 assetId, address source, uint256 amount);
     event ReleasePT(
         Term.FinalizedState finalState,
         uint256 assetId,
@@ -46,6 +48,342 @@ contract TermTest is ElementTest {
         uint256 amount
     );
     event ReleaseUnlocked(address source, uint256 amount);
+    event Withdraw(
+        uint256 shares,
+        address destination,
+        IYieldAdapter.ShareState shareState
+    );
+
+    // ------------------- unlock unit tests ------------------- //
+
+    function testCombinatorialUnlock() public {
+        startHoax(source);
+
+        uint256[][] memory inputs = new uint256[][](4);
+        // asset ids
+        inputs[0] = new uint256[](7);
+        inputs[0][0] = 0;
+        inputs[0][1] = 1;
+        inputs[0][2] = 2;
+        inputs[0][3] = 3;
+        inputs[0][4] = 4;
+        inputs[0][5] = 5;
+        inputs[0][6] = 6;
+        // amounts
+        inputs[1] = new uint256[](6);
+        inputs[1][0] = 0;
+        inputs[1][1] = 1;
+        inputs[1][2] = 2;
+        inputs[1][3] = 3;
+        inputs[1][4] = 4;
+        inputs[1][5] = 5;
+        // current price per share
+        uint256[] memory amounts = new uint256[](3);
+        amounts[0] = 0;
+        amounts[1] = 1.8345 ether + 234234;
+        amounts[2] = 17.3453 ether + 345345;
+        inputs[2] = amounts;
+        inputs[3] = amounts;
+        // generate the test cases
+        UnlockTestCase[] memory testCases = _convertToUnlockTestCase(
+            Utils.generateTestingMatrix(inputs)
+        );
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            _term.setCurrentPricePerShare(
+                testCases[i].currentPricePerShareLocked,
+                IYieldAdapter.ShareState.Locked
+            );
+            _term.setCurrentPricePerShare(
+                testCases[i].currentPricePerShareUnlocked,
+                IYieldAdapter.ShareState.Unlocked
+            );
+
+            (
+                bool shouldExpectError,
+                bytes memory expectedError
+            ) = _getExpectedErrorUnlock(testCases[i]);
+            if (shouldExpectError) {
+                try
+                    _term.unlock(
+                        destination,
+                        testCases[i].assetIds,
+                        testCases[i].amounts
+                    )
+                {
+                    _logTestCaseUnlock("failure case", testCases[i]);
+                    revert("succeeds unexpectedly");
+                } catch (bytes memory error) {
+                    if (Utils.neq(error, expectedError)) {
+                        _logTestCaseUnlock("failure case", testCases[i]);
+                        assertEq(error, expectedError);
+                    }
+                }
+            } else {
+                _registerExpectedEventsUnlock(testCases[i]);
+                try
+                    _term.unlock(
+                        destination,
+                        testCases[i].assetIds,
+                        testCases[i].amounts
+                    )
+                returns (uint256 underlyingUnlocked) {
+                    _validateSuccessUnlock(testCases[i], underlyingUnlocked);
+                } catch {
+                    _logTestCaseUnlock("success case", testCases[i]);
+                    revert("fails unexpectedly");
+                }
+            }
+        }
+    }
+
+    struct UnlockTestCase {
+        uint256[] assetIds;
+        uint256[] amounts;
+        uint256 currentPricePerShareLocked;
+        uint256 currentPricePerShareUnlocked;
+    }
+
+    function _convertToUnlockTestCase(uint256[][] memory rawTestCases)
+        internal
+        view
+        returns (UnlockTestCase[] memory testCases)
+    {
+        testCases = new UnlockTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            require(
+                rawTestCases[i].length == 4,
+                "Raw test case must have length of 4."
+            );
+            (
+                uint256[] memory assetIds,
+                uint256[] memory amounts
+            ) = _getFixturesUnlock(rawTestCases[i][0], rawTestCases[i][1]);
+            testCases[i] = UnlockTestCase({
+                assetIds: assetIds,
+                amounts: amounts,
+                currentPricePerShareLocked: rawTestCases[i][2],
+                currentPricePerShareUnlocked: rawTestCases[i][3]
+            });
+        }
+    }
+
+    function _getFixturesUnlock(uint256 assetIdSelector, uint256 amountSelector)
+        internal
+        view
+        returns (uint256[] memory assetIds, uint256[] memory amounts)
+    {
+        // Create the asset IDs fixture.
+        require(
+            assetIdSelector < 7,
+            "Asset ID fixture selector must be less than 7"
+        );
+        if (assetIdSelector == 0) {
+            assetIds = new uint256[](0);
+        } else if (assetIdSelector == 1) {
+            assetIds = new uint256[](1);
+            assetIds[0] = Utils.encodeAssetId(false, 0, block.timestamp);
+        } else if (assetIdSelector == 2) {
+            // duplicated asset ID
+            assetIds = new uint256[](2);
+            assetIds[0] = Utils.encodeAssetId(false, 0, block.timestamp);
+            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
+        } else if (assetIdSelector == 3) {
+            // out of order asset IDs
+            assetIds = new uint256[](2);
+            assetIds[0] = Utils.encodeAssetId(
+                true,
+                block.timestamp / 2,
+                block.timestamp
+            );
+            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
+        } else if (assetIdSelector == 4) {
+            // out of order asset IDs and duplicate
+            assetIds = new uint256[](2);
+            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
+            assetIds[0] = Utils.encodeAssetId(
+                true,
+                block.timestamp / 2,
+                block.timestamp
+            );
+            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
+        } else if (assetIdSelector == 5) {
+            assetIds = new uint256[](1);
+            assetIds[0] = Utils.encodeAssetId(true, 0, 0);
+        } else if (assetIdSelector == 6) {
+            assetIds = new uint256[](5);
+            assetIds[0] = Utils.encodeAssetId(false, 0, block.timestamp);
+            assetIds[1] = Utils.encodeAssetId(
+                true,
+                block.timestamp / 3,
+                block.timestamp
+            );
+            assetIds[2] = Utils.encodeAssetId(
+                true,
+                block.timestamp / 2,
+                block.timestamp
+            );
+            assetIds[3] = Utils.encodeAssetId(true, 0, 0);
+        }
+
+        // Create the amounts fixture.
+        amounts = new uint256[](assetIds.length);
+        require(
+            amountSelector < 6,
+            "Amount fixture selector must be less than 6"
+        );
+        if (amountSelector == 0) {
+            for (uint256 i = 0; i < assetIds.length; i++) {
+                amounts[i] = 0;
+            }
+        } else if (amountSelector == 1) {
+            for (uint256 i = 0; i < assetIds.length; i++) {
+                amounts[i] = 1 ether;
+            }
+        } else if (amountSelector == 2) {
+            for (uint256 i = 0; i < assetIds.length; i++) {
+                amounts[i] = 1 ether + i * 0.3453 ether + 123;
+            }
+        } else if (amountSelector == 3) {
+            for (uint256 i = 0; i < assetIds.length; i++) {
+                amounts[i] = 203 ether - i * 45 ether + 123;
+            }
+        } else if (amountSelector == 4) {
+            if (assetIds.length > 0) {
+                for (uint256 i = 0; i < assetIds.length - 1; i++) {
+                    amounts[i] = 203 ether - i * 45 ether + 123;
+                }
+            }
+        } else if (amountSelector == 5) {
+            for (uint256 i = 0; i < assetIds.length + 1; i++) {
+                amounts[i] = 203 ether - i * 45 ether + 123;
+            }
+        }
+    }
+
+    function _getExpectedErrorUnlock(UnlockTestCase memory testCase)
+        internal
+        pure
+        returns (bool, bytes memory)
+    {
+        if (testCase.assetIds.length > 0) {
+            uint256 lastAssetId = testCase.assetIds[0];
+            for (uint256 i = 1; i < testCase.assetIds.length; i++) {
+                if (lastAssetId >= testCase.assetIds[i]) {
+                    return (
+                        true,
+                        abi.encodeWithSelector(
+                            ElementError.UnsortedAssetIds.selector
+                        )
+                    );
+                }
+                if (i == testCase.amounts.length) {
+                    return (true, stdError.indexOOBError);
+                }
+                lastAssetId = testCase.assetIds[i];
+            }
+        }
+        return (false, new bytes(0));
+    }
+
+    function _registerExpectedEventsUnlock(UnlockTestCase memory testCase)
+        internal
+    {
+        uint256 expectedReleasedSharesUnlocked = 0;
+        uint256 expectedReleasedSharesLocked = 0;
+        for (uint256 i = 0; i < testCase.assetIds.length; i++) {
+            expectStrictEmit();
+            emit ReleaseAsset(
+                testCase.assetIds[i],
+                source,
+                testCase.amounts[i]
+            );
+            if (testCase.assetIds[i] == _term.UNLOCKED_YT_ID()) {
+                expectedReleasedSharesUnlocked += testCase.amounts[i];
+            } else {
+                expectedReleasedSharesLocked += testCase.amounts[i];
+            }
+        }
+        if (expectedReleasedSharesLocked > 0) {
+            expectStrictEmit();
+            emit Withdraw(
+                expectedReleasedSharesLocked,
+                destination,
+                IYieldAdapter.ShareState.Locked
+            );
+        }
+        if (expectedReleasedSharesUnlocked > 0) {
+            expectStrictEmit();
+            emit Withdraw(
+                expectedReleasedSharesUnlocked,
+                destination,
+                IYieldAdapter.ShareState.Unlocked
+            );
+        }
+    }
+
+    function _validateSuccessUnlock(
+        UnlockTestCase memory testCase,
+        uint256 underlyingUnlocked
+    ) internal {
+        uint256 expectedReleasedSharesLocked = 0;
+        uint256 expectedReleasedSharesUnlocked = 0;
+        for (uint256 i = 0; i < testCase.assetIds.length; i++) {
+            if (testCase.assetIds[i] == _term.UNLOCKED_YT_ID()) {
+                expectedReleasedSharesUnlocked += testCase.amounts[i];
+            } else {
+                expectedReleasedSharesLocked += testCase.amounts[i];
+            }
+        }
+        uint256 expectedUnderlyingUnlocked = (expectedReleasedSharesLocked *
+            testCase.currentPricePerShareLocked) /
+            _term.one() +
+            (expectedReleasedSharesUnlocked *
+                testCase.currentPricePerShareUnlocked) /
+            _term.one();
+        if (underlyingUnlocked != expectedUnderlyingUnlocked) {
+            _logTestCaseUnlock("success case", testCase);
+            assertEq(underlyingUnlocked, expectedUnderlyingUnlocked);
+        }
+    }
+
+    function _logTestCaseUnlock(
+        string memory prelude,
+        UnlockTestCase memory testCase
+    ) internal view {
+        console2.log(prelude);
+        console2.log("");
+        Utils.logArray("    assetIds: ", testCase.assetIds);
+        Utils.logArray("    amounts: ", testCase.amounts);
+        console2.log(
+            "    currentPricePerShareLocked:",
+            testCase.currentPricePerShareLocked
+        );
+        console2.log(
+            "    currentPricePerShareUnlocked:",
+            testCase.currentPricePerShareUnlocked
+        );
+        console2.log("");
+    }
+
+    // ------------------- unlockedSharePrice unit tests ------------------- //
+
+    function testUnlockedSharePrice() public {
+        uint256[] memory sharePrices = new uint256[](3);
+        sharePrices[0] = 0;
+        sharePrices[1] = 1 ether;
+        sharePrices[2] = 2.2345 ether;
+
+        for (uint256 i = 0; i < sharePrices.length; i++) {
+            _term.setCurrentPricePerShare(
+                sharePrices[i],
+                IYieldAdapter.ShareState.Locked
+            );
+
+            uint256 unlockedSharePrice = _term.unlockedSharePrice();
+            assertEq(unlockedSharePrice, sharePrices[i]);
+        }
+    }
 
     // -------------------  _createYT unit tests   ------------------ //
 
@@ -139,7 +477,7 @@ contract TermTest is ElementTest {
                         testCases[i].expiration
                     )
                 returns (uint256 amount) {
-                    _validateCreateYTSuccess(testCases[i], amount);
+                    _validateSuccessCreateYT(testCases[i], amount);
                 } catch {
                     _logTestCaseCreateYT("success case", testCases[i]);
                     revert("failed unexpectedly");
@@ -166,10 +504,7 @@ contract TermTest is ElementTest {
             rawTestMatrix.length
         );
         for (uint256 i = 0; i < rawTestMatrix.length; i++) {
-            require(
-                rawTestMatrix[i].length == 7,
-                "Raw test case must have length of 7."
-            );
+            _validateTestCaseLength(rawTestMatrix[i], 7);
             result[i] = CreateYTTestCase({
                 value: rawTestMatrix[i][0],
                 totalShares: rawTestMatrix[i][1],
@@ -206,7 +541,7 @@ contract TermTest is ElementTest {
             }
             (
                 uint256 expectedImpliedShareValue,
-                uint256 expectedInterestEarned,
+                ,
                 uint256 expectedTotalDiscount
             ) = _getExpectedCalculationsCreateYT(testCase);
             if (expectedImpliedShareValue < uint256(testCase.yieldState.pt)) {
@@ -225,7 +560,7 @@ contract TermTest is ElementTest {
         return (false, new bytes(0));
     }
 
-    function _validateCreateYTSuccess(
+    function _validateSuccessCreateYT(
         CreateYTTestCase memory testCase,
         uint256 amount
     ) internal {
@@ -397,16 +732,16 @@ contract TermTest is ElementTest {
         string memory prelude,
         CreateYTTestCase memory testCase
     ) internal view {
-        console.log(prelude);
-        console.log("");
-        console.log("    value             = ", testCase.value);
-        console.log("    totalShares       = ", testCase.totalShares);
-        console.log("    startTime         = ", testCase.startTime);
-        console.log("    expiration        = ", testCase.expiration);
-        console.log("    yieldState.shares = ", testCase.yieldState.shares);
-        console.log("    yieldState.pt     = ", testCase.yieldState.pt);
-        console.log("    totalSupply       = ", testCase.totalSupply);
-        console.log("");
+        console2.log(prelude);
+        console2.log("");
+        console2.log("    value             = ", testCase.value);
+        console2.log("    totalShares       = ", testCase.totalShares);
+        console2.log("    startTime         = ", testCase.startTime);
+        console2.log("    expiration        = ", testCase.expiration);
+        console2.log("    yieldState.shares = ", testCase.yieldState.shares);
+        console2.log("    yieldState.pt     = ", testCase.yieldState.pt);
+        console2.log("    totalSupply       = ", testCase.totalSupply);
+        console2.log("");
     }
 
     // -------------------  _releaseAsset unit tests   ------------------ //
@@ -513,10 +848,7 @@ contract TermTest is ElementTest {
             rawTestMatrix.length
         );
         for (uint256 i = 0; i < rawTestMatrix.length; i++) {
-            require(
-                rawTestMatrix[i].length == 3,
-                "Raw test case must have length of 3."
-            );
+            _validateTestCaseLength(rawTestMatrix[i], 3);
             result[i] = ReleaseAssetTestCase({
                 amount: rawTestMatrix[i][0],
                 assetId: rawTestMatrix[i][1],
@@ -587,12 +919,12 @@ contract TermTest is ElementTest {
         string memory prelude,
         ReleaseAssetTestCase memory testCase
     ) internal view {
-        console.log(prelude);
-        console.log("");
-        console.log("    amount   = ", testCase.amount);
-        console.log("    assetId  = ", testCase.assetId);
-        console.log("    interest = ", testCase.interest);
-        console.log("");
+        console2.log(prelude);
+        console2.log("");
+        console2.log("    amount   = ", testCase.amount);
+        console2.log("    assetId  = ", testCase.assetId);
+        console2.log("    interest = ", testCase.interest);
+        console2.log("");
     }
 
     // -------------------  _finalizeTerm unit tests   ------------------ //
@@ -625,7 +957,10 @@ contract TermTest is ElementTest {
 
         for (uint256 i = 0; i < testCases.length; i++) {
             // Set up the test state.
-            _term.setCurrentPricePerShare(testCases[i].currentPricePerShare);
+            _term.setCurrentPricePerShare(
+                testCases[i].currentPricePerShare,
+                IYieldAdapter.ShareState.Locked
+            );
             _term.setSharesPerExpiry(expiry, testCases[i].sharesPerExpiry);
             _term.setTotalSupply(expiry, testCases[i].totalSupply);
 
@@ -647,12 +982,12 @@ contract TermTest is ElementTest {
                 try _term.finalizeTermExternal(expiry) returns (
                     Term.FinalizedState memory finalState
                 ) {
-                    _validateFinalizeTermSuccess(
+                    _validateSuccessFinalizeTerm(
                         testCases[i],
                         finalState,
                         expiry
                     );
-                } catch (bytes memory error) {
+                } catch {
                     _logTestCaseFinalizeTerm("success case", testCases[i]);
                     revert("failed unexpectedly");
                 }
@@ -675,10 +1010,7 @@ contract TermTest is ElementTest {
             rawTestMatrix.length
         );
         for (uint256 i = 0; i < rawTestMatrix.length; i++) {
-            require(
-                rawTestMatrix[i].length == 3,
-                "Raw test case must have length of 3."
-            );
+            _validateTestCaseLength(rawTestMatrix[i], 3);
             result[i] = FinalizeTermTestCase({
                 currentPricePerShare: rawTestMatrix[i][0],
                 sharesPerExpiry: rawTestMatrix[i][1],
@@ -699,7 +1031,7 @@ contract TermTest is ElementTest {
         return (false, new bytes(0));
     }
 
-    function _validateFinalizeTermSuccess(
+    function _validateSuccessFinalizeTerm(
         FinalizeTermTestCase memory testCase,
         Term.FinalizedState memory finalState,
         uint256 expiry
@@ -761,15 +1093,15 @@ contract TermTest is ElementTest {
         string memory prelude,
         FinalizeTermTestCase memory testCase
     ) internal view {
-        console.log(prelude);
-        console.log("");
-        console.log(
+        console2.log(prelude);
+        console2.log("");
+        console2.log(
             "    currentPricePerShare =",
             testCase.currentPricePerShare
         );
-        console.log("    sharesPerExpiry      =", testCase.sharesPerExpiry);
-        console.log("    totalSupply          =", testCase.totalSupply);
-        console.log("");
+        console2.log("    sharesPerExpiry      =", testCase.sharesPerExpiry);
+        console2.log("    totalSupply          =", testCase.totalSupply);
+        console2.log("");
     }
 
     // -------------------  _releaseUnlocked unit tests   ------------------ //
@@ -796,7 +1128,10 @@ contract TermTest is ElementTest {
         uint256 unlockedYTId = _term.UNLOCKED_YT_ID();
         for (uint256 i = 0; i < testCases.length; i++) {
             // Set up the test state.
-            _term.setCurrentPricePerShare(testCases[i].currentPricePerShare);
+            _term.setCurrentPricePerShare(
+                testCases[i].currentPricePerShare,
+                IYieldAdapter.ShareState.Locked
+            );
             _term.setTotalSupply(unlockedYTId, testCases[i].totalSupply);
             _term.setUserBalance(
                 unlockedYTId,
@@ -832,7 +1167,7 @@ contract TermTest is ElementTest {
                 try
                     _term.releaseUnlockedExternal(source, testCases[i].amount)
                 returns (uint256 shares, uint256 value) {
-                    _validateReleaseUnlockedSuccess(
+                    _validateSuccessReleaseUnlocked(
                         testCases[i],
                         shares,
                         value
@@ -865,10 +1200,7 @@ contract TermTest is ElementTest {
             rawTestMatrix.length
         );
         for (uint256 i = 0; i < rawTestMatrix.length; i++) {
-            require(
-                rawTestMatrix[i].length == 5,
-                "Raw test case must have length of 5."
-            );
+            _validateTestCaseLength(rawTestMatrix[i], 5);
             result[i] = ReleaseUnlockedTestCase({
                 amount: rawTestMatrix[i][0],
                 currentPricePerShare: rawTestMatrix[i][1],
@@ -894,7 +1226,7 @@ contract TermTest is ElementTest {
         return (false, new bytes(0));
     }
 
-    function _validateReleaseUnlockedSuccess(
+    function _validateSuccessReleaseUnlocked(
         ReleaseUnlockedTestCase memory testCase,
         uint256 shares,
         uint256 value
@@ -948,17 +1280,17 @@ contract TermTest is ElementTest {
         string memory prelude,
         ReleaseUnlockedTestCase memory testCase
     ) internal view {
-        console.log(prelude);
-        console.log("");
-        console.log("    amount = ", testCase.amount);
-        console.log(
+        console2.log(prelude);
+        console2.log("");
+        console2.log("    amount = ", testCase.amount);
+        console2.log(
             "    currentPricePerShare = ",
             testCase.currentPricePerShare
         );
-        console.log("    shares               = ", testCase.shares);
-        console.log("    totalSupply          = ", testCase.totalSupply);
-        console.log("    sourceBalance          = ", testCase.sourceBalance);
-        console.log("");
+        console2.log("    shares               = ", testCase.shares);
+        console2.log("    totalSupply          = ", testCase.totalSupply);
+        console2.log("    sourceBalance          = ", testCase.sourceBalance);
+        console2.log("");
     }
 
     // -------------------  _releaseYT unit tests   ------------------ //
@@ -996,7 +1328,10 @@ contract TermTest is ElementTest {
             _term.setFinalizedState(expiry, testCases[i].finalState);
             _term.setSharesPerExpiry(expiry, testCases[i].sharesPerExpiry);
             _term.setTotalSupply(assetId, testCases[i].totalSupply);
-            _term.setCurrentPricePerShare(testCases[i].currentPricePerShare);
+            _term.setCurrentPricePerShare(
+                testCases[i].currentPricePerShare,
+                IYieldAdapter.ShareState.Locked
+            );
             _term.setUserBalance(assetId, source, testCases[i].sourceBalance);
             _term.setYieldState(assetId, testCases[i].yieldState);
 
@@ -1030,7 +1365,7 @@ contract TermTest is ElementTest {
                         testCases[i].amount
                     )
                 returns (uint256 shares, uint256 value) {
-                    _validateReleaseYTSuccess(
+                    _validateSuccessReleaseYT(
                         testCases[i],
                         assetId,
                         shares,
@@ -1076,10 +1411,7 @@ contract TermTest is ElementTest {
     {
         testCases = new ReleaseYTTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
-            require(
-                rawTestCases[i].length == 9,
-                "Raw test case must have length of 9."
-            );
+            _validateTestCaseLength(rawTestCases[i], 9);
             testCases[i] = ReleaseYTTestCase({
                 amount: rawTestCases[i][0],
                 currentPricePerShare: rawTestCases[i][1],
@@ -1148,7 +1480,7 @@ contract TermTest is ElementTest {
 
     // Given a test case, validate the state transitions and return values of a
     // successful call to _releaseYT.
-    function _validateReleaseYTSuccess(
+    function _validateSuccessReleaseYT(
         ReleaseYTTestCase memory testCase,
         uint256 assetId,
         uint256 shares,
@@ -1275,36 +1607,36 @@ contract TermTest is ElementTest {
         string memory prelude,
         ReleaseYTTestCase memory testCase
     ) internal view {
-        console.log(prelude);
-        console.log("");
-        console.log("    amount                   = ", testCase.amount);
-        console.log(
+        console2.log(prelude);
+        console2.log("");
+        console2.log("    amount                   = ", testCase.amount);
+        console2.log(
             "    currentPricePerShare     = ",
             testCase.currentPricePerShare
         );
-        console.log(
+        console2.log(
             "    finalState.pricePerShare = ",
             testCase.finalState.pricePerShare
         );
-        console.log(
+        console2.log(
             "    finalState.interest      = ",
             testCase.finalState.interest
         );
-        console.log(
+        console2.log(
             "    sharesPerExpiry          = ",
             testCase.sharesPerExpiry
         );
-        console.log("    totalSupply              = ", testCase.totalSupply);
-        console.log(
+        console2.log("    totalSupply              = ", testCase.totalSupply);
+        console2.log(
             "    sourceBalance              = ",
             testCase.sourceBalance
         );
-        console.log(
+        console2.log(
             "    yieldState.shares        = ",
             testCase.yieldState.shares
         );
-        console.log("    yieldState.pt            = ", testCase.yieldState.pt);
-        console.log("");
+        console2.log("    yieldState.pt            = ", testCase.yieldState.pt);
+        console2.log("");
     }
 
     // -------------------  _releasePT unit tests   ------------------ //
@@ -1337,7 +1669,10 @@ contract TermTest is ElementTest {
                 interest: testCases[i].interest
             });
             _term.setSharesPerExpiry(assetId, testCases[i].sharesPerExpiry);
-            _term.setCurrentPricePerShare(testCases[i].currentPricePerShare);
+            _term.setCurrentPricePerShare(
+                testCases[i].currentPricePerShare,
+                IYieldAdapter.ShareState.Locked
+            );
             _term.setUserBalance(assetId, source, testCases[i].sourceBalance);
             _term.setTotalSupply(assetId, testCases[i].totalSupply);
 
@@ -1371,7 +1706,7 @@ contract TermTest is ElementTest {
                         testCases[i].amount
                     )
                 returns (uint256 shares, uint256 value) {
-                    _validateReleasePTSuccess(
+                    _validateSuccessReleasePT(
                         testCases[i],
                         assetId,
                         shares,
@@ -1411,10 +1746,7 @@ contract TermTest is ElementTest {
     {
         testCases = new ReleasePTTestCase[](rawTestCases.length);
         for (uint256 i = 0; i < rawTestCases.length; i++) {
-            require(
-                rawTestCases[i].length == 6,
-                "Raw test case must have length of 6."
-            );
+            _validateTestCaseLength(rawTestCases[i], 6);
             testCases[i] = ReleasePTTestCase({
                 amount: rawTestCases[i][0],
                 interest: uint128(rawTestCases[i][1]),
@@ -1454,7 +1786,7 @@ contract TermTest is ElementTest {
 
     // Given a test case, validate the state transitions and return values of a
     // successful call to _releasePT.
-    function _validateReleasePTSuccess(
+    function _validateSuccessReleasePT(
         ReleasePTTestCase memory testCase,
         uint256 assetId,
         uint256 shares,
@@ -1513,18 +1845,18 @@ contract TermTest is ElementTest {
         string memory prelude,
         ReleasePTTestCase memory testCase
     ) internal view {
-        console.log(prelude);
-        console.log("");
-        console.log("    amount               = ", testCase.amount);
-        console.log("    interest             = ", testCase.interest);
-        console.log("    sharesPerExpiry      = ", testCase.sharesPerExpiry);
-        console.log("    totalSupply          = ", testCase.totalSupply);
-        console.log(
+        console2.log(prelude);
+        console2.log("");
+        console2.log("    amount               = ", testCase.amount);
+        console2.log("    interest             = ", testCase.interest);
+        console2.log("    sharesPerExpiry      = ", testCase.sharesPerExpiry);
+        console2.log("    totalSupply          = ", testCase.totalSupply);
+        console2.log(
             "    currentPricePerShare = ",
             testCase.currentPricePerShare
         );
-        console.log("    sourceBalance        = ", testCase.sourceBalance);
-        console.log("");
+        console2.log("    sourceBalance        = ", testCase.sourceBalance);
+        console2.log("");
     }
 
     // ------------------- _parseAssetId unit tests ------------------ //
