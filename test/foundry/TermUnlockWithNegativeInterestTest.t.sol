@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-// FIXME
-import "forge-std/console2.sol";
-
 import "forge-std/Test.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";

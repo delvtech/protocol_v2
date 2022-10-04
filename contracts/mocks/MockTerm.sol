@@ -79,11 +79,11 @@ contract MockTerm is Term {
         address destination,
         uint256[] memory assetIds,
         uint256[] memory amounts
-    ) external override returns (uint256) {
+    ) public override returns (uint256) {
         emit Unlock({
             destination: destination,
-            tokenId: assetIds,
-            amount: amounts
+            assetIds: assetIds,
+            amounts: amounts
         });
 
         return _unlockValue;
@@ -108,7 +108,7 @@ contract MockTerm is Term {
         return _convertReturnValue;
     }
 
-    // ----------------------- deposit ----------------------- //
+    // ----------------------- _deposit ----------------------- //
 
     event Deposit(ShareState shareState);
 
@@ -177,7 +177,7 @@ contract MockTerm is Term {
     // ----------------------- unlockedSharePrice ----------------------- //
 
     function unlockedSharePrice() external view override returns (uint256) {
-        return _currentPricePerShareUnlocked
+        return _currentPricePerShareUnlocked;
     }
 
     // ----------------------- depositUnlocked ----------------------- //

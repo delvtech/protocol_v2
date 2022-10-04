@@ -13,6 +13,7 @@ import { MockPool } from "contracts/mocks/MockPool.sol";
 
 import { IERC20 } from "contracts/interfaces/IERC20.sol";
 import { ITerm } from "contracts/interfaces/ITerm.sol";
+import { IYieldAdapter } from "contracts/interfaces/IYieldAdapter.sol";
 
 import { FixedPointMath } from "contracts/libraries/FixedPointMath.sol";
 import { ElementError } from "contracts/libraries/Errors.sol";
@@ -1310,7 +1311,10 @@ contract PoolTest is ElementTest {
         term.setApproval(TERM_END, address(pool), type(uint256).max);
         term.mintExternal(TERM_END, user, testCase.userMintAmount);
 
-        term.setPricePerUnlockedShare(testCase.pricePerUnlockedShare);
+        term.setCurrentPricePerShare(
+            testCase.pricePerUnlockedShare,
+            IYieldAdapter.ShareState.Unlocked
+        );
         pool.setQuoteSaleAndFeesReturnValues(
             testCase.newShareReserve,
             testCase.newBondReserve,
@@ -1326,8 +1330,7 @@ contract PoolTest is ElementTest {
         uint128 reserveBonds,
         uint256 pricePerShare
     );
-
-    event Unlock(address destination, uint256 tokenId, uint256 amount);
+    event Unlock(address destination, uint256[] assetIds, uint256[] amounts);
 
     function _registerExpectedSellBondsEvents(SellBondsTestCase memory testCase)
         internal
@@ -1358,7 +1361,11 @@ contract PoolTest is ElementTest {
         );
 
         expectStrictEmit();
-        emit Unlock(user, term.UNLOCKED_YT_ID(), testCase.outputShares);
+        uint256[] memory assetIds = new uint256[](1);
+        assetIds[0] = term.UNLOCKED_YT_ID();
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = testCase.outputShares;
+        emit Unlock(user, assetIds, amounts);
     }
 
     function _logSellBondsTestCase(SellBondsTestCase memory testCase)
