@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import "forge-std/Test.sol";
 
 import "contracts/ForwarderFactory.sol";
-import "contracts/CompoundV3Term.sol";
+import "contracts/mocks/MockCompoundV3Term.sol";
 import "contracts/mocks/MockERC20Permit.sol";
 
 import "@compoundV3/contracts/Comet.sol";
@@ -19,7 +19,7 @@ library CompoundV3TermHelper {
         public
         returns (
             Comet compound,
-            CompoundV3Term term,
+            MockCompoundV3Term term,
             MockERC20Permit USDC,
             MockERC20Permit WETH
         )
@@ -79,7 +79,7 @@ library CompoundV3TermHelper {
 
         ForwarderFactory forwarderFactory = new ForwarderFactory();
 
-        term = new CompoundV3Term(
+        term = new MockCompoundV3Term(
             address(compound),
             forwarderFactory.ERC20LINK_HASH(),
             address(forwarderFactory),
@@ -135,7 +135,7 @@ library CompoundV3TermHelper {
     }
 
     function principalTokensAsShares(
-        CompoundV3Term term,
+        MockCompoundV3Term term,
         uint256 expiry,
         uint256 amount
     ) public view returns (uint256 shares) {
@@ -157,31 +157,30 @@ library CompoundV3TermHelper {
         shares = (amount * termSharesForPts) / ptTotalSupply;
     }
 
-    function underlyingAsUnlockedShares(CompoundV3Term term, uint256 underlying)
-        public
-        view
-        returns (uint256 shares)
-    {
-        (, , , uint256 impliedUnderlyingReserve, ) = term.reserveDetails();
+    function underlyingAsUnlockedShares(
+        MockCompoundV3Term term,
+        uint256 underlying
+    ) public view returns (uint256 shares) {
+        (, , , uint256 impliedUnderlyingReserve) = term.cacheDetails();
         shares =
             (underlying * term.totalSupply(term.UNLOCKED_YT_ID())) /
             impliedUnderlyingReserve;
     }
 
-    function unlockedSharesAsUnderlying(CompoundV3Term term, uint256 shares)
+    function unlockedSharesAsUnderlying(MockCompoundV3Term term, uint256 shares)
         public
         view
         returns (uint256 underlying)
     {
-        (, , , uint256 impliedUnderlyingReserve, ) = term.reserveDetails();
+        (, , , uint256 impliedUnderlyingReserve) = term.cacheDetails();
         underlying =
             (shares * impliedUnderlyingReserve) /
             term.totalSupply(term.UNLOCKED_YT_ID());
     }
 }
 
-contract CompoundV3TermIntegrationTest is Test {
-    CompoundV3Term public term;
+contract CompoundV3TermTest is Test {
+    MockCompoundV3Term public term;
     Comet public compound;
 
     MockERC20Permit public USDC;
@@ -261,11 +260,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 underlyingReserve,
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve,
-            uint256 accruedUnderlying
-        ) = term.reserveDetails();
+            uint256 impliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 yieldSharesIssued = term.yieldSharesIssued();
+        uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
         // Roughly scaled 18 decimal representation of APY given current
         // per second supply rate
@@ -301,11 +299,6 @@ contract CompoundV3TermIntegrationTest is Test {
             impliedUnderlyingReserve,
             underlyingReserve + yieldShareReserveAsUnderlying
         );
-        assertApproxEqAbs(
-            estimatedYieldSharesIssuedValue,
-            accruedUnderlying,
-            5e4
-        );
         assertEq(term.balanceOf(PT_ID, address(this)), 1000000e6);
         assertEq(term.balanceOf(YT_ID, address(this)), 1000000e6);
         assertEq(term.balanceOf(UNLOCKED_YT_ID, address(this)), 1000000e6);
@@ -321,11 +314,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying
-        ) = term.reserveDetails();
+            uint256 prevImpliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+        uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
         uint256[] memory assetIds;
         uint256[] memory assetAmounts;
@@ -347,11 +339,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 underlyingReserve,
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve,
-            uint256 accruedUnderlying
-        ) = term.reserveDetails();
+            uint256 impliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 yieldSharesIssued = term.yieldSharesIssued();
+        uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
         assertEq(
             underlyingReserve,
@@ -378,12 +369,6 @@ contract CompoundV3TermIntegrationTest is Test {
             impliedUnderlyingReserve,
             "impliedUnderlyingReserve should be unchanged"
         );
-        assertApproxEqAbs(
-            prevAccruedUnderlying + underlying,
-            accruedUnderlying,
-            1,
-            "accruedUnderlying should increase by amount of underlying"
-        );
         assertEq(
             term.balanceOf(YT_ID, user),
             underlying,
@@ -400,11 +385,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying
-        ) = term.reserveDetails();
+            uint256 prevImpliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+        uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
         vm.startPrank(user);
         term.depositUnlocked(underlying, 0, 0, user);
@@ -414,11 +398,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 underlyingReserve,
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve,
-            uint256 accruedUnderlying
-        ) = term.reserveDetails();
+            uint256 impliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 yieldSharesIssued = term.yieldSharesIssued();
+        uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
         assertEq(
             underlyingReserve,
@@ -446,11 +429,6 @@ contract CompoundV3TermIntegrationTest is Test {
             "impliedUnderlyingReserve should increase by amount of underlying"
         );
         assertEq(
-            accruedUnderlying,
-            prevAccruedUnderlying,
-            "accruedUnderlying should be unchanged"
-        );
-        assertEq(
             term.balanceOf(UNLOCKED_YT_ID, user),
             underlyingAsUnlockedShares,
             "should issue unlocked YTs to user proportional to unlock share value of underlying"
@@ -463,10 +441,9 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying
-        ) = term.reserveDetails();
-        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+            uint256 prevImpliedUnderlyingReserve
+        ) = term.cacheDetails();
+        uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
         uint256 targetReserve = term.targetReserve();
         assertEq(targetReserve, 50000e6);
@@ -494,11 +471,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 underlyingReserve,
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve,
-            uint256 accruedUnderlying
-        ) = term.reserveDetails();
+            uint256 impliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 yieldSharesIssued = term.yieldSharesIssued();
+        uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
         assertEq(
             underlyingReserve,
@@ -526,12 +502,6 @@ contract CompoundV3TermIntegrationTest is Test {
             prevImpliedUnderlyingReserve + underlyingInvested,
             1,
             "impliedUnderlyingReserve should increase by amount of invested underlying"
-        );
-        assertApproxEqAbs(
-            accruedUnderlying,
-            prevAccruedUnderlying + underlyingInvested,
-            1,
-            "accruedUnderlyingReserve should increase by amount of invested underlying"
         );
         assertEq(
             term.balanceOf(UNLOCKED_YT_ID, user),
@@ -571,11 +541,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying
-        ) = term.reserveDetails();
+            uint256 prevImpliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+        uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
         uint256 prevPrincipalTokenBalance = term.balanceOf(PT_ID, user);
         uint256 prevYieldTokenBalance = term.balanceOf(YT_ID, user);
 
@@ -599,11 +568,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 underlyingReserve,
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve,
-            uint256 accruedUnderlying
-        ) = term.reserveDetails();
+            uint256 impliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 yieldSharesIssued = term.yieldSharesIssued();
+        uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
         assertEq(
             underlyingReserve,
@@ -630,12 +598,6 @@ contract CompoundV3TermIntegrationTest is Test {
             prevImpliedUnderlyingReserve,
             "impliedUnderlyingReserve should be unchanged"
         );
-        assertApproxEqAbs(
-            accruedUnderlying,
-            prevAccruedUnderlying - ptsAsUnderlying,
-            1,
-            "accruedUnderlying should decrease by the underlying value of withdrawn PTs"
-        );
         assertEq(
             term.balanceOf(PT_ID, user),
             prevPrincipalTokenBalance - pts,
@@ -659,11 +621,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying
-        ) = term.reserveDetails();
+            uint256 prevImpliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+        uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
         uint256 prevYieldTokenBalance = term.balanceOf(UNLOCKED_YT_ID, user);
         uint256 prevUnderlyingBalance = USDC.balanceOf(user);
@@ -688,11 +649,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 underlyingReserve,
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve,
-            uint256 accruedUnderlying
-        ) = term.reserveDetails();
+            uint256 impliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 yieldSharesIssued = term.yieldSharesIssued();
+        uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
         assertEq(
             underlyingReserve,
@@ -719,12 +679,6 @@ contract CompoundV3TermIntegrationTest is Test {
             prevImpliedUnderlyingReserve - unlockedYtsAsUnderlying,
             "impliedUnderlyingReserve should decrease by underlying value of unlocked YTs"
         );
-        assertApproxEqAbs(
-            accruedUnderlying,
-            prevAccruedUnderlying,
-            1,
-            "accruedUnderlying should be unchanged"
-        );
         assertEq(
             term.balanceOf(UNLOCKED_YT_ID, user),
             prevYieldTokenBalance - unlockedYts,
@@ -748,11 +702,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying
-        ) = term.reserveDetails();
+            uint256 prevImpliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+        uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
 
         uint256 prevYieldTokenBalance = term.balanceOf(UNLOCKED_YT_ID, user);
         uint256 prevUnderlyingBalance = USDC.balanceOf(user);
@@ -778,11 +731,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 underlyingReserve,
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve,
-            uint256 accruedUnderlying
-        ) = term.reserveDetails();
+            uint256 impliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 yieldSharesIssued = term.yieldSharesIssued();
+        uint256 yieldSharesIssued = term.getYieldSharesIssued();
 
         assertEq(
             underlyingReserve,
@@ -809,20 +761,15 @@ contract CompoundV3TermIntegrationTest is Test {
             prevImpliedUnderlyingReserve - unlockedYtsAsUnderlying,
             "impliedUnderlyingReserve should decrease by underlying value of unlocked YTs"
         );
-        assertApproxEqAbs(
-            accruedUnderlying,
-            prevAccruedUnderlying - unlockedYtsAsUnderlying,
-            1,
-            "accruedUnderlying should decrease by underlying value of unlocked YTs"
-        );
         assertEq(
             term.balanceOf(UNLOCKED_YT_ID, user),
             prevYieldTokenBalance - unlockedYts,
             "user unlocked yield token balance should decrease by amount of redeemed unlocked YTs"
         );
-        assertEq(
+        assertApproxEqAbs(
             USDC.balanceOf(user),
             prevUnderlyingBalance + unlockedYtsAsUnderlying,
+            1,
             "user underlying token balance should increase by underlying value of redeemed unlocked YTs"
         );
     }
@@ -854,10 +801,11 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying
-        ) = term.reserveDetails();
-        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+            uint256 prevImpliedUnderlyingReserve
+        ) = term.cacheDetails();
+        uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
+        uint256 prevLockedShares = prevYieldSharesIssued -
+            prevYieldShareReserve;
         uint256 prevUnlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
         uint256 prevPrincipalTokenBalance = term.balanceOf(TERM_END, user);
 
@@ -878,10 +826,10 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 underlyingReserve,
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve,
-            uint256 accruedUnderlying
-        ) = term.reserveDetails();
-        uint256 yieldSharesIssued = term.yieldSharesIssued();
+            uint256 impliedUnderlyingReserve
+        ) = term.cacheDetails();
+        uint256 yieldSharesIssued = term.getYieldSharesIssued();
+        uint256 lockedShares = yieldSharesIssued - yieldShareReserve;
         uint256 unlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
         uint256 principalTokenBalance = term.balanceOf(TERM_END, user);
 
@@ -913,11 +861,6 @@ contract CompoundV3TermIntegrationTest is Test {
             "impliedUnderlyingReserve should increase by the underlying value of the principal tokens"
         );
         assertEq(
-            accruedUnderlying,
-            prevAccruedUnderlying,
-            "accruedUnderlying should be unchanged"
-        );
-        assertEq(
             unlockedYTBalance,
             prevUnlockedYTBalance + ptsAsUnlockedShares,
             "user unlocked yield token balance should increase by unlocked share value of principal tokens"
@@ -940,11 +883,12 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 prevUnderlyingReserve,
             uint256 prevYieldShareReserve,
             uint256 prevYieldShareReserveAsUnderlying,
-            uint256 prevImpliedUnderlyingReserve,
-            uint256 prevAccruedUnderlying
-        ) = term.reserveDetails();
+            uint256 prevImpliedUnderlyingReserve
+        ) = term.cacheDetails();
 
-        uint256 prevYieldSharesIssued = term.yieldSharesIssued();
+        uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
+        uint256 prevLockedShares = prevYieldSharesIssued -
+            prevYieldShareReserve;
         uint256 prevUnlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
         uint256 unlockedYts = 10000e6;
         uint256 unlockedYtsAsUnderlying = CompoundV3TermHelper
@@ -975,10 +919,9 @@ contract CompoundV3TermIntegrationTest is Test {
             uint256 underlyingReserve,
             uint256 yieldShareReserve,
             uint256 yieldShareReserveAsUnderlying,
-            uint256 impliedUnderlyingReserve,
-            uint256 accruedUnderlying
-        ) = term.reserveDetails();
-        uint256 yieldSharesIssued = term.yieldSharesIssued();
+            uint256 impliedUnderlyingReserve
+        ) = term.cacheDetails();
+        uint256 yieldSharesIssued = term.getYieldSharesIssued();
         uint256 lockedShares = yieldSharesIssued - yieldShareReserve;
         uint256 unlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
 
@@ -1010,11 +953,6 @@ contract CompoundV3TermIntegrationTest is Test {
             prevImpliedUnderlyingReserve - unlockedYtsAsUnderlying,
             1,
             "impliedUnderlyingReserve should decrease by the underlying value of the unlocked YTs"
-        );
-        assertEq(
-            accruedUnderlying,
-            prevAccruedUnderlying,
-            "accruedUnderlying should be unchanged"
         );
         assertEq(
             unlockedYTBalance,
