@@ -113,12 +113,12 @@ contract LP is MultiToken {
         if (poolId <= block.timestamp) revert ElementError.TermExpired();
 
         // Load the pool details
-        uint256 loadedShares = uint256(reserves[poolId].shares);
-        uint256 loadedBonds = uint256(reserves[poolId].bonds);
+        uint256 reserveShares = uint256(reserves[poolId].shares);
+        uint256 reserveBonds = uint256(reserves[poolId].bonds);
         // Transfer the pt from the user
         term.transferFrom(poolId, msg.sender, address(this), bondsDeposited);
         // Calculate ratio of the shares needed
-        uint256 sharesNeeded = (loadedShares * bondsDeposited) / loadedBonds;
+        uint256 sharesNeeded = (reserveShares * bondsDeposited) / reserveBonds;
         // Transfer shares from user
         term.transferFrom(
             _UNLOCKED_TERM_ID,
@@ -128,12 +128,12 @@ contract LP is MultiToken {
         );
         // Calculate Lp
         uint256 lpCreated = (totalSupply[poolId] * bondsDeposited) /
-            loadedBonds;
+            reserveBonds;
         // Mint LP
         _mint(poolId, destination, lpCreated);
         // Update the reserve state
-        reserves[poolId].shares = uint128(loadedShares + sharesNeeded);
-        reserves[poolId].bonds = uint128(loadedBonds + bondsDeposited);
+        reserves[poolId].shares = uint128(reserveShares + sharesNeeded);
+        reserves[poolId].bonds = uint128(reserveBonds + bondsDeposited);
         // Check enough has been made and return that amount
         if (lpCreated < minLpOut) revert ElementError.ExceededSlippageLimit();
 
