@@ -74,7 +74,7 @@ contract CompoundV3Term is TransactionCacheTerm {
         yieldSource.supply(address(token), amount);
 
         /// Initial case where `shares` are valued 1:1 with underlying
-        if (accruedUnderlying == 0) {
+        if (accruedUnderlying == 0 || _yieldSharesIssued == 0) {
             _yieldSharesIssued += amount;
             return (amount);
         }
