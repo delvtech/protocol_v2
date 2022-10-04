@@ -212,12 +212,12 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
     /// @notice Redeems expired PT, YT and unlocked shares for their backing asset.
     /// @param destination The address to send the unlocked tokens too
-    /// @param tokenIds The IDs of the token to unlock. NOTE- They MUST be unique and sorted.
+    /// @param assetIds The IDs of the asset to unlock. NOTE- They MUST be unique and sorted.
     /// @param amounts The amounts of the tokens to unlock
     /// @return the total value of the tokens that have been unlocked
     function unlock(
         address destination,
-        uint256[] memory tokenIds,
+        uint256[] memory assetIds,
         uint256[] memory amounts
     ) public virtual override returns (uint256) {
         // To release shares we delete any input PT and YT, these may be unlocked or locked
@@ -227,22 +227,24 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
 
         // Deletes any assets which are rolling over and returns how many much in terms of
         // shares and value they are worth.
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < assetIds.length; i++) {
             // Requiring strict sorting is a cheap way to check for uniqueness
-            if (previousId >= tokenIds[i])
+            if (previousId >= assetIds[i])
                 revert ElementError.UnsortedAssetIds();
 
-            previousId = tokenIds[i];
+            previousId = assetIds[i];
+            // TODO: There is no input validation that ensures that amounts[i] > 0.
+            //
             // Burns the tokens from the user account and returns how much they were worth
             // in shares and token value. Does not formally withdraw from yield source.
             (uint256 shares, ) = _releaseAsset(
-                tokenIds[i],
+                assetIds[i],
                 msg.sender,
                 amounts[i]
             );
 
             // Record the shares which were released
-            if (tokenIds[i] == UNLOCKED_YT_ID) {
+            if (assetIds[i] == UNLOCKED_YT_ID) {
                 releasedSharesUnlocked += shares;
             } else {
                 releasedSharesLocked += shares;
@@ -367,7 +369,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 assetId,
         address source,
         uint256 amount
-    ) internal returns (uint256, uint256) {
+    ) internal virtual returns (uint256, uint256) {
         // Note for both yt and pt the first 128 bits contain the expiry.
         (bool isYieldToken, , uint256 expiry) = _parseAssetId(assetId);
         // Check that the expiry has been hit
