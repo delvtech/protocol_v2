@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+// FIXME
+import "forge-std/console2.sol";
+
 import "forge-std/Test.sol";
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
@@ -156,14 +159,23 @@ contract TermTestUnlock is Test {
         assetIds.push(expiration);
         assetAmounts.push(shares);
 
-        uint256 ptUnlockValue = term.unlock(
-            address(user),
-            assetIds,
-            assetAmounts
-        );
+        if (loss < underlyingAmount) {
+            uint256 ptUnlockValue = term.unlock(
+                address(user),
+                assetIds,
+                assetAmounts
+            );
 
-        // value should be everything that's left
-        assertEq(ptUnlockValue, underlyingAmount - loss);
+            // value should be everything that's left
+            assertEq(ptUnlockValue, underlyingAmount - loss);
+        } else {
+            // Reverts when pricePerShare == 0 in yieldSource
+            // (caused by all capital in vault being removed in loss)
+            // TODO Either refactor this test and/or add unit test for such
+            // cases
+            vm.expectRevert(stdError.divisionError);
+            term.unlock(address(user), assetIds, assetAmounts);
+        }
     }
 
     // test unlocking unlocked assets when there is negative interest
