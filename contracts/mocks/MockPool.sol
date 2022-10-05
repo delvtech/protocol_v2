@@ -281,6 +281,14 @@ contract MockPool is Pool {
         emit Update(poolId, newBondBalance, newSharesBalance);
     }
 
+    function updateExternal(
+        uint256 poolId,
+        uint128 newBondBalance,
+        uint128 newSharesBalance
+    ) external {
+        return super._update(poolId, newBondBalance, newSharesBalance);
+    }
+
     uint256 internal _tradeCalculationOutput;
 
     function setTradeCalculationReturnValue(uint256 val) external {

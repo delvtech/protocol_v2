@@ -32,6 +32,13 @@ contract PoolTest is ElementTest {
     uint256 public TRADE_FEE = 1;
     uint256 public TERM_END;
 
+    // ----- events ------ //
+    event Sync(
+        uint256 indexed poolId,
+        uint256 bondReserve,
+        uint256 shareReserve
+    );
+
     function setUp() public {
         factory = new ForwarderFactory();
         vm.warp(2000);
@@ -2171,5 +2178,18 @@ contract PoolTest is ElementTest {
         uint256 denormalizedInput = pool.denormalize(normalizedInput);
 
         assertEq(denormalizedInput, input);
+    }
+
+    // ------------------- _update unit tests ------------------ //
+    // this is a dead simple function, adding tests for completeness sake
+    function test__update(uint128 newShares, uint128 newBonds) public {
+        uint256 poolId = 12345678;
+        uint128 initialShares = type(uint128).max;
+        uint128 initialBonds = 0;
+        pool.setReserves(poolId, initialShares, initialBonds);
+
+        expectStrictEmit();
+        emit Sync(poolId, newShares, newBonds);
+        pool.updateExternal(poolId, newShares, newBonds);
     }
 }
