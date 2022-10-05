@@ -37,6 +37,21 @@ contract PoolTest is ElementTest {
         vm.warp(2000);
         vm.roll(2);
         TERM_END = block.timestamp + YEAR;
+        underlying = new MockERC20Permit("Test", "TEST", 18);
+        term = new MockTerm(
+            factory.ERC20LINK_HASH(),
+            address(factory),
+            IERC20(underlying),
+            governance
+        );
+        pool = new MockPool(
+            ITerm(address(term)),
+            IERC20(address(underlying)),
+            TRADE_FEE,
+            factory.ERC20LINK_HASH(),
+            governance,
+            address(factory)
+        );
     }
 
     struct RegisterPoolIdTestCase {
