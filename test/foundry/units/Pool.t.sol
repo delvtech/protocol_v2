@@ -21,16 +21,16 @@ import { ElementTest } from "test/ElementTest.sol";
 import { Utils } from "test/Utils.sol";
 
 contract PoolTest is ElementTest {
-    ForwarderFactory factory;
-    MockERC20Permit underlying;
-    MockTerm term;
-    MockPool pool;
+    ForwarderFactory public factory;
+    MockERC20Permit public underlying;
+    MockTerm public term;
+    MockPool public pool;
 
-    address user = makeAddress("user");
-    address governance = makeAddress("governance");
+    address public user = makeAddress("user");
+    address public governance = makeAddress("governance");
 
-    uint256 TRADE_FEE = 1;
-    uint256 TERM_END;
+    uint256 public TRADE_FEE = 1;
+    uint256 public TERM_END;
 
     function setUp() public {
         factory = new ForwarderFactory();
