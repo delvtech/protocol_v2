@@ -941,4 +941,54 @@ contract LPTest is ElementTest {
         console2.log("    newLpToken           = ", testCase.newLpToken);
         console2.log("");
     }
+
+    // -------------------  withdraw unit tests   ------------------ //
+
+    // should withdraw userShares and userBonds
+    function test_withdraw() public {
+        uint256 poolId = 0;
+        uint256 amount = 1 ether;
+        address destination = address(user);
+        uint256 userShares = 1 ether;
+
+        // try case where bonds do and don't transfer to the user
+        uint256[] memory testCases = new uint256[](2);
+        testCases[0] = 0;
+        testCases[1] = 1 ether;
+        for (uint256 i; i < testCases.length; i++) {
+            uint256 userBonds = testCases[i];
+            lp.setWithdrawToSharesReturnValues(userShares, userBonds);
+            lp.setDepositFromSharesReturnValue(1 ether);
+            term.setUserBalance(poolId, address(lp), userBonds);
+
+            expectStrictEmit();
+            emit WithdrawToShares(
+                poolId,
+                1 ether, // amount
+                destination // source
+            );
+
+            expectStrictEmit();
+            emit Unlock(
+                destination,
+                _UNLOCKED_TERM_ID, // tokenId
+                userShares // amount
+            );
+
+            if (userBonds != 0) {
+                expectStrictEmit();
+                emit TransferSingle(
+                    address(lp), // caller
+                    address(lp), // from
+                    address(user), // to
+                    poolId, // tokenId
+                    userBonds // amount
+                );
+            }
+
+            lp.withdraw(poolId, amount, destination);
+        }
+    }
+
+    event Unlock(address destination, uint256 tokenId, uint256 amount);
 }
