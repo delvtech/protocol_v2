@@ -14,7 +14,7 @@ import "@compoundV3/contracts/CometStorage.sol";
 
 library CompoundV3TermHelper {
     // Deploys both Compound and CompoundV3Term contracts and sets up an
-    // emulated live  scenario
+    // emulated live scenario
     function create(Vm vm)
         public
         returns (
