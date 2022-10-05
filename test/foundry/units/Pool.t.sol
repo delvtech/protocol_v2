@@ -1278,7 +1278,7 @@ contract PoolTest is ElementTest {
 
     function _getExpectedSellBondsError(SellBondsTestCase memory testCase)
         internal
-        view
+        pure
         returns (bool testCaseIsError, bytes memory reason)
     {
         if (testCase.userMintAmount < testCase.amount) {
@@ -1624,7 +1624,7 @@ contract PoolTest is ElementTest {
 
     function _getExpectedQuoteSaleAndFeesError(
         QuoteSaleAndFeesTestCase memory testCase
-    ) internal view returns (bool testCaseIsError, bytes memory reason) {
+    ) internal pure returns (bool testCaseIsError, bytes memory reason) {
         if (testCase.shareValue > testCase.amount) {
             return (true, stdError.arithmeticError);
         }

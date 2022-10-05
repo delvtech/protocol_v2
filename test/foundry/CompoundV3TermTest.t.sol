@@ -280,12 +280,6 @@ contract CompoundV3TermTest is Test {
                 estimated6MonthSupplyAPY
             );
 
-        uint256 estimatedYieldSharesIssuedValue = CompoundV3TermHelper
-            .sumPrincipalAndInterest(
-                yieldSharesIssued,
-                estimated6MonthSupplyAPY
-            );
-
         assertEq(underlyingReserve, 50000e6);
         assertEq(yieldShareReserve, 950000e6);
         assertEq(yieldSharesIssued, 1950000e6);
@@ -554,7 +548,6 @@ contract CompoundV3TermTest is Test {
             TERM_END,
             pts
         );
-        uint256 ptsAsUnderlying = term.yieldSharesAsUnderlying(ptsAsShares);
 
         vm.startPrank(user);
         assetIds = new uint256[](1);
@@ -804,8 +797,6 @@ contract CompoundV3TermTest is Test {
             uint256 prevImpliedUnderlyingReserve
         ) = term.cacheDetails();
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
-        uint256 prevLockedShares = prevYieldSharesIssued -
-            prevYieldShareReserve;
         uint256 prevUnlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
         uint256 prevPrincipalTokenBalance = term.balanceOf(TERM_END, user);
 
@@ -829,7 +820,6 @@ contract CompoundV3TermTest is Test {
             uint256 impliedUnderlyingReserve
         ) = term.cacheDetails();
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
-        uint256 lockedShares = yieldSharesIssued - yieldShareReserve;
         uint256 unlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
         uint256 principalTokenBalance = term.balanceOf(TERM_END, user);
 
@@ -887,8 +877,6 @@ contract CompoundV3TermTest is Test {
         ) = term.cacheDetails();
 
         uint256 prevYieldSharesIssued = term.getYieldSharesIssued();
-        uint256 prevLockedShares = prevYieldSharesIssued -
-            prevYieldShareReserve;
         uint256 prevUnlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
         uint256 unlockedYts = 10000e6;
         uint256 unlockedYtsAsUnderlying = CompoundV3TermHelper
@@ -922,7 +910,6 @@ contract CompoundV3TermTest is Test {
             uint256 impliedUnderlyingReserve
         ) = term.cacheDetails();
         uint256 yieldSharesIssued = term.getYieldSharesIssued();
-        uint256 lockedShares = yieldSharesIssued - yieldShareReserve;
         uint256 unlockedYTBalance = term.balanceOf(UNLOCKED_YT_ID, user);
 
         assertEq(
