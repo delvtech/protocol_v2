@@ -2131,4 +2131,30 @@ contract PoolTest is ElementTest {
             testCase.underlyingOwed
         );
     }
+
+    // ------------------- _normalize unit tests ------------------ //
+    // ------------------- _denormalize unit tests ------------------ //
+    function test__normalize(uint8 decimals, uint64 input) public {
+        vm.assume(decimals < 50);
+        underlying = new MockERC20Permit("Test", "TEST", decimals);
+        term = new MockTerm(
+            factory.ERC20LINK_HASH(),
+            address(factory),
+            IERC20(underlying),
+            governance
+        );
+        pool = new MockPool(
+            ITerm(address(term)),
+            IERC20(address(underlying)),
+            TRADE_FEE,
+            factory.ERC20LINK_HASH(),
+            governance,
+            address(factory)
+        );
+
+        uint256 normalizedInput = pool.normalize(input);
+        uint256 denormalizedInput = pool.denormalize(normalizedInput);
+
+        assertEq(denormalizedInput, input);
+    }
 }

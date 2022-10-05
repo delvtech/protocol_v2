@@ -242,6 +242,10 @@ contract MockPool is Pool {
         return super._normalize(input);
     }
 
+    function denormalize(uint256 input) external view returns (uint256) {
+        return super._denormalize(input);
+    }
+
     event InitializeBuffer(uint256 bufferId, uint16 minTime, uint16 maxLength);
 
     function _initializeBuffer(
