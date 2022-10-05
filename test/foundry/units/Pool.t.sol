@@ -2231,19 +2231,6 @@ contract PoolTest is ElementTest {
         }
     }
 
-    struct TradeCalculationTestCase {
-        // args
-        uint256 expiry;
-        uint256 input;
-        uint256 shareReserve;
-        uint256 bondReserve;
-        uint256 pricePerShare;
-        bool isBondOut;
-        // state
-        Pool.SubPoolParameters params;
-        uint256 lpTotalSupply;
-    }
-
     function _createTradeCalculationTestCases()
         internal
         view
@@ -2292,7 +2279,7 @@ contract PoolTest is ElementTest {
         inputs[6][0] = 0;
         inputs[6][1] = 4181;
         inputs[6][2] = 10245;
-        inputs[6][3] = 599991;
+        inputs[6][3] = (1 ether / (TERM_END - block.timestamp)) + 1;
 
         // params.mu
         inputs[7] = new uint256[](4);
@@ -2314,20 +2301,151 @@ contract PoolTest is ElementTest {
             uint256[] memory rawTestCase = rawTestCases[i];
             _validateTestCaseLength(rawTestCase, 9);
 
-            testCases[i] = TradeCalculationTestCase({
-                expiry: rawTestCase[0],
-                input: rawTestCase[1],
-                shareReserve: rawTestCase[2],
-                bondReserve: rawTestCase[3],
-                pricePerShare: rawTestCase[4],
-                isBondOut: rawTestCase[5] > 0,
-                params: Pool.SubPoolParameters({
-                    timestretch: uint32(rawTestCase[6]),
-                    mu: uint224(rawTestCase[7])
+            uint256 expiry = rawTestCase[0];
+            uint256 input = rawTestCase[1];
+            uint256 shareReserve = rawTestCase[2];
+            uint256 bondReserve = rawTestCase[3];
+            uint256 pricePerShare = rawTestCase[4];
+            bool isBondOut = rawTestCase[5] > 0;
+            uint256 timestretch = rawTestCase[6];
+            uint256 mu = rawTestCase[7];
+            uint256 lpTotalSupply = rawTestCase[8];
+
+            uint256 timeToExpiry = expiry >= block.timestamp
+                ? (expiry - block.timestamp) * 1e18
+                : 0;
+            uint256 timestretchCoefficient = timestretch > 0
+                ? (1e21 / timestretch)
+                : 0;
+            uint256 totalSupplyTimesMu = mu > 0
+                ? FixedPointMath.mulDown(lpTotalSupply, mu)
+                : 0;
+
+            YieldSpaceInternals memory ysi = getYieldSpaceCalcInternals();
+
+            // shareReserve,
+            // bondReserve,
+            // totalSupplyTimesMu,
+            // input,
+            // timeToExpiry,
+            // timestretchCoefficient,
+            // pricePerShare,
+            // mu,
+            // isBondOut
+
+            testCases[i] = TradeCalculationTestCase(
+                expiry,
+                input,
+                shareReserve,
+                bondReserve,
+                pricePerShare,
+                isBondOut,
+                Pool.SubPoolParameters({
+                    timestretch: uint32(timestretch),
+                    mu: uint224(mu)
                 }),
-                lpTotalSupply: rawTestCase[8]
-            });
+                lpTotalSupply,
+                timeToExpiry,
+                totalSupplyTimesMu
+                //ysi
+            );
         }
+    }
+
+    function getYieldSpaceCalcInternals(
+        uint256 shareReserve,
+        uint256 bondReserve,
+        uint256 totalSupplyTimesMu,
+        uint256 input,
+        uint256 timeToExpiry,
+        uint256 timestretchCoefficient,
+        uint256 pricePerShare,
+        uint256 mu,
+        bool isBondOut
+    ) internal pure returns (YieldSpaceInternals memory ysi) {
+        uint256 st = FixedPointMath.mulDown(
+            timestretchCoefficient,
+            timeToExpiry
+        );
+        uint256 oneMinusT = st <= 1e18 ? 1e18 - st : 0;
+        uint256 cDivMu = mu > 0 ? FixedPointMath.divDown(pricePerShare, mu) : 0;
+        uint256 modifiedBondReserves = bondReserve + totalSupplyTimesMu;
+
+        uint256 k = FixedPointMath.add(
+            FixedPointMath.mulDown(
+                cDivMu,
+                FixedPointMath.pow(
+                    FixedPointMath.mulDown(mu, shareReserve),
+                    oneMinusT
+                )
+            ),
+            FixedPointMath.pow(modifiedBondReserves, oneMinusT)
+        );
+
+        uint256 outReserves;
+        uint256 rhs;
+        uint256 newScaledShareReserves;
+        uint256 newScaledBondReserves;
+
+        if (isBondOut) {
+            outReserves = modifiedBondReserves;
+            newScaledShareReserves = FixedPointMath.mulDown(
+                cDivMu,
+                FixedPointMath.pow(
+                    FixedPointMath.mulDown(
+                        mu,
+                        FixedPointMath.add(shareReserve, input)
+                    ),
+                    oneMinusT
+                )
+            );
+
+            rhs = (k >= newScaledShareReserves && oneMinusT != 0)
+                ? FixedPointMath.pow(
+                    FixedPointMath.sub(k, newScaledShareReserves),
+                    FixedPointMath.divDown(1e18, oneMinusT)
+                )
+                : 0;
+        } else {
+            outReserves = shareReserve;
+            newScaledBondReserves = FixedPointMath.pow(
+                FixedPointMath.add(modifiedBondReserves, input),
+                oneMinusT
+            );
+
+            rhs = (k >= newScaledBondReserves &&
+                oneMinusT != 0 &&
+                cDivMu != 0 &&
+                mu != 0)
+                ? FixedPointMath.divDown(
+                    FixedPointMath.pow(
+                        FixedPointMath.divDown(
+                            FixedPointMath.sub(k, newScaledBondReserves),
+                            cDivMu
+                        ),
+                        FixedPointMath.divDown(1e18, oneMinusT)
+                    ),
+                    mu
+                )
+                : 0;
+        }
+
+        uint256 result = outReserves >= rhs
+            ? FixedPointMath.sub(outReserves, rhs)
+            : 0;
+
+        return
+            YieldSpaceInternals(
+                oneMinusT,
+                cDivMu,
+                modifiedBondReserves,
+                k,
+                outReserves,
+                newScaledShareReserves,
+                newScaledBondReserves,
+                rhs,
+                result
+            );
     }
 
     function _getExpectedTradeCalculationError(
@@ -2338,6 +2456,11 @@ contract PoolTest is ElementTest {
         }
 
         if (testCase.params.timestretch == 0) {
+            return (true, stdError.divisionError);
+        }
+
+        // cDivMu division in YieldSpace.calculateOutGivenIn
+        if (testCase.params.mu == 0) {
             return (true, stdError.divisionError);
         }
 
@@ -2366,23 +2489,93 @@ contract PoolTest is ElementTest {
         pool.setTotalSupply(testCase.expiry, testCase.lpTotalSupply);
     }
 
+    struct YieldSpaceInternals {
+        uint256 oneMinusT;
+        uint256 cDivMu;
+        uint256 modifiedBondReserves;
+        uint256 k;
+        uint256 outReserves;
+        uint256 newScaledShareReserves;
+        uint256 newScaledBondReserves;
+        uint256 rhs;
+        uint256 result;
+    }
+
+    struct TradeCalculationTestCase {
+        // args
+        uint256 expiry;
+        uint256 input;
+        uint256 shareReserve;
+        uint256 bondReserve;
+        uint256 pricePerShare;
+        bool isBondOut;
+        // state
+        Pool.SubPoolParameters params;
+        uint256 lpTotalSupply;
+        // internal calcs
+        uint256 timeToExpiry;
+        uint256 totalSupplyTimesMu;
+        YieldSpaceInternals ysi;
+    }
+
     function _logTradeCalculationTestCase(
         TradeCalculationTestCase memory testCase
     ) internal view {
         console2.log("    Pool._tradeCalculation");
         console2.log("    -----------------------------------------------    ");
-        console2.log("    expiry                    =", testCase.expiry);
-        console2.log("    input                     =", testCase.input);
-        console2.log("    shareReserve              =", testCase.shareReserve);
-        console2.log("    bondReserve               =", testCase.bondReserve);
-        console2.log("    pricePerShare             =", testCase.pricePerShare);
-        console2.log("    isBondOut                 =", testCase.isBondOut);
+        console2.log("    expiry                      =", testCase.expiry);
+        console2.log("    input                       =", testCase.input);
         console2.log(
-            "    params.timestretch        =",
+            "    shareReserve                =",
+            testCase.shareReserve
+        );
+        console2.log("    bondReserve                 =", testCase.bondReserve);
+        console2.log(
+            "    pricePerShare               =",
+            testCase.pricePerShare
+        );
+        console2.log("    isBondOut                   =", testCase.isBondOut);
+        console2.log(
+            "    params.timestretch          =",
             testCase.params.timestretch
         );
-        console2.log("    params.mu                 =", testCase.params.mu);
-        console2.log("    lpTotalSupply             =", testCase.lpTotalSupply);
+        console2.log("    params.mu                   =", testCase.params.mu);
+        console2.log(
+            "    lpTotalSupply               =",
+            testCase.lpTotalSupply
+        );
+        console2.log(
+            "    timeToExpiry                =",
+            testCase.timeToExpiry
+        );
+        console2.log(
+            "    totalSupplyTimesMu          =",
+            testCase.totalSupplyTimesMu
+        );
+        console2.log(
+            "    ysi.oneMinusT               =",
+            testCase.ysi.oneMinusT
+        );
+        console2.log("    ysi.cDivMu                  =", testCase.ysi.cDivMu);
+        console2.log(
+            "    ysi.modifiedBondReserves    =",
+            testCase.ysi.modifiedBondReserves
+        );
+        console2.log("    ysi.k                       =", testCase.ysi.k);
+        console2.log(
+            "    ysi.outReserves             =",
+            testCase.ysi.outReserves
+        );
+        console2.log(
+            "    ysi.newScaledShareReserves  =",
+            testCase.ysi.newScaledShareReserves
+        );
+        console2.log(
+            "    ysi.newScaledBondReserves   =",
+            testCase.ysi.newScaledBondReserves
+        );
+        console2.log("    ysi.rhs                     =", testCase.ysi.rhs);
+        console2.log("    ysi.result                  =", testCase.ysi.result);
         console2.log("");
     }
 
