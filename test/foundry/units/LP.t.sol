@@ -25,6 +25,46 @@ contract LPTest is ElementTest {
     MockERC20Permit public token;
     MockLP public lp;
 
+    // ------ events ------ //
+    event Lock(
+        uint256[] assetIds,
+        uint256[] assetAmounts,
+        uint256 underlyingAmount,
+        bool hasPreFunding,
+        address ytDestination,
+        address ptDestination,
+        uint256 ytBeginDate,
+        uint256 expiration
+    );
+
+    event Unlock(address destination, uint256 tokenId, uint256 amount);
+
+    event DepositUnlocked(
+        uint256 underlyingAmount,
+        uint256 ptAmount,
+        uint256 ptExpiry,
+        address destination
+    );
+
+    event WithdrawToShares(uint256 poolId, uint256 amount, address source);
+
+    event DepositFromShares(
+        uint256 poolId,
+        uint256 currentShares,
+        uint256 currentBonds,
+        uint256 depositedShares,
+        uint256 pricePerShare,
+        address to
+    );
+
+    event TransferSingle(
+        address indexed operator,
+        address indexed from,
+        address indexed to,
+        uint256 id,
+        uint256 value
+    );
+
     function setUp() public {
         // Set up the required Element contracts.
         factory = new ForwarderFactory();
@@ -308,25 +348,6 @@ contract LPTest is ElementTest {
         console2.log("    pricePerShare    = ", testCase.pricePerShare);
         console2.log("");
     }
-
-    event Lock(
-        uint256[] assetIds,
-        uint256[] assetAmounts,
-        uint256 underlyingAmount,
-        bool hasPreFunding,
-        address ytDestination,
-        address ptDestination,
-        uint256 ytBeginDate,
-        uint256 expiration
-    );
-
-    event TransferSingle(
-        address indexed operator,
-        address indexed from,
-        address indexed to,
-        uint256 id,
-        uint256 value
-    );
 
     function _registerExpectedDepositSharesEvents(
         DepositSharesTestCase memory testCase,
@@ -653,13 +674,6 @@ contract LPTest is ElementTest {
         }
     }
 
-    event DepositUnlocked(
-        uint256 underlyingAmount,
-        uint256 ptAmount,
-        uint256 ptExpiry,
-        address destination
-    );
-
     function _registerExpectedWithdrawToSharesEvents(
         WithdrawToSharesTestCase memory testCase
     ) internal {
@@ -893,16 +907,6 @@ contract LPTest is ElementTest {
         }
     }
 
-    event WithdrawToShares(uint256 poolId, uint256 amount, address source);
-    event DepositFromShares(
-        uint256 poolId,
-        uint256 currentShares,
-        uint256 currentBonds,
-        uint256 depositedShares,
-        uint256 pricePerShare,
-        address to
-    );
-
     function _registerExpectedRolloverEvents(RolloverTestCase memory testCase)
         internal
     {
@@ -992,6 +996,4 @@ contract LPTest is ElementTest {
             lp.withdraw(poolId, amount, destination);
         }
     }
-
-    event Unlock(address destination, uint256 tokenId, uint256 amount);
 }
