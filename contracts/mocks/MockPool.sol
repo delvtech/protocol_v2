@@ -43,6 +43,14 @@ contract MockPool is Pool {
         reserves[_poolId].bonds = _bonds;
     }
 
+    function setParameters(
+        uint256 poolId,
+        uint32 timeStretch,
+        uint256 mu
+    ) external {
+        parameters[poolId] = SubPoolParameters(timeStretch, uint224(mu));
+    }
+
     uint128 internal _newShareReserves;
     uint128 internal _newBondReserves;
     uint256 internal _tradeBondsOutputAmount;
@@ -260,6 +268,14 @@ contract MockPool is Pool {
         emit InitializeBuffer(bufferId, minTime, maxLength);
     }
 
+    function initializeBufferExternal(
+        uint256 bufferId,
+        uint16 minTime,
+        uint16 maxLength
+    ) external {
+        return super._initializeBuffer(bufferId, minTime, maxLength);
+    }
+
     event Mint(uint256 tokenID, address to, uint256 amount);
 
     function _mint(
@@ -324,5 +340,24 @@ contract MockPool is Pool {
         uint256 newBondReserve
     ) internal override {
         emit UpdateOracle(poolId, newShareReserve, newBondReserve);
+    }
+
+    function updateOracleExternal(
+        uint256 poolId,
+        uint256 newShareReserve,
+        uint256 newBondReserve
+    ) external {
+        return super._updateOracle(poolId, newShareReserve, newBondReserve);
+    }
+
+    // 'UpdateBuffer' is already taken in TWAROracle
+    event UpdateBufferMock(uint256 bufferId, uint224 value);
+
+    function _updateBuffer(uint256 bufferId, uint224 value) internal override {
+        emit UpdateBufferMock(bufferId, value);
+    }
+
+    function getBufferLength(uint256 poolId) public returns (uint256) {
+        return _buffers[poolId].length;
     }
 }

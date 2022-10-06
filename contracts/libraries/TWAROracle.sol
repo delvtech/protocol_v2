@@ -91,7 +91,7 @@ contract TWAROracle {
     /// [uint32 timeStamp][uint224 cumulativeSum]
     /// @param bufferId The ID of the buffer to update.
     /// @param value The value to add to the buffer.
-    function _updateBuffer(uint256 bufferId, uint224 value) internal {
+    function _updateBuffer(uint256 bufferId, uint224 value) internal virtual {
         (
             uint32 minTimeStep,
             uint32 previousTimeStamp,
