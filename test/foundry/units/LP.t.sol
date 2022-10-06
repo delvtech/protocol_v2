@@ -730,12 +730,12 @@ contract LPTest is ElementTest {
         // fromPoolId
         vm.warp(1);
         inputs[0] = new uint256[](2);
-        inputs[0][0] = 0; // expired
+        inputs[0][0] = 1; // expired
         inputs[0][1] = 12345678; // active
 
         // toPoolId
         inputs[1] = new uint256[](2);
-        inputs[1][0] = 0; // expired
+        inputs[1][0] = 1; // expired
         inputs[1][1] = 12345678; // active
 
         // amount
@@ -946,10 +946,13 @@ contract LPTest is ElementTest {
 
     // should withdraw userShares and userBonds
     function test_withdraw() public {
-        uint256 poolId = 0;
+        vm.warp(100);
+        uint256 poolId = 1;
         uint256 amount = 1 ether;
         address destination = address(user);
         uint256 userShares = 1 ether;
+
+        startHoax(address(user));
 
         // try case where bonds do and don't transfer to the user
         uint256[] memory testCases = new uint256[](2);
