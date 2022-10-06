@@ -28,6 +28,7 @@ contract PoolTest is ElementTest {
 
     address public user = makeAddress("user");
     address public governance = makeAddress("governance");
+    uint256 internal constant _UNLOCKED_TERM_ID = 1 << 255;
 
     uint256 public TRADE_FEE = 1;
     uint256 public TERM_END;
@@ -2191,5 +2192,101 @@ contract PoolTest is ElementTest {
         expectStrictEmit();
         emit Sync(poolId, newShares, newBonds);
         pool.updateExternal(poolId, newShares, newBonds);
+    }
+
+    // ------------------- updateTradeFee unit tests ------------------ //
+    function test_updateTradeFee() public {
+        startHoax((pool.owner()));
+        pool.updateTradeFee(100);
+        assertEq(100, pool.tradeFee());
+
+        vm.stopPrank();
+        startHoax(address(user));
+
+        bytes memory emptyError = new bytes(0);
+        bytes memory expectedError = abi.encodeWithSelector(
+            ElementError.Authorizable_SenderMustBeOwner.selector
+        );
+        try pool.updateTradeFee(100) {
+            console2.log("non-owner should not be able to call updateTradeFee");
+            revert ExpectedFailingTestPasses(emptyError);
+        } catch (bytes memory err) {
+            if (Utils.neq(err, expectedError)) {
+                revert ExpectedDifferentFailureReason(err, expectedError);
+            }
+        }
+    }
+
+    // ------------------- updateGovernanceFeePercent unit tests ------------------ //
+    function test_updateGovernanceFeePercent() public {
+        startHoax((pool.owner()));
+        pool.updateGovernanceFeePercent(100);
+        assertEq(100, pool.governanceFeePercent());
+
+        vm.stopPrank();
+        startHoax(address(user));
+
+        bytes memory emptyError = new bytes(0);
+        bytes memory expectedError = abi.encodeWithSelector(
+            ElementError.Authorizable_SenderMustBeOwner.selector
+        );
+
+        try pool.updateGovernanceFeePercent(100) {
+            console2.log(
+                "non-owner should not be able to call updateGovernanceFeePercent"
+            );
+            revert ExpectedFailingTestPasses(emptyError);
+        } catch (bytes memory err) {
+            if (Utils.neq(err, expectedError)) {
+                revert ExpectedDifferentFailureReason(err, expectedError);
+            }
+        }
+    }
+
+    // ------------------- collectFees unit tests ------------------ //
+    function test_collectFees() public {
+        startHoax((pool.owner()));
+        pool.authorize(address(user));
+
+        uint256 poolId = 12345678;
+        uint128[4] memory fees = [0, 1, 1 ether, type(uint128).max];
+        term.setUserBalance(poolId, address(pool), type(uint256).max);
+        term.setUserBalance(
+            _UNLOCKED_TERM_ID,
+            address(pool),
+            type(uint256).max
+        );
+
+        vm.stopPrank();
+        startHoax(address(user));
+
+        for (uint256 i; i < fees.length; i++) {
+            uint128 fee = fees[i];
+            pool.setFees(poolId, fee, fee);
+
+            expectStrictEmit();
+            emit TransferSingle(
+                address(pool),
+                address(pool),
+                address(user),
+                poolId,
+                fee
+            );
+
+            expectStrictEmit();
+            emit TransferSingle(
+                address(pool),
+                address(pool),
+                address(user),
+                _UNLOCKED_TERM_ID,
+                fee
+            );
+
+            pool.collectFees(poolId, address(user));
+
+            (uint128 feeShares, uint128 feeBonds) = pool.governanceFees(poolId);
+            assertEq(feeShares, 0);
+            assertEq(feeBonds, 0);
+        }
     }
 }
