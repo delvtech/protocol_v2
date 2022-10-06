@@ -8,8 +8,6 @@ import { ERC4626Term } from "contracts/ERC4626Term.sol";
 contract ElementTest is Test {
     uint256 public constant YEAR = 31536000;
 
-    bytes public constant EMPTY_REVERT = new bytes(0);
-
     error ExpectedFailingTestPasses(bytes expected);
     error ExpectedDifferentFailureReason(bytes err, bytes expected);
     error ExpectedDifferentFailureReasonString(string err, string expected);

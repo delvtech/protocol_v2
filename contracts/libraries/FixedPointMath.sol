@@ -37,20 +37,8 @@ library FixedPointMath {
             // Store x * y in z for now.
             z := mul(x, y)
 
-            // Equivalent to require(d != 0 && (x == 0 || (x * y) / x == y))
-            //
-            // Reverts with solidity equivalent to
-            //   revert ElementError.FixedPointMath_ZeroDivisionOrMulOverflow()
-            //
-            // See https://blog.soliditylang.org/2021/04/21/custom-errors/ fpr
-            // encoding
             if iszero(and(iszero(iszero(d)), or(iszero(x), eq(div(z, x), y)))) {
-                let free_mem_ptr := mload(64)
-                mstore(
-                    free_mem_ptr,
-                    0xb490da7500000000000000000000000000000000000000000000000000000000
-                )
-                revert(free_mem_ptr, 4)
+                revert(0, 0)
             }
 
             // Divide z by the d.
@@ -72,20 +60,8 @@ library FixedPointMath {
             // Store x * y in z for now.
             z := mul(x, y)
 
-            // Equivalent to require(d != 0 && (x == 0 || (x * y) / x == y))
-            //
-            // Reverts with solidity equivalent to
-            //   revert ElementError.FixedPointMath_ZeroDivisionOrMulOverflow()
-            //
-            // See https://blog.soliditylang.org/2021/04/21/custom-errors/ fpr
-            // encoding
             if iszero(and(iszero(iszero(d)), or(iszero(x), eq(div(z, x), y)))) {
-                let free_mem_ptr := mload(64)
-                mstore(
-                    free_mem_ptr,
-                    0xb490da7500000000000000000000000000000000000000000000000000000000
-                )
-                revert(free_mem_ptr, 4)
+                revert(0, 0)
             }
 
             // First, divide z - 1 by the d and add 1.

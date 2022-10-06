@@ -55,7 +55,6 @@ library ElementError {
     /// ######################
     error FixedPointMath_AddOverflow();
     error FixedPointMath_SubUnderflow();
-    error FixedPointMath_ZeroDivisionOrMulOverflow();
     error FixedPointMath_InvalidExponent();
     error FixedPointMath_NegativeOrZeroInput();
     error FixedPointMath_NegativeInput();

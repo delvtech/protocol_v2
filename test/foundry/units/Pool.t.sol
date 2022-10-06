@@ -308,26 +308,12 @@ contract PoolTest is ElementTest {
 
         if (testCase.sharesValue > (type(uint256).max / 1e18)) {
             // assembly mul overflow
-            return (
-                true,
-                abi.encodeWithSelector(
-                    ElementError
-                        .FixedPointMath_ZeroDivisionOrMulOverflow
-                        .selector
-                )
-            );
+            return (true, new bytes(0));
         }
 
         // assembly division
         if (testCase.sharesMinted == 0) {
-            return (
-                true,
-                abi.encodeWithSelector(
-                    ElementError
-                        .FixedPointMath_ZeroDivisionOrMulOverflow
-                        .selector
-                )
-            );
+            return (true, new bytes(0));
         }
 
         return (false, new bytes(0));
@@ -976,14 +962,7 @@ contract PoolTest is ElementTest {
         }
 
         if (testCase.addedShares == 0) {
-            return (
-                true,
-                abi.encodeWithSelector(
-                    ElementError
-                        .FixedPointMath_ZeroDivisionOrMulOverflow
-                        .selector
-                )
-            );
+            return (true, new bytes(0));
         }
 
         // underflow in impliedInterest calculation
@@ -2410,14 +2389,7 @@ contract PoolTest is ElementTest {
 
         // cDivMu assembly division error
         if (testCase.params.mu == 0) {
-            return (
-                true,
-                abi.encodeWithSelector(
-                    ElementError
-                        .FixedPointMath_ZeroDivisionOrMulOverflow
-                        .selector
-                )
-            );
+            return (true, new bytes(0));
         }
 
         uint256 st = testCase.timestretchCoefficient.mulDown(
@@ -2479,14 +2451,7 @@ contract PoolTest is ElementTest {
             // isBondOut is false we expect cDivMu to be 0 causing a zero division
             // error in rhs calculation
             if (cDivMu == 0) {
-                return (
-                    true,
-                    abi.encodeWithSelector(
-                        ElementError
-                            .FixedPointMath_ZeroDivisionOrMulOverflow
-                            .selector
-                    )
-                );
+                return (true, new bytes(0));
             }
         }
 
