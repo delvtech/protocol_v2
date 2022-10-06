@@ -238,8 +238,16 @@ contract MockPool is Pool {
             );
     }
 
-    function normalize(uint256 input) external view returns (uint256) {
+    function normalizeExternal(uint256 input) external view returns (uint256) {
         return super._normalize(input);
+    }
+
+    function denormalizeExternal(uint256 input)
+        external
+        view
+        returns (uint256)
+    {
+        return super._denormalize(input);
     }
 
     event InitializeBuffer(uint256 bufferId, uint16 minTime, uint16 maxLength);
@@ -275,6 +283,14 @@ contract MockPool is Pool {
         uint128 newSharesBalance
     ) internal override {
         emit Update(poolId, newBondBalance, newSharesBalance);
+    }
+
+    function updateExternal(
+        uint256 poolId,
+        uint128 newBondBalance,
+        uint128 newSharesBalance
+    ) external {
+        return super._update(poolId, newBondBalance, newSharesBalance);
     }
 
     uint256 internal _tradeCalculationOutput;

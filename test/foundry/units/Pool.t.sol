@@ -21,22 +21,44 @@ import { ElementTest } from "test/ElementTest.sol";
 import { Utils } from "test/Utils.sol";
 
 contract PoolTest is ElementTest {
-    ForwarderFactory factory;
-    MockERC20Permit underlying;
-    MockTerm term;
-    MockPool pool;
+    ForwarderFactory public factory;
+    MockERC20Permit public underlying;
+    MockTerm public term;
+    MockPool public pool;
 
-    address user = makeAddress("user");
-    address governance = makeAddress("governance");
+    address public user = makeAddress("user");
+    address public governance = makeAddress("governance");
 
-    uint256 TRADE_FEE = 1;
-    uint256 TERM_END;
+    uint256 public TRADE_FEE = 1;
+    uint256 public TERM_END;
+
+    // ----- events ------ //
+    event Sync(
+        uint256 indexed poolId,
+        uint256 bondReserve,
+        uint256 shareReserve
+    );
 
     function setUp() public {
         factory = new ForwarderFactory();
         vm.warp(2000);
         vm.roll(2);
         TERM_END = block.timestamp + YEAR;
+        underlying = new MockERC20Permit("Test", "TEST", 18);
+        term = new MockTerm(
+            factory.ERC20LINK_HASH(),
+            address(factory),
+            IERC20(underlying),
+            governance
+        );
+        pool = new MockPool(
+            ITerm(address(term)),
+            IERC20(address(underlying)),
+            TRADE_FEE,
+            factory.ERC20LINK_HASH(),
+            governance,
+            address(factory)
+        );
     }
 
     struct RegisterPoolIdTestCase {
@@ -2130,5 +2152,44 @@ contract PoolTest is ElementTest {
             "    underlyingOwed               = ",
             testCase.underlyingOwed
         );
+    }
+
+    // ------------------- _normalize unit tests ------------------ //
+    // ------------------- _denormalize unit tests ------------------ //
+    function test__normalize(uint8 decimals, uint64 input) public {
+        vm.assume(decimals < 50);
+        underlying = new MockERC20Permit("Test", "TEST", decimals);
+        term = new MockTerm(
+            factory.ERC20LINK_HASH(),
+            address(factory),
+            IERC20(underlying),
+            governance
+        );
+        pool = new MockPool(
+            ITerm(address(term)),
+            IERC20(address(underlying)),
+            TRADE_FEE,
+            factory.ERC20LINK_HASH(),
+            governance,
+            address(factory)
+        );
+
+        uint256 normalizedInput = pool.normalizeExternal(input);
+        uint256 denormalizedInput = pool.denormalizeExternal(normalizedInput);
+
+        assertEq(denormalizedInput, input);
+    }
+
+    // ------------------- _update unit tests ------------------ //
+    // this is a dead simple function, adding tests for completeness sake
+    function test__update(uint128 newShares, uint128 newBonds) public {
+        uint256 poolId = 12345678;
+        uint128 initialShares = type(uint128).max;
+        uint128 initialBonds = 0;
+        pool.setReserves(poolId, initialShares, initialBonds);
+
+        expectStrictEmit();
+        emit Sync(poolId, newShares, newBonds);
+        pool.updateExternal(poolId, newShares, newBonds);
     }
 }
