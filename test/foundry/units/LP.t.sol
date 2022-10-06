@@ -153,10 +153,10 @@ contract LPTest is ElementTest {
     function test_depositFromBondsCombinatorial() public {
         uint256[][] memory inputs = new uint256[][](6);
         // poolId
-        vm.warp(1);
+        vm.warp(100);
         inputs[0] = new uint256[](2);
-        inputs[0][0] = 0; // active
-        inputs[0][1] = 12345678; // expired
+        inputs[0][0] = 1; // expired
+        inputs[0][1] = 12345678; // active
 
         // bondsDeposited
         inputs[1] = new uint256[](4);
