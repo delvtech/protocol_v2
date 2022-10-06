@@ -238,11 +238,15 @@ contract MockPool is Pool {
             );
     }
 
-    function normalize(uint256 input) external view returns (uint256) {
+    function normalizeExternal(uint256 input) external view returns (uint256) {
         return super._normalize(input);
     }
 
-    function denormalize(uint256 input) external view returns (uint256) {
+    function denormalizeExternal(uint256 input)
+        external
+        view
+        returns (uint256)
+    {
         return super._denormalize(input);
     }
 

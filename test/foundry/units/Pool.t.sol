@@ -2174,8 +2174,8 @@ contract PoolTest is ElementTest {
             address(factory)
         );
 
-        uint256 normalizedInput = pool.normalize(input);
-        uint256 denormalizedInput = pool.denormalize(normalizedInput);
+        uint256 normalizedInput = pool.normalizeExternal(input);
+        uint256 denormalizedInput = pool.denormalizeExternal(normalizedInput);
 
         assertEq(denormalizedInput, input);
     }
