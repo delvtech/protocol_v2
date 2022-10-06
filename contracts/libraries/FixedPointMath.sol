@@ -37,6 +37,7 @@ library FixedPointMath {
             // Store x * y in z for now.
             z := mul(x, y)
 
+            // Equivalent to require(d != 0 && (x == 0 || (x * y) / x == y))
             if iszero(and(iszero(iszero(d)), or(iszero(x), eq(div(z, x), y)))) {
                 revert(0, 0)
             }
@@ -60,6 +61,7 @@ library FixedPointMath {
             // Store x * y in z for now.
             z := mul(x, y)
 
+            // Equivalent to require(d != 0 && (x == 0 || (x * y) / x == y))
             if iszero(and(iszero(iszero(d)), or(iszero(x), eq(div(z, x), y)))) {
                 revert(0, 0)
             }
