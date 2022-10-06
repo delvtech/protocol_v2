@@ -102,8 +102,9 @@ contract LPTest is ElementTest {
         inputs[4][3] = 3 ether; // higher than 100% interest
 
         // poolId
+        vm.warp(100);
         inputs[5] = new uint256[](2);
-        inputs[5][0] = 0; // should throw error
+        inputs[5][0] = 1; // should throw error
         inputs[5][1] = 12345678;
 
         DepositSharesTestCase[]
@@ -398,11 +399,11 @@ contract LPTest is ElementTest {
     }
 
     function test__withdrawToSharesCombinatorial() public {
-        vm.warp(0);
+        vm.warp(100);
         uint256[][] memory inputs = new uint256[][](7);
         // poolId
         inputs[0] = new uint256[](2);
-        inputs[0][0] = 0; //expired
+        inputs[0][0] = 1; //expired
         inputs[0][1] = 12345678; // active
 
         // amount
@@ -701,7 +702,8 @@ contract LPTest is ElementTest {
 
     // quick sanity test. should rollover all the users assets
     function test_rollover() public {
-        uint256 fromPoolId = 0;
+        vm.warp(100);
+        uint256 fromPoolId = 1;
         uint256 toPoolId = 12345678;
         uint256 amount = 1 ether;
         address destination = address(user);
@@ -728,13 +730,13 @@ contract LPTest is ElementTest {
         // fromPoolId
         vm.warp(1);
         inputs[0] = new uint256[](2);
-        inputs[0][0] = 0; // active
-        inputs[0][1] = 12345678; // expired
+        inputs[0][0] = 0; // expired
+        inputs[0][1] = 12345678; // active
 
         // toPoolId
         inputs[1] = new uint256[](2);
-        inputs[1][0] = 0; // active
-        inputs[1][1] = 12345678; // expired
+        inputs[1][0] = 0; // expired
+        inputs[1][1] = 12345678; // active
 
         // amount
         inputs[2] = new uint256[](3);
