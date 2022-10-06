@@ -25,6 +25,46 @@ contract LPTest is ElementTest {
     MockERC20Permit public token;
     MockLP public lp;
 
+    // ------ events ------ //
+    event Lock(
+        uint256[] assetIds,
+        uint256[] assetAmounts,
+        uint256 underlyingAmount,
+        bool hasPreFunding,
+        address ytDestination,
+        address ptDestination,
+        uint256 ytBeginDate,
+        uint256 expiration
+    );
+
+    event Unlock(address destination, uint256 tokenId, uint256 amount);
+
+    event DepositUnlocked(
+        uint256 underlyingAmount,
+        uint256 ptAmount,
+        uint256 ptExpiry,
+        address destination
+    );
+
+    event WithdrawToShares(uint256 poolId, uint256 amount, address source);
+
+    event DepositFromShares(
+        uint256 poolId,
+        uint256 currentShares,
+        uint256 currentBonds,
+        uint256 depositedShares,
+        uint256 pricePerShare,
+        address to
+    );
+
+    event TransferSingle(
+        address indexed operator,
+        address indexed from,
+        address indexed to,
+        uint256 id,
+        uint256 value
+    );
+
     function setUp() public {
         // Set up the required Element contracts.
         factory = new ForwarderFactory();
@@ -308,25 +348,6 @@ contract LPTest is ElementTest {
         console2.log("    pricePerShare    = ", testCase.pricePerShare);
         console2.log("");
     }
-
-    event Lock(
-        uint256[] assetIds,
-        uint256[] assetAmounts,
-        uint256 underlyingAmount,
-        bool hasPreFunding,
-        address ytDestination,
-        address ptDestination,
-        uint256 ytBeginDate,
-        uint256 expiration
-    );
-
-    event TransferSingle(
-        address indexed operator,
-        address indexed from,
-        address indexed to,
-        uint256 id,
-        uint256 value
-    );
 
     function _registerExpectedDepositSharesEvents(
         DepositSharesTestCase memory testCase,
@@ -653,13 +674,6 @@ contract LPTest is ElementTest {
         }
     }
 
-    event DepositUnlocked(
-        uint256 underlyingAmount,
-        uint256 ptAmount,
-        uint256 ptExpiry,
-        address destination
-    );
-
     function _registerExpectedWithdrawToSharesEvents(
         WithdrawToSharesTestCase memory testCase
     ) internal {
@@ -730,12 +744,12 @@ contract LPTest is ElementTest {
         // fromPoolId
         vm.warp(1);
         inputs[0] = new uint256[](2);
-        inputs[0][0] = 0; // expired
+        inputs[0][0] = 1; // expired
         inputs[0][1] = 12345678; // active
 
         // toPoolId
         inputs[1] = new uint256[](2);
-        inputs[1][0] = 0; // expired
+        inputs[1][0] = 1; // expired
         inputs[1][1] = 12345678; // active
 
         // amount
@@ -893,16 +907,6 @@ contract LPTest is ElementTest {
         }
     }
 
-    event WithdrawToShares(uint256 poolId, uint256 amount, address source);
-    event DepositFromShares(
-        uint256 poolId,
-        uint256 currentShares,
-        uint256 currentBonds,
-        uint256 depositedShares,
-        uint256 pricePerShare,
-        address to
-    );
-
     function _registerExpectedRolloverEvents(RolloverTestCase memory testCase)
         internal
     {
@@ -940,5 +944,56 @@ contract LPTest is ElementTest {
         console2.log("    minAmountOut         = ", testCase.minAmountOut);
         console2.log("    newLpToken           = ", testCase.newLpToken);
         console2.log("");
+    }
+
+    // -------------------  withdraw unit tests   ------------------ //
+
+    // should withdraw userShares and userBonds
+    function test_withdraw() public {
+        vm.warp(100);
+        uint256 poolId = 1;
+        uint256 amount = 1 ether;
+        address destination = address(user);
+        uint256 userShares = 1 ether;
+
+        startHoax(address(user));
+
+        // try case where bonds do and don't transfer to the user
+        uint256[] memory testCases = new uint256[](2);
+        testCases[0] = 0;
+        testCases[1] = 1 ether;
+        for (uint256 i; i < testCases.length; i++) {
+            uint256 userBonds = testCases[i];
+            lp.setWithdrawToSharesReturnValues(userShares, userBonds);
+            lp.setDepositFromSharesReturnValue(1 ether);
+            term.setUserBalance(poolId, address(lp), userBonds);
+
+            expectStrictEmit();
+            emit WithdrawToShares(
+                poolId,
+                1 ether, // amount
+                destination // source
+            );
+
+            expectStrictEmit();
+            emit Unlock(
+                destination,
+                _UNLOCKED_TERM_ID, // tokenId
+                userShares // amount
+            );
+
+            if (userBonds != 0) {
+                expectStrictEmit();
+                emit TransferSingle(
+                    address(lp), // caller
+                    address(lp), // from
+                    address(user), // to
+                    poolId, // tokenId
+                    userBonds // amount
+                );
+            }
+
+            lp.withdraw(poolId, amount, destination);
+        }
     }
 }
