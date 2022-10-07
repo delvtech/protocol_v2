@@ -22,7 +22,7 @@ library FixedPointMath {
     function sub(uint256 a, uint256 b) internal pure returns (uint256) {
         // Fixed Point addition is the same as regular checked addition
 
-        if (b > a) revert ElementError.FixedPointMath_SubOverflow();
+        if (b > a) revert ElementError.FixedPointMath_SubUnderflow();
         uint256 c = a - b;
         return c;
     }

@@ -6,6 +6,7 @@ import "forge-std/Test.sol";
 
 import { ForwarderFactory } from "contracts/ForwarderFactory.sol";
 import { LP } from "contracts/LP.sol";
+import { Pool } from "contracts/Pool.sol";
 
 import { MockERC20Permit } from "contracts/mocks/MockERC20Permit.sol";
 import { MockTerm } from "contracts/mocks/MockTerm.sol";
@@ -15,16 +16,19 @@ import { IERC20 } from "contracts/interfaces/IERC20.sol";
 import { ITerm } from "contracts/interfaces/ITerm.sol";
 
 import { FixedPointMath } from "contracts/libraries/FixedPointMath.sol";
+import { YieldSpaceMath } from "contracts/libraries/YieldSpaceMath.sol";
 import { ElementError } from "contracts/libraries/Errors.sol";
 
 import { ElementTest } from "test/ElementTest.sol";
 import { Utils } from "test/Utils.sol";
 
 contract PoolTest is ElementTest {
-    ForwarderFactory public factory;
-    MockERC20Permit public underlying;
-    MockTerm public term;
-    MockPool public pool;
+    using FixedPointMath for uint256;
+
+    ForwarderFactory factory;
+    MockERC20Permit underlying;
+    MockTerm term;
+    MockPool pool;
 
     address public user = makeAddress("user");
     address public governance = makeAddress("governance");
@@ -303,12 +307,13 @@ contract PoolTest is ElementTest {
         }
 
         if (testCase.sharesValue > (type(uint256).max / 1e18)) {
-            return (true, EMPTY_REVERT);
+            // assembly mul overflow
+            return (true, new bytes(0));
         }
 
-        // assembly division by zero in fixed point math
+        // assembly division
         if (testCase.sharesMinted == 0) {
-            return (true, EMPTY_REVERT);
+            return (true, new bytes(0));
         }
 
         return (false, new bytes(0));
@@ -957,7 +962,7 @@ contract PoolTest is ElementTest {
         }
 
         if (testCase.addedShares == 0) {
-            return (true, new bytes(0)); // assembly division
+            return (true, new bytes(0));
         }
 
         // underflow in impliedInterest calculation
@@ -2155,11 +2160,308 @@ contract PoolTest is ElementTest {
         );
     }
 
-    // ------------------- _normalize unit tests ------------------ //
-    // ------------------- _denormalize unit tests ------------------ //
-    function test__normalize(uint8 decimals, uint64 input) public {
-        vm.assume(decimals < 50);
-        underlying = new MockERC20Permit("Test", "TEST", decimals);
+    // ------------------- _tradeCalculation unit tests ------------------ //
+
+    function testTradeCalculation() public {
+        startHoax(user);
+
+        TradeCalculationTestCase[]
+            memory testCases = _createTradeCalculationTestCases();
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            TradeCalculationTestCase memory testCase = testCases[i];
+            _setupTradeCalculationTestCase(testCase);
+            (
+                bool testFailureIsExpected,
+                bytes memory expectedError
+            ) = _getExpectedTradeCalculationError(testCase);
+
+            if (testFailureIsExpected) {
+                _validateTradeCalculationFailure(testCase, expectedError);
+            } else {
+                _validateTradeCalculationSuccess(testCase);
+            }
+        }
+        console.log("###    %s combinations passing    ###", testCases.length);
+    }
+
+    function _validateTradeCalculationSuccess(
+        TradeCalculationTestCase memory testCase
+    ) internal {
+        try
+            pool.tradeCalculationExternal(
+                testCase.expiry,
+                testCase.input,
+                testCase.shareReserve,
+                testCase.bondReserve,
+                testCase.pricePerShare,
+                testCase.isBondOut
+            )
+        returns (uint256 result) {
+            uint256 r = YieldSpaceMath.calculateOutGivenIn(
+                testCase.shareReserve,
+                testCase.bondReserve,
+                testCase.totalSupplyTimesMu,
+                testCase.input,
+                testCase.timeToExpiry,
+                testCase.timestretchCoefficient,
+                testCase.pricePerShare,
+                uint256(testCase.params.mu),
+                testCase.isBondOut
+            );
+
+            if (result != r) {
+                _logTradeCalculationTestCase(testCase);
+                assertEq(result, r);
+                revert ExpectedPassingTestFailsCondition();
+            }
+        } catch (bytes memory err) {
+            _logTradeCalculationTestCase(testCase);
+            revert ExpectedPassingTestFails(err);
+        }
+    }
+
+    function _validateTradeCalculationFailure(
+        TradeCalculationTestCase memory testCase,
+        bytes memory expectedError
+    ) internal view {
+        try
+            pool.tradeCalculationExternal(
+                testCase.expiry,
+                testCase.input,
+                testCase.shareReserve,
+                testCase.bondReserve,
+                testCase.pricePerShare,
+                testCase.isBondOut
+            )
+        {
+            _logTradeCalculationTestCase(testCase);
+            revert ExpectedFailingTestPasses(expectedError);
+        } catch Error(string memory err) {
+            if (Utils.neq(bytes(err), expectedError)) {
+                _logTradeCalculationTestCase(testCase);
+                revert ExpectedDifferentFailureReasonString(
+                    err,
+                    string(expectedError)
+                );
+            }
+        } catch (bytes memory err) {
+            if (Utils.neq(err, expectedError)) {
+                _logTradeCalculationTestCase(testCase);
+                revert ExpectedDifferentFailureReason(err, expectedError);
+            }
+        }
+    }
+
+    function _createTradeCalculationTestCases()
+        internal
+        view
+        returns (TradeCalculationTestCase[] memory testCases)
+    {
+        uint256[][] memory inputs = new uint256[][](9);
+
+        // expiry
+        inputs[0] = new uint256[](3);
+        inputs[0][0] = 0;
+        inputs[0][1] = block.timestamp;
+        inputs[0][2] = TERM_END;
+
+        // input
+        inputs[1] = new uint256[](3);
+        inputs[1][0] = 0;
+        inputs[1][1] = 1 ether;
+        inputs[1][2] = 3333333 ether + 43434343;
+
+        // shareReserve
+        inputs[2] = new uint256[](3);
+        inputs[2][0] = 0;
+        inputs[2][1] = 59 ether + 987;
+        inputs[2][2] = 19827982791821 ether + 989932798372821;
+
+        // bondReserve
+        inputs[3] = new uint256[](3);
+        inputs[3][0] = 0;
+        inputs[3][1] = 40 ether + 454;
+        inputs[3][2] = 19333333333333 ether + 27173261733222;
+
+        // pricePerShare
+        inputs[4] = new uint256[](3);
+        inputs[4][0] = 0;
+        inputs[4][1] = 0.98 ether;
+        inputs[4][2] = 1.2 ether;
+
+        // isBondOut
+        inputs[5] = new uint256[](2);
+        inputs[5][0] = 0;
+        inputs[5][1] = 1;
+
+        // params.timestretch
+        inputs[6] = new uint256[](3);
+        inputs[6][0] = 0;
+        inputs[6][1] = 10245;
+        inputs[6][2] = (1 ether / (TERM_END - block.timestamp)) + 1;
+
+        // params.mu
+        inputs[7] = new uint256[](4);
+        inputs[7][0] = 0;
+        inputs[7][1] = 0.97 ether;
+        inputs[7][2] = 1 ether;
+        inputs[7][3] = 1.1 ether;
+
+        // lpTotalSupply
+        inputs[8] = new uint256[](3);
+        inputs[8][0] = 0;
+        inputs[8][1] = 2000 ether + 1;
+        inputs[8][2] = 131313131313131 ether + 5656565656;
+
+        uint256[][] memory rawTestCases = Utils.generateTestingMatrix(inputs);
+
+        testCases = new TradeCalculationTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            uint256[] memory rawTestCase = rawTestCases[i];
+            _validateTestCaseLength(rawTestCase, 9);
+
+            uint256 expiry = rawTestCase[0];
+            uint256 input = rawTestCase[1];
+            uint256 shareReserve = rawTestCase[2];
+            uint256 bondReserve = rawTestCase[3];
+            uint256 pricePerShare = rawTestCase[4];
+            bool isBondOut = rawTestCase[5] > 0;
+            Pool.SubPoolParameters memory params = Pool.SubPoolParameters({
+                timestretch: uint32(rawTestCase[6]),
+                mu: uint224(rawTestCase[7])
+            });
+            uint256 lpTotalSupply = rawTestCase[8];
+
+            uint256 timeToExpiry = expiry >= block.timestamp
+                ? ((expiry - block.timestamp) * FixedPointMath.ONE_18) / YEAR
+                : 0;
+            uint256 totalSupplyTimesMu = lpTotalSupply.mulDown(
+                uint256(params.mu)
+            );
+            uint256 timestretchCoefficient = params.timestretch > 0
+                ? (1e21 / uint256(params.timestretch))
+                : 0;
+
+            testCases[i] = TradeCalculationTestCase({
+                expiry: expiry,
+                input: input,
+                shareReserve: shareReserve,
+                bondReserve: bondReserve,
+                pricePerShare: pricePerShare,
+                isBondOut: isBondOut,
+                params: params,
+                lpTotalSupply: lpTotalSupply,
+                timeToExpiry: timeToExpiry,
+                totalSupplyTimesMu: totalSupplyTimesMu,
+                timestretchCoefficient: timestretchCoefficient
+            });
+        }
+    }
+
+    struct TradeCalculationTestCase {
+        // args
+        uint256 expiry;
+        uint256 input;
+        uint256 shareReserve;
+        uint256 bondReserve;
+        uint256 pricePerShare;
+        bool isBondOut;
+        // state
+        Pool.SubPoolParameters params;
+        uint256 lpTotalSupply;
+        // internal calcs
+        uint256 timeToExpiry;
+        uint256 totalSupplyTimesMu;
+        uint256 timestretchCoefficient;
+    }
+
+    function _getExpectedTradeCalculationError(
+        TradeCalculationTestCase memory testCase
+    ) internal view returns (bool testCaseIsError, bytes memory reason) {
+        if (testCase.expiry < block.timestamp) {
+            return (true, stdError.arithmeticError);
+        }
+
+        if (testCase.params.timestretch == 0) {
+            return (true, stdError.divisionError);
+        }
+
+        // cDivMu assembly division error
+        if (testCase.params.mu == 0) {
+            return (true, new bytes(0));
+        }
+
+        uint256 st = testCase.timestretchCoefficient.mulDown(
+            testCase.timeToExpiry
+        );
+        // oneMinusT calc can underflow
+        if (st > FixedPointMath.ONE_18) {
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError.FixedPointMath_SubUnderflow.selector
+                )
+            );
+        }
+
+        uint256 oneMinusT = FixedPointMath.ONE_18.sub(st);
+        uint256 cDivMu = testCase.pricePerShare.divDown(
+            uint256(testCase.params.mu)
+        );
+        uint256 modifiedBondReserves = testCase.bondReserve.add(
+            testCase.lpTotalSupply
+        );
+        uint256 k = cDivMu
+            .mulDown(
+                uint256(testCase.params.mu).mulDown(testCase.shareReserve).pow(
+                    oneMinusT
+                )
+            )
+            .add(modifiedBondReserves.pow(oneMinusT));
+
+        if (testCase.isBondOut) {
+            uint256 newScaledShareReserves = cDivMu.mulDown(
+                uint256(testCase.params.mu)
+                    .mulDown(testCase.shareReserve.add(testCase.input))
+                    .pow(oneMinusT)
+            );
+            if (k < newScaledShareReserves) {
+                return (
+                    true,
+                    abi.encodeWithSelector(
+                        ElementError.FixedPointMath_SubUnderflow.selector
+                    )
+                );
+            }
+        } else {
+            uint256 newScaledBondReserves = modifiedBondReserves
+                .add(testCase.input)
+                .pow(oneMinusT);
+            if (k < newScaledBondReserves) {
+                return (
+                    true,
+                    abi.encodeWithSelector(
+                        ElementError.FixedPointMath_SubUnderflow.selector
+                    )
+                );
+            }
+
+            // If pricePerShare, (c in YieldSpace.calculateOutGivenIn), is 0 and
+            // isBondOut is false we expect cDivMu to be 0 causing a zero division
+            // error in rhs calculation
+            if (cDivMu == 0) {
+                return (true, new bytes(0));
+            }
+        }
+
+        return (false, new bytes(0));
+    }
+
+    function _setupTradeCalculationTestCase(
+        TradeCalculationTestCase memory testCase
+    ) internal {
+        underlying = new MockERC20Permit("Test", "TEST", 18);
         term = new MockTerm(
             factory.ERC20LINK_HASH(),
             address(factory),
@@ -2174,6 +2476,56 @@ contract PoolTest is ElementTest {
             governance,
             address(factory)
         );
+        pool.setParameters(testCase.expiry, testCase.params);
+        pool.setTotalSupply(testCase.expiry, testCase.lpTotalSupply);
+    }
+
+    function _logTradeCalculationTestCase(
+        TradeCalculationTestCase memory testCase
+    ) internal view {
+        console2.log("    Pool._tradeCalculation");
+        console2.log("    -----------------------------------------------    ");
+        console2.log("    expiry                      =", testCase.expiry);
+        console2.log("    input                       =", testCase.input);
+        console2.log(
+            "    shareReserve                =",
+            testCase.shareReserve
+        );
+        console2.log("    bondReserve                 =", testCase.bondReserve);
+        console2.log(
+            "    pricePerShare               =",
+            testCase.pricePerShare
+        );
+        console2.log("    isBondOut                   =", testCase.isBondOut);
+        console2.log(
+            "    params.timestretch          =",
+            testCase.params.timestretch
+        );
+        console2.log("    params.mu                   =", testCase.params.mu);
+        console2.log(
+            "    lpTotalSupply               =",
+            testCase.lpTotalSupply
+        );
+        console2.log(
+            "    timeToExpiry                =",
+            testCase.timeToExpiry
+        );
+        console2.log(
+            "    totalSupplyTimesMu          =",
+            testCase.totalSupplyTimesMu
+        );
+        console2.log(
+            "    timestretchCoefficient      =",
+            testCase.timestretchCoefficient
+        );
+        console2.log("");
+    }
+
+    // ------------------- _normalize unit tests ------------------ //
+    // ------------------- _denormalize unit tests ------------------ //
+    function test__normalize(uint8 decimals, uint64 input) public {
+        vm.assume(decimals < 50);
+        underlying = new MockERC20Permit("Test", "TEST", decimals);
 
         uint256 normalizedInput = pool.normalizeExternal(input);
         uint256 denormalizedInput = pool.denormalizeExternal(normalizedInput);

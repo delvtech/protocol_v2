@@ -43,6 +43,13 @@ contract MockPool is Pool {
         reserves[_poolId].bonds = _bonds;
     }
 
+    function setParameters(uint256 expiry, SubPoolParameters memory params)
+        external
+    {
+        parameters[expiry].timestretch = params.timestretch;
+        parameters[expiry].mu = params.mu;
+    }
+
     uint128 internal _newShareReserves;
     uint128 internal _newBondReserves;
     uint256 internal _tradeBondsOutputAmount;
@@ -310,6 +317,25 @@ contract MockPool is Pool {
         bool // isBondOut
     ) internal view override returns (uint256) {
         return _tradeCalculationOutput;
+    }
+
+    function tradeCalculationExternal(
+        uint256 expiry,
+        uint256 input,
+        uint256 shareReserve,
+        uint256 bondReserve,
+        uint256 pricePerShare,
+        bool isBondOut
+    ) external view virtual returns (uint256) {
+        return
+            super._tradeCalculation(
+                expiry,
+                input,
+                shareReserve,
+                bondReserve,
+                pricePerShare,
+                isBondOut
+            );
     }
 
     event UpdateOracle(

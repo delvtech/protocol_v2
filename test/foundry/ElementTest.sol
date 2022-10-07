@@ -6,15 +6,14 @@ import "forge-std/Test.sol";
 import { ERC4626Term } from "contracts/ERC4626Term.sol";
 
 contract ElementTest is Test {
-    uint256 public constant YEAR = (365 * 24 * 60 * 60);
-
-    bytes public constant EMPTY_REVERT = new bytes(0);
+    uint256 public constant YEAR = 31536000;
 
     error ExpectedFailingTestPasses(bytes expected);
     error ExpectedDifferentFailureReason(bytes err, bytes expected);
     error ExpectedDifferentFailureReasonString(string err, string expected);
     error ExpectedPassingTestFails(bytes err);
     error InvalidTestCaseLength(uint256 expected, uint256 actual);
+    error ExpectedPassingTestFailsCondition();
 
     // Helper function to create a random address seeded by a string value, also
     // deals and labels the address for easier debugging
