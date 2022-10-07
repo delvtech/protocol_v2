@@ -312,6 +312,25 @@ contract MockPool is Pool {
         return _tradeCalculationOutput;
     }
 
+    function tradeCalculationExternal(
+        uint256 expiry,
+        uint256 input,
+        uint256 shareReserve,
+        uint256 bondReserve,
+        uint256 pricePerShare,
+        bool isBondOut
+    ) external view virtual returns (uint256) {
+        return
+            super._tradeCalculation(
+                expiry,
+                input,
+                shareReserve,
+                bondReserve,
+                pricePerShare,
+                isBondOut
+            );
+    }
+
     event UpdateOracle(
         uint256 poolId,
         uint256 newShareReserve,
