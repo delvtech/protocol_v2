@@ -2307,9 +2307,17 @@ contract PoolTest is ElementTest {
         pool.initializeBufferExternal(poolId, minTime, maxSteps);
         pool.setParameters(poolId, timeStretch, mu);
 
-        uint224 value = 1 ether;
+        uint256 muTimesShares = FixedPointMath.mulDown(mu, newShareReserve);
+        console.log("muTimesShares", muTimesShares);
+        uint256 adjustedBonds = newBondReserve + pool.totalSupply(poolId);
+        console.log("adjustedBonds", adjustedBonds);
+        uint256 oracleRatio = FixedPointMath.divDown(
+            adjustedBonds,
+            muTimesShares
+        );
+        console.log("oracleRatio", oracleRatio);
         expectStrictEmit();
-        emit UpdateBufferMock(poolId, value);
+        emit UpdateBufferMock(poolId, uint224(oracleRatio));
 
         pool.updateOracleExternal(poolId, newShareReserve, newBondReserve);
     }
