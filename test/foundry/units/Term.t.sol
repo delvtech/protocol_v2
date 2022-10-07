@@ -33,6 +33,15 @@ contract TermTest is ElementTest {
 
     // ----------------------- mock events ----------------------- //
 
+    event Convert(IYieldAdapter.ShareState shareState, uint256 shares);
+    event CreateYT(
+        address destination,
+        uint256 value,
+        uint256 totalShares,
+        uint256 startTime,
+        uint256 expiration
+    );
+    event Deposit(IYieldAdapter.ShareState shareState);
     event FinalizeTerm(uint256 expiry);
     event ReleaseAsset(uint256 assetId, address source, uint256 amount);
     event ReleasePT(
@@ -48,11 +57,233 @@ contract TermTest is ElementTest {
         uint256 amount
     );
     event ReleaseUnlocked(address source, uint256 amount);
+    event Transfer(address indexed from, address indexed to, uint256 value);
     event Withdraw(
         uint256 shares,
         address destination,
         IYieldAdapter.ShareState shareState
     );
+
+    // ------------------- depositUnlocked ------------------- //
+
+    struct DepositUnlockedTestCase {
+        uint256 convertReturn;
+        uint256 depositReturnShares;
+        uint256 depositReturnValue;
+        uint256 ptAmount;
+        uint256 ptExpiry;
+        uint256 sourceBalance;
+        uint256 underlyingAmount;
+    }
+
+    function testCombinatorialDepositUnlocked() public {
+        vm.warp(5_000);
+        startHoax(source);
+
+        uint256[][] memory inputs = new uint256[][](7);
+        uint256[] memory amounts = new uint256[](3);
+        amounts[0] = 0;
+        amounts[1] = 1.54893 ether + 234;
+        amounts[2] = 3.34534 ether + 12;
+        // convert return value
+        inputs[0] = amounts;
+        // deposit return shares
+        inputs[1] = amounts;
+        // deposit return value
+        inputs[2] = amounts;
+        // ptAmount
+        inputs[3] = amounts;
+        // ptExpiry
+        inputs[4] = new uint256[](6);
+        inputs[4][0] = 0;
+        inputs[4][1] = block.timestamp;
+        inputs[4][2] = block.timestamp * 2;
+        inputs[4][3] = Utils.encodeAssetId(true, 0, 0);
+        inputs[4][4] = Utils.encodeAssetId(false, 1, 0);
+        inputs[4][5] = Utils.encodeAssetId(true, 1, 0);
+        // sourceBalance
+        inputs[5] = amounts;
+        // underlyingAmount
+        inputs[6] = amounts;
+        // generate test cases
+        DepositUnlockedTestCase[]
+            memory testCases = _convertToDepositUnlockedTestCase(
+                Utils.generateTestingMatrix(inputs)
+            );
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            _term.setConvertReturnValue(testCases[i].convertReturn);
+            _term.setDepositReturnValues(
+                testCases[i].depositReturnShares,
+                testCases[i].depositReturnValue
+            );
+            _underlying.mint(source, testCases[i].sourceBalance);
+
+            (
+                bool shouldExpectError,
+                bytes memory expectedError
+            ) = _getExpectedErrorDepositUnlocked(testCases[i]);
+            if (shouldExpectError) {
+                try
+                    _term.depositUnlockedExternal(
+                        testCases[i].underlyingAmount,
+                        testCases[i].ptAmount,
+                        testCases[i].ptExpiry,
+                        destination
+                    )
+                {
+                    _logTestCaseDepositUnlocked("failure case", testCases[i]);
+                    revert("succeeds unexpectedly");
+                } catch (bytes memory error) {
+                    if (Utils.neq(error, expectedError)) {
+                        _logTestCaseDepositUnlocked(
+                            "failure case",
+                            testCases[i]
+                        );
+                        assertEq(error, expectedError);
+                    }
+                }
+            } else {
+                _registerExpectedEventsDepositUnlocked(testCases[i]);
+                try
+                    _term.depositUnlockedExternal(
+                        testCases[i].underlyingAmount,
+                        testCases[i].ptAmount,
+                        testCases[i].ptExpiry,
+                        destination
+                    )
+                returns (uint256 value, uint256 shares) {
+                    _validateSuccessDepositUnlocked(
+                        testCases[i],
+                        value,
+                        shares
+                    );
+                } catch {
+                    _logTestCaseDepositUnlocked("success case", testCases[i]);
+                    revert("fails unexpectedly");
+                }
+            }
+        }
+    }
+
+    function _convertToDepositUnlockedTestCase(uint256[][] memory rawTestMatrix)
+        internal
+        pure
+        returns (DepositUnlockedTestCase[] memory)
+    {
+        DepositUnlockedTestCase[] memory result = new DepositUnlockedTestCase[](
+            rawTestMatrix.length
+        );
+        for (uint256 i = 0; i < rawTestMatrix.length; i++) {
+            _validateTestCaseLength(rawTestMatrix[i], 7);
+            result[i] = DepositUnlockedTestCase({
+                convertReturn: rawTestMatrix[i][0],
+                depositReturnShares: rawTestMatrix[i][1],
+                depositReturnValue: rawTestMatrix[i][2],
+                ptAmount: rawTestMatrix[i][3],
+                ptExpiry: rawTestMatrix[i][4],
+                sourceBalance: rawTestMatrix[i][5],
+                underlyingAmount: rawTestMatrix[i][6]
+            });
+        }
+        return result;
+    }
+
+    function _registerExpectedEventsDepositUnlocked(
+        DepositUnlockedTestCase memory testCase
+    ) internal {
+        if (testCase.underlyingAmount > 0) {
+            expectStrictEmit();
+            emit Transfer(source, address(_term), testCase.underlyingAmount);
+        }
+        expectStrictEmit();
+        emit Deposit(IYieldAdapter.ShareState.Unlocked);
+        if (testCase.ptAmount > 0) {
+            expectStrictEmit();
+            emit ReleaseAsset(testCase.ptExpiry, source, testCase.ptAmount);
+            expectStrictEmit();
+            emit Convert(IYieldAdapter.ShareState.Locked, testCase.ptAmount);
+        }
+        (
+            uint256 expectedShares,
+            uint256 expectedValue
+        ) = _getExpectedCalculationsDepositUnlocked(testCase);
+        expectStrictEmit();
+        emit CreateYT(destination, expectedValue, expectedShares, 0, 0);
+    }
+
+    function _validateSuccessDepositUnlocked(
+        DepositUnlockedTestCase memory testCase,
+        uint256 value,
+        uint256 shares
+    ) internal {
+        uint256 sourceBalance = _underlying.balanceOf(source);
+        if (
+            sourceBalance != testCase.sourceBalance - testCase.underlyingAmount
+        ) {
+            _logTestCaseDepositUnlocked("success case", testCase);
+            assertEq(
+                sourceBalance,
+                testCase.sourceBalance - testCase.underlyingAmount,
+                "unexpected source balance"
+            );
+        }
+        (
+            uint256 expectedShares,
+            uint256 expectedValue
+        ) = _getExpectedCalculationsDepositUnlocked(testCase);
+        if (shares != expectedShares) {
+            _logTestCaseDepositUnlocked("success case", testCase);
+            assertEq(shares, expectedShares, "unexpected shares");
+        }
+        if (value != expectedValue) {
+            _logTestCaseDepositUnlocked("success case", testCase);
+            assertEq(value, expectedValue, "unexpected value");
+        }
+    }
+
+    function _getExpectedCalculationsDepositUnlocked(
+        DepositUnlockedTestCase memory testCase
+    ) internal pure returns (uint256, uint256) {
+        uint256 expectedShares = testCase.depositReturnShares;
+        uint256 expectedValue = testCase.depositReturnValue;
+        if (testCase.ptAmount > 0) {
+            expectedShares += testCase.convertReturn;
+            expectedValue += testCase.ptAmount;
+        }
+        return (expectedShares, expectedValue);
+    }
+
+    function _getExpectedErrorDepositUnlocked(
+        DepositUnlockedTestCase memory testCase
+    ) internal view returns (bool, bytes memory) {
+        if (testCase.sourceBalance < testCase.underlyingAmount) {
+            return (true, stdError.arithmeticError);
+        }
+        if (testCase.ptExpiry >= block.timestamp) {
+            return (
+                true,
+                abi.encodeWithSelector(ElementError.TermExpired.selector)
+            );
+        }
+        return (false, new bytes(0));
+    }
+
+    function _logTestCaseDepositUnlocked(
+        string memory prelude,
+        DepositUnlockedTestCase memory testCase
+    ) internal view {
+        console2.log(prelude);
+        console2.log("");
+        console2.log("    convertReturn: ", testCase.convertReturn);
+        console2.log("    depositReturnShares: ", testCase.depositReturnShares);
+        console2.log("    depositReturnValue: ", testCase.depositReturnValue);
+        console2.log("    ptAmount: ", testCase.ptAmount);
+        console2.log("    ptExpiry: ", testCase.ptExpiry);
+        console2.log("    sourceBalance: ", testCase.sourceBalance);
+        console2.log("    underlyingAmount: ", testCase.underlyingAmount);
+        console2.log("");
+    }
 
     // ------------------- unlock unit tests ------------------- //
 
@@ -105,7 +336,7 @@ contract TermTest is ElementTest {
             ) = _getExpectedErrorUnlock(testCases[i]);
             if (shouldExpectError) {
                 try
-                    _term.unlock(
+                    _term.unlockExternal(
                         destination,
                         testCases[i].assetIds,
                         testCases[i].amounts
@@ -385,7 +616,7 @@ contract TermTest is ElementTest {
         }
     }
 
-    // -------------------  _createYT unit tests   ------------------ //
+    // ------------------- _createYT unit tests  ------------------ //
 
     function testCombinatorialCreateYT() public {
         // Set up the fixed values.

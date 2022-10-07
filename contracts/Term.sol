@@ -176,7 +176,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 ptAmount,
         uint256 ptExpiry,
         address destination
-    ) external virtual override returns (uint256, uint256) {
+    ) public virtual override returns (uint256, uint256) {
         // If the user wants to send in tokens transfer them to this contract
         if (underlyingAmount != 0) {
             token.transferFrom(msg.sender, address(this), underlyingAmount);
@@ -300,7 +300,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         uint256 totalShares,
         uint256 startTime,
         uint256 expiration
-    ) internal returns (uint256) {
+    ) internal virtual returns (uint256) {
         // We create only YT for the user with a 100% discount
         if (expiration == 0) {
             // In the unlocked term all assets are held as YT with a direct conversion to shares
