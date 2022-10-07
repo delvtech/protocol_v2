@@ -16,16 +16,19 @@ import { IERC20 } from "contracts/interfaces/IERC20.sol";
 import { ITerm } from "contracts/interfaces/ITerm.sol";
 
 import { FixedPointMath } from "contracts/libraries/FixedPointMath.sol";
+import { YieldSpaceMath } from "contracts/libraries/YieldSpaceMath.sol";
 import { ElementError } from "contracts/libraries/Errors.sol";
 
 import { ElementTest } from "test/ElementTest.sol";
 import { Utils } from "test/Utils.sol";
 
 contract PoolTest is ElementTest {
-    ForwarderFactory public factory;
-    MockERC20Permit public underlying;
-    MockTerm public term;
-    MockPool public pool;
+    using FixedPointMath for uint256;
+
+    ForwarderFactory factory;
+    MockERC20Permit underlying;
+    MockTerm term;
+    MockPool pool;
 
     address public user = makeAddress("user");
     address public governance = makeAddress("governance");
@@ -304,12 +307,27 @@ contract PoolTest is ElementTest {
         }
 
         if (testCase.sharesValue > (type(uint256).max / 1e18)) {
-            return (true, EMPTY_REVERT);
+            // assembly mul overflow
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError
+                        .FixedPointMath_ZeroDivisionOrMulOverflow
+                        .selector
+                )
+            );
         }
 
-        // assembly division by zero in fixed point math
+        // assembly division
         if (testCase.sharesMinted == 0) {
-            return (true, EMPTY_REVERT);
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError
+                        .FixedPointMath_ZeroDivisionOrMulOverflow
+                        .selector
+                )
+            );
         }
 
         return (false, new bytes(0));
@@ -958,7 +976,14 @@ contract PoolTest is ElementTest {
         }
 
         if (testCase.addedShares == 0) {
-            return (true, new bytes(0)); // assembly division
+            return (
+                true,
+                abi.encodeWithSelector(
+                    ElementError
+                        .FixedPointMath_ZeroDivisionOrMulOverflow
+                        .selector
+                )
+            );
         }
 
         // underflow in impliedInterest calculation
@@ -2166,29 +2191,23 @@ contract PoolTest is ElementTest {
 
         for (uint256 i = 0; i < testCases.length; i++) {
             TradeCalculationTestCase memory testCase = testCases[i];
-
-            YieldSpaceInternals memory ysi = getYieldSpaceCalcInternals(
-                testCase
-            );
-
             _setupTradeCalculationTestCase(testCase);
             (
                 bool testFailureIsExpected,
                 bytes memory expectedError
-            ) = _getExpectedTradeCalculationError(testCase, ysi);
+            ) = _getExpectedTradeCalculationError(testCase);
 
             if (testFailureIsExpected) {
-                _validateTradeCalculationFailure(testCase, ysi, expectedError);
+                _validateTradeCalculationFailure(testCase, expectedError);
             } else {
-                _validateTradeCalculationSuccess(testCase, ysi);
+                _validateTradeCalculationSuccess(testCase);
             }
         }
         console.log("###    %s combinations passing    ###", testCases.length);
     }
 
     function _validateTradeCalculationSuccess(
-        TradeCalculationTestCase memory testCase,
-        YieldSpaceInternals memory ysi
+        TradeCalculationTestCase memory testCase
     ) internal {
         try
             pool.tradeCalculationExternal(
@@ -2199,17 +2218,34 @@ contract PoolTest is ElementTest {
                 testCase.pricePerShare,
                 testCase.isBondOut
             )
-        returns (uint256 result) {} catch (bytes memory err) {
-            _logTradeCalculationTestCase(testCase, ysi);
+        returns (uint256 result) {
+            uint256 r = YieldSpaceMath.calculateOutGivenIn(
+                testCase.shareReserve,
+                testCase.bondReserve,
+                testCase.totalSupplyTimesMu,
+                testCase.input,
+                testCase.timeToExpiry,
+                testCase.timestretchCoefficient,
+                testCase.pricePerShare,
+                uint256(testCase.params.mu),
+                testCase.isBondOut
+            );
+
+            if (result != r) {
+                _logTradeCalculationTestCase(testCase);
+                assertEq(result, r);
+                revert ExpectedPassingTestFailsCondition();
+            }
+        } catch (bytes memory err) {
+            _logTradeCalculationTestCase(testCase);
             revert ExpectedPassingTestFails(err);
         }
     }
 
     function _validateTradeCalculationFailure(
         TradeCalculationTestCase memory testCase,
-        YieldSpaceInternals memory ysi,
         bytes memory expectedError
-    ) internal {
+    ) internal view {
         try
             pool.tradeCalculationExternal(
                 testCase.expiry,
@@ -2220,11 +2256,11 @@ contract PoolTest is ElementTest {
                 testCase.isBondOut
             )
         {
-            _logTradeCalculationTestCase(testCase, ysi);
+            _logTradeCalculationTestCase(testCase);
             revert ExpectedFailingTestPasses(expectedError);
         } catch Error(string memory err) {
             if (Utils.neq(bytes(err), expectedError)) {
-                _logTradeCalculationTestCase(testCase, ysi);
+                _logTradeCalculationTestCase(testCase);
                 revert ExpectedDifferentFailureReasonString(
                     err,
                     string(expectedError)
@@ -2232,7 +2268,7 @@ contract PoolTest is ElementTest {
             }
         } catch (bytes memory err) {
             if (Utils.neq(err, expectedError)) {
-                _logTradeCalculationTestCase(testCase, ysi);
+                _logTradeCalculationTestCase(testCase);
                 revert ExpectedDifferentFailureReason(err, expectedError);
             }
         }
@@ -2252,29 +2288,28 @@ contract PoolTest is ElementTest {
         inputs[0][2] = TERM_END;
 
         // input
-        inputs[1] = new uint256[](4);
+        inputs[1] = new uint256[](3);
         inputs[1][0] = 0;
-        inputs[1][1] = 82012823879;
-        inputs[1][2] = 1 ether;
-        inputs[1][3] = 3333333 ether + 43434343;
-        //inputs[1][4] = 389742813732 ether + 1212909;
+        inputs[1][1] = 1 ether;
+        inputs[1][2] = 3333333 ether + 43434343;
 
         // shareReserve
-        inputs[2] = new uint256[](2);
+        inputs[2] = new uint256[](3);
         inputs[2][0] = 0;
-        inputs[2][1] = 19827982791821 ether + 989932798372821;
+        inputs[2][1] = 59 ether + 987;
+        inputs[2][2] = 19827982791821 ether + 989932798372821;
 
         // bondReserve
-        inputs[3] = new uint256[](2);
+        inputs[3] = new uint256[](3);
         inputs[3][0] = 0;
-        inputs[3][1] = 19333333333333 ether + 27173261733222;
+        inputs[3][1] = 40 ether + 454;
+        inputs[3][2] = 19333333333333 ether + 27173261733222;
 
         // pricePerShare
-        inputs[4] = new uint256[](4);
+        inputs[4] = new uint256[](3);
         inputs[4][0] = 0;
         inputs[4][1] = 0.98 ether;
-        inputs[4][2] = 1 ether;
-        inputs[4][3] = 1.2 ether;
+        inputs[4][2] = 1.2 ether;
 
         // isBondOut
         inputs[5] = new uint256[](2);
@@ -2313,18 +2348,20 @@ contract PoolTest is ElementTest {
             uint256 bondReserve = rawTestCase[3];
             uint256 pricePerShare = rawTestCase[4];
             bool isBondOut = rawTestCase[5] > 0;
-            uint256 timestretch = rawTestCase[6];
-            uint256 mu = rawTestCase[7];
+            Pool.SubPoolParameters memory params = Pool.SubPoolParameters({
+                timestretch: uint32(rawTestCase[6]),
+                mu: uint224(rawTestCase[7])
+            });
             uint256 lpTotalSupply = rawTestCase[8];
 
             uint256 timeToExpiry = expiry >= block.timestamp
-                ? ((expiry - block.timestamp) * 1e18) / YEAR
+                ? ((expiry - block.timestamp) * FixedPointMath.ONE_18) / YEAR
                 : 0;
-            uint256 totalSupplyTimesMu = mu > 0
-                ? FixedPointMath.mulDown(lpTotalSupply, mu)
-                : 0;
-            uint256 timestretchCoefficient = timestretch > 0
-                ? (1e21 / timestretch)
+            uint256 totalSupplyTimesMu = lpTotalSupply.mulDown(
+                uint256(params.mu)
+            );
+            uint256 timestretchCoefficient = params.timestretch > 0
+                ? (1e21 / uint256(params.timestretch))
                 : 0;
 
             testCases[i] = TradeCalculationTestCase({
@@ -2334,28 +2371,13 @@ contract PoolTest is ElementTest {
                 bondReserve: bondReserve,
                 pricePerShare: pricePerShare,
                 isBondOut: isBondOut,
-                params: Pool.SubPoolParameters({
-                    timestretch: uint32(timestretch),
-                    mu: uint224(mu)
-                }),
+                params: params,
                 lpTotalSupply: lpTotalSupply,
                 timeToExpiry: timeToExpiry,
                 totalSupplyTimesMu: totalSupplyTimesMu,
                 timestretchCoefficient: timestretchCoefficient
             });
         }
-    }
-
-    struct YieldSpaceInternals {
-        uint256 oneMinusT;
-        uint256 cDivMu;
-        uint256 modifiedBondReserves;
-        uint256 k;
-        uint256 outReserves;
-        uint256 newScaledShareReserves;
-        uint256 newScaledBondReserves;
-        uint256 rhs;
-        uint256 result;
     }
 
     struct TradeCalculationTestCase {
@@ -2375,105 +2397,8 @@ contract PoolTest is ElementTest {
         uint256 timestretchCoefficient;
     }
 
-    function getYieldSpaceCalcInternals(
-        TradeCalculationTestCase memory testCase
-    ) internal view returns (YieldSpaceInternals memory ysi) {
-        uint256 mu = uint256(testCase.params.mu);
-        uint256 st = FixedPointMath.mulDown(
-            testCase.timestretchCoefficient,
-            testCase.timeToExpiry
-        );
-
-        uint256 oneMinusT = st <= 1e18 ? 1e18 - st : 0;
-        uint256 cDivMu = mu > 0
-            ? FixedPointMath.divDown(testCase.pricePerShare, mu)
-            : 0;
-        uint256 modifiedBondReserves = testCase.bondReserve +
-            testCase.totalSupplyTimesMu;
-
-        uint256 k = FixedPointMath.add(
-            FixedPointMath.mulDown(
-                cDivMu,
-                FixedPointMath.pow(
-                    FixedPointMath.mulDown(mu, testCase.shareReserve),
-                    oneMinusT
-                )
-            ),
-            FixedPointMath.pow(modifiedBondReserves, oneMinusT)
-        );
-
-        uint256 outReserves;
-        uint256 rhs;
-        uint256 newScaledShareReserves;
-        uint256 newScaledBondReserves;
-
-        if (testCase.isBondOut) {
-            outReserves = modifiedBondReserves;
-            newScaledShareReserves = FixedPointMath.mulDown(
-                cDivMu,
-                FixedPointMath.pow(
-                    FixedPointMath.mulDown(
-                        mu,
-                        FixedPointMath.add(
-                            testCase.shareReserve,
-                            testCase.input
-                        )
-                    ),
-                    oneMinusT
-                )
-            );
-
-            rhs = (k >= newScaledShareReserves && oneMinusT != 0)
-                ? FixedPointMath.pow(
-                    FixedPointMath.sub(k, newScaledShareReserves),
-                    FixedPointMath.divDown(1e18, oneMinusT)
-                )
-                : 0;
-        } else {
-            outReserves = testCase.shareReserve;
-            newScaledBondReserves = FixedPointMath.pow(
-                FixedPointMath.add(modifiedBondReserves, testCase.input),
-                oneMinusT
-            );
-
-            rhs = (k >= newScaledBondReserves &&
-                oneMinusT != 0 &&
-                cDivMu != 0 &&
-                mu != 0)
-                ? FixedPointMath.divDown(
-                    FixedPointMath.pow(
-                        FixedPointMath.divDown(
-                            FixedPointMath.sub(k, newScaledBondReserves),
-                            cDivMu
-                        ),
-                        FixedPointMath.divDown(1e18, oneMinusT)
-                    ),
-                    mu
-                )
-                : 0;
-        }
-
-        uint256 result = outReserves >= rhs
-            ? FixedPointMath.sub(outReserves, rhs)
-            : 0;
-
-        return
-            YieldSpaceInternals(
-                oneMinusT,
-                cDivMu,
-                modifiedBondReserves,
-                k,
-                outReserves,
-                newScaledShareReserves,
-                newScaledBondReserves,
-                rhs,
-                result
-            );
-    }
-
     function _getExpectedTradeCalculationError(
-        TradeCalculationTestCase memory testCase,
-        YieldSpaceInternals memory ysi
+        TradeCalculationTestCase memory testCase
     ) internal view returns (bool testCaseIsError, bytes memory reason) {
         if (testCase.expiry < block.timestamp) {
             return (true, stdError.arithmeticError);
@@ -2495,13 +2420,11 @@ contract PoolTest is ElementTest {
             );
         }
 
+        uint256 st = testCase.timestretchCoefficient.mulDown(
+            testCase.timeToExpiry
+        );
         // oneMinusT calc can underflow
-        if (
-            FixedPointMath.mulDown(
-                testCase.timeToExpiry,
-                testCase.timestretchCoefficient
-            ) > 1e18
-        ) {
+        if (st > FixedPointMath.ONE_18) {
             return (
                 true,
                 abi.encodeWithSelector(
@@ -2510,8 +2433,28 @@ contract PoolTest is ElementTest {
             );
         }
 
+        uint256 oneMinusT = FixedPointMath.ONE_18.sub(st);
+        uint256 cDivMu = testCase.pricePerShare.divDown(
+            uint256(testCase.params.mu)
+        );
+        uint256 modifiedBondReserves = testCase.bondReserve.add(
+            testCase.lpTotalSupply
+        );
+        uint256 k = cDivMu
+            .mulDown(
+                uint256(testCase.params.mu).mulDown(testCase.shareReserve).pow(
+                    oneMinusT
+                )
+            )
+            .add(modifiedBondReserves.pow(oneMinusT));
+
         if (testCase.isBondOut) {
-            if (ysi.k < ysi.newScaledShareReserves) {
+            uint256 newScaledShareReserves = cDivMu.mulDown(
+                uint256(testCase.params.mu)
+                    .mulDown(testCase.shareReserve.add(testCase.input))
+                    .pow(oneMinusT)
+            );
+            if (k < newScaledShareReserves) {
                 return (
                     true,
                     abi.encodeWithSelector(
@@ -2520,7 +2463,10 @@ contract PoolTest is ElementTest {
                 );
             }
         } else {
-            if (ysi.k < ysi.newScaledBondReserves) {
+            uint256 newScaledBondReserves = modifiedBondReserves
+                .add(testCase.input)
+                .pow(oneMinusT);
+            if (k < newScaledBondReserves) {
                 return (
                     true,
                     abi.encodeWithSelector(
@@ -2532,7 +2478,7 @@ contract PoolTest is ElementTest {
             // If pricePerShare, (c in YieldSpace.calculateOutGivenIn), is 0 and
             // isBondOut is false we expect cDivMu to be 0 causing a zero division
             // error in rhs calculation
-            if (testCase.pricePerShare == 0) {
+            if (cDivMu == 0) {
                 return (
                     true,
                     abi.encodeWithSelector(
@@ -2570,8 +2516,7 @@ contract PoolTest is ElementTest {
     }
 
     function _logTradeCalculationTestCase(
-        TradeCalculationTestCase memory testCase,
-        YieldSpaceInternals memory ysi
+        TradeCalculationTestCase memory testCase
     ) internal view {
         console2.log("    Pool._tradeCalculation");
         console2.log("    -----------------------------------------------    ");
@@ -2608,24 +2553,6 @@ contract PoolTest is ElementTest {
             "    timestretchCoefficient      =",
             testCase.timestretchCoefficient
         );
-        console2.log("    ysi.oneMinusT               =", ysi.oneMinusT);
-        console2.log("    ysi.cDivMu                  =", ysi.cDivMu);
-        console2.log(
-            "    ysi.modifiedBondReserves    =",
-            ysi.modifiedBondReserves
-        );
-        console2.log("    ysi.k                       =", ysi.k);
-        console2.log("    ysi.outReserves             =", ysi.outReserves);
-        console2.log(
-            "    ysi.newScaledShareReserves  =",
-            ysi.newScaledShareReserves
-        );
-        console2.log(
-            "    ysi.newScaledBondReserves   =",
-            ysi.newScaledBondReserves
-        );
-        console2.log("    ysi.rhs                     =", ysi.rhs);
-        console2.log("    ysi.result                  =", ysi.result);
         console2.log("");
     }
 

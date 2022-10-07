@@ -46,7 +46,8 @@ contract MockPool is Pool {
     function setParameters(uint256 expiry, SubPoolParameters memory params)
         external
     {
-        parameters[expiry] = params;
+        parameters[expiry].timestretch = params.timestretch;
+        parameters[expiry].mu = params.mu;
     }
 
     uint128 internal _newShareReserves;
