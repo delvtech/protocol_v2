@@ -43,6 +43,12 @@ contract MockPool is Pool {
         reserves[_poolId].bonds = _bonds;
     }
 
+    function setParameters(uint256 expiry, SubPoolParameters memory params)
+        external
+    {
+        parameters[expiry] = params;
+    }
+
     uint128 internal _newShareReserves;
     uint128 internal _newBondReserves;
     uint256 internal _tradeBondsOutputAmount;
