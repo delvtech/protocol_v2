@@ -40,6 +40,8 @@ contract PoolTest is ElementTest {
         uint256 shareReserve
     );
 
+    event UpdateBufferMock(uint256 bufferId, uint224 value);
+
     function setUp() public {
         factory = new ForwarderFactory();
         vm.warp(2000);
@@ -2288,5 +2290,35 @@ contract PoolTest is ElementTest {
             assertEq(feeShares, 0);
             assertEq(feeBonds, 0);
         }
+    }
+
+    // ------------------- _updateOrcale unit tests ------------------ //
+    function test_updateOracle() public {
+        uint256 poolId = 12345678;
+        uint256 newShareReserve = 1 ether;
+        uint256 newBondReserve = 1 ether;
+        uint16 minTime = uint16(10000);
+        uint16 maxSteps = uint16(100);
+        uint32 timeStretch = uint32(1000);
+        uint256 mu = 1 ether;
+
+        pool.updateOracleExternal(poolId, newShareReserve, newBondReserve);
+
+        pool.initializeBufferExternal(poolId, minTime, maxSteps);
+        pool.setParameters(poolId, timeStretch, mu);
+
+        uint256 muTimesShares = FixedPointMath.mulDown(mu, newShareReserve);
+        console.log("muTimesShares", muTimesShares);
+        uint256 adjustedBonds = newBondReserve + pool.totalSupply(poolId);
+        console.log("adjustedBonds", adjustedBonds);
+        uint256 oracleRatio = FixedPointMath.divDown(
+            adjustedBonds,
+            muTimesShares
+        );
+        console.log("oracleRatio", oracleRatio);
+        expectStrictEmit();
+        emit UpdateBufferMock(poolId, uint224(oracleRatio));
+
+        pool.updateOracleExternal(poolId, newShareReserve, newBondReserve);
     }
 }
