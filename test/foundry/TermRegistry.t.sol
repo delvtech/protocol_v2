@@ -104,7 +104,6 @@ contract TermRegistryTest is Test {
             0,
             poolConfig,
             block.timestamp + 100_000,
-            address(termRegistry),
             100_000 * 1e18,
             1_000 * 1e18,
             1_000 * 1e18,
@@ -113,45 +112,5 @@ contract TermRegistryTest is Test {
 
         // assert expiries have been registered
         assertEq(termRegistry.getExpiriesCount(0), 1);
-    }
-
-    function testCreateTerm_externalSeeder() public {
-        // create new seeder account
-        User seeder = new User();
-
-        // mint and set token approvals for seeder
-        startHoax(address(seeder));
-        token.mint(address(seeder), 200_000 * 1e18);
-        token.approve(address(term), type(uint256).max);
-        token.approve(address(pool), type(uint256).max);
-        token.approve(address(termRegistry), type(uint256).max);
-        term.setApprovalForAll(address(pool), true);
-        vm.stopPrank();
-
-        startHoax(address(termRegistry));
-        uint256 expiry = block.timestamp + 100_000;
-        // create new term with liquidity using external seeder
-        TermRegistry.PoolConfig memory poolConfig = TermRegistry.PoolConfig(
-            10_000,
-            0,
-            0
-        );
-        termRegistry.createTerm(
-            0,
-            poolConfig,
-            expiry,
-            address(seeder),
-            100_000 * 1e18,
-            1_000 * 1e18,
-            1_000 * 1e18,
-            0
-        );
-
-        // assert expiries have been registered
-        assertEq(termRegistry.getExpiriesCount(0), 1);
-
-        // assert that seeder account is properly accredited for LP and any excess capital
-        assertGt(pool.balanceOf(expiry, address(seeder)), 0);
-        assertGt(term.balanceOf(expiry, address(seeder)), 0);
     }
 }
