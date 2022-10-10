@@ -16,9 +16,9 @@ contract TermRegistry is Authorizable {
     }
 
     struct PoolConfig {
-        uint32 timeStretch; // timeStretch for pool
-        uint16 maxTime; // orcale params
-        uint16 maxLength; // orcale params
+        uint32 timeStretch; // time stretch for pool
+        uint16 maxTime; // oracle params
+        uint16 maxLength; // oracle params
     }
 
     event ExpiryRegistered(
@@ -27,7 +27,7 @@ contract TermRegistry is Authorizable {
         uint256 indexed termIndex
     );
 
-    // termIndex in the ElementRegistry to list of expiries
+    // Integrations index in the ElementRegistry to list of expiries
     mapping(uint256 => Expiry[]) private _expiries;
 
     constructor(address owner, ElementRegistry _registry) {
@@ -35,74 +35,71 @@ contract TermRegistry is Authorizable {
         registry = _registry;
     }
 
-    /// @notice Adds a new Expiry into our registry
-    /// @param termIndex index of the term information in the term list.
-    /// @param start term start timestamp.
-    /// @param end term end timestamp.
+    /// @notice Adds a new expiry to the registry
+    /// @param index Index of the integration information in the integrations list.
+    /// @param start Term start timestamp.
+    /// @param end Term end timestamp.
     function register(
-        uint256 termIndex,
+        uint256 index,
         uint256 start,
         uint256 end
     ) public onlyAuthorized {
         Expiry memory expiry = Expiry(start, end);
         // add expiry to list
-        _expiries[termIndex].push(expiry);
+        _expiries[index].push(expiry);
         // Emit event for off-chain discoverability
-        emit ExpiryRegistered(start, end, termIndex);
+        emit ExpiryRegistered(start, end, index);
     }
 
     /// @notice Creates a new term from an approved Term list.
-    /// @param termIndex index of the term information in the term list.
+    /// @param index index of the term information in the term list.
     /// @param poolConfig sub-pool configuration.
     /// @param expiry The expiry of the term and multi-token identifier.
-    /// @param seeder The address seeding new term with underlying funds.
     /// @param lockedAmount Amount of underlying tokens to mint PTs and YTs (lock).
     /// @param unlockedAmount Amount of underlying tokens to deposit into the AMM unlocked.
     /// @param ptAmount Amount of PTs to sell into the AMM to set target APY.
     /// @param outputAmount Min amount of underlying tokens the seeder should recieve in the trade.
     /// @return timestamp tuple representing the start and end time for the new term.
     function createTerm(
-        uint256 termIndex,
+        uint256 index,
         PoolConfig memory poolConfig,
         uint256 expiry,
-        address seeder,
         uint256 lockedAmount,
         uint256 unlockedAmount,
         uint256 ptAmount,
         uint256 outputAmount
     ) public onlyAuthorized returns (uint256, uint256) {
-        ElementRegistry.TermInfo memory termInfo = registry.getTermInfo(
-            termIndex
+        ElementRegistry.Integration memory termInfo = registry.getIntegration(
+            index
         );
         Term term = Term(termInfo.term);
         Pool pool = Pool(termInfo.pool);
 
         // cache token holdings
-        uint256 underlyingTotal = term.token().balanceOf(address(this));
-        uint256 ptTotal = term.balanceOf(expiry, address(this));
+        // uint256 underlyingTotal = term.token().balanceOf(address(this));
+        // uint256 ptTotal = term.balanceOf(expiry, address(this));
 
         // transfer token from seeder to this contract
         // seeder must have given proper approval before call
-        if (seeder != address(this)) {
-            term.token().transferFrom(
-                seeder,
-                address(this),
-                lockedAmount + unlockedAmount
-            );
-        }
+        // if (seeder != address(this)) {
+        //     term.token().transferFrom(
+        //         seeder,
+        //         address(this),
+        //         lockedAmount + unlockedAmount
+        //     );
+        // }
 
-        // beautiful type inferencing of solidity
         uint256[] memory emptyArray;
 
         // creates a new term with given expiry
-        // YTs are sent to seeder, PTs kept for pool initializatoin trade
+        // YTs are sent to seeder, PTs kept for pool initialization trade
         // only supports creating term with underlying tokens not expired PTs/YTs
         term.lock(
             emptyArray, // no expired PTs will be used to initialize term
             emptyArray, // no expired PTs will be used to initialize term
             lockedAmount, // amount of underlying tokens to lock
-            false, // no prefunding
-            seeder, // YT destination
+            false, // no pre-funding
+            address(this), // YT destination
             address(this), // PT destination
             block.timestamp, // YT start time
             expiry
@@ -113,7 +110,7 @@ contract TermRegistry is Authorizable {
             expiry,
             unlockedAmount, // amount of underlying tokens to be deposited in AMM as unlocked
             poolConfig.timeStretch,
-            seeder, // LP token destination
+            address(this), // LP token destination
             poolConfig.maxTime,
             poolConfig.maxLength
         );
@@ -123,48 +120,44 @@ contract TermRegistry is Authorizable {
             expiry,
             ptAmount, // amount of PTs to sell into the pool
             outputAmount, // min amount of underlying tokens seeder should recieve
-            seeder, // resulting underlying is accredited to seeder
+            address(this), // resulting underlying is accredited to seeder
             false // selling PTs
         );
 
         // return excess capital to seeder
-        if (seeder != address(this)) {
-            uint256 currentUnderlyingTotal = term.token().balanceOf(
-                address(this)
-            );
-            term.token().transferFrom(
-                address(this),
-                seeder,
-                currentUnderlyingTotal - underlyingTotal
-            );
+        // if (seeder != address(this)) {
+        //     uint256 currentUnderlyingTotal = term.token().balanceOf(
+        //         address(this)
+        //     );
+        //     term.token().transferFrom(
+        //         address(this),
+        //         seeder,
+        //         currentUnderlyingTotal - underlyingTotal
+        //     );
 
-            uint256 currentPtTotal = term.balanceOf(expiry, address(this));
-            term.transferFrom(
-                expiry,
-                address(this),
-                seeder,
-                currentPtTotal - ptTotal
-            );
-        }
+        //     uint256 currentPtTotal = term.balanceOf(expiry, address(this));
+        //     term.transferFrom(
+        //         expiry,
+        //         address(this),
+        //         seeder,
+        //         currentPtTotal - ptTotal
+        //     );
+        // }
 
-        register(termIndex, block.timestamp, expiry);
+        register(index, block.timestamp, expiry);
 
         return (block.timestamp, expiry);
     }
 
     /// @notice Helper function to get length of registered expiries array from a valid Term
-    /// @param termIndex index of the term in the term registry
-    function getExpiriesCount(uint256 termIndex) public view returns (uint256) {
-        return _expiries[termIndex].length;
+    /// @param index a
+    function getExpiriesCount(uint256 index) public view returns (uint256) {
+        return _expiries[index].length;
     }
 
     /// @notice Helper to get list of registered expiries from a valid Term
-    /// @param termIndex index of the term in the term registry
-    function getExpiries(uint256 termIndex)
-        public
-        view
-        returns (Expiry[] memory)
-    {
-        return _expiries[termIndex];
+    /// @param index a
+    function getExpiries(uint256 index) public view returns (Expiry[] memory) {
+        return _expiries[index];
     }
 }
