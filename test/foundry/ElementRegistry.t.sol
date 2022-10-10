@@ -9,21 +9,17 @@ import "contracts/mocks/MockERC20YearnVault.sol";
 import "contracts/mocks/MockPool.sol";
 import "contracts/mocks/MockYieldAdapter.sol";
 import "forge-std/Test.sol";
+import { ElementTest } from "test/ElementTest.sol";
 
-contract User {
-    // to be able to receive funds
-    receive() external payable {} // solhint-disable-line no-empty-blocks
-}
-
-contract ElementRegistryTest is Test {
+contract ElementRegistryTest is ElementTest {
     ForwarderFactory public factory;
     MockERC20Permit public token;
     MockERC20YearnVault public yearnVault;
     MockPool public pool;
     MockYieldAdapter public term;
     ElementRegistry public registry;
-    User public owner;
-    User public user;
+    address public user = makeAddress("user");
+    address public owner = makeAddress("owner");
 
     // constants
     bytes32 public linkerCodeHash = bytes32(0);
@@ -32,9 +28,6 @@ contract ElementRegistryTest is Test {
     uint256 public tradeFee = 10;
 
     function setUp() public {
-        owner = new User();
-        user = new User();
-
         factory = new ForwarderFactory();
         token = new MockERC20Permit("Test Token", "TT", 18);
         yearnVault = new MockERC20YearnVault(address(token));
@@ -63,15 +56,15 @@ contract ElementRegistryTest is Test {
 
     function testRegister() public {
         startHoax(address(user));
-        registry.register(term, pool);
+        registry.register(address(term), address(pool));
         assertEq(registry.getRegistryCount(), 1);
     }
 
     // test expected to fail when caller is not authorized
     function testFailRegisterTerm() public {
-        User bad = new User();
+        address bad = makeAddress("bad");
         startHoax(address(bad));
-        registry.register(term, pool);
+        registry.register(address(term), address(pool));
     }
 
     // test expected to fail when the term in the pool contract differs from the term being registered
@@ -93,6 +86,6 @@ contract ElementRegistryTest is Test {
             address(factory)
         );
 
-        registry.register(term, newPool);
+        registry.register(address(term), address(newPool));
     }
 }

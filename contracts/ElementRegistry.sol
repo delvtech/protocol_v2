@@ -20,25 +20,26 @@ contract ElementRegistry is Authorizable {
         setOwner(owner);
     }
 
-    /// @notice Registers a new Term <> Pool combination
-    /// @param term Term contract
-    /// @param pool Associated Pool contract
-    function register(Term term, Pool pool) public onlyAuthorized {
-        // configuration check
-        if (address(pool.term()) != address(term)) {
+    /// @notice Registers a new Term <> Pool pair
+    /// @param termAddress address of the term contract
+    /// @param poolAddress address of the pool contract
+    function register(address termAddress, address poolAddress)
+        public
+        onlyAuthorized
+    {
+        Pool pool = Pool(poolAddress);
+        // Configuration check
+        if (address(pool.term()) != termAddress) {
             revert ElementError.ElementRegistry_DifferentTermAddresses();
         }
 
-        Integration memory integration = Integration(
-            address(term),
-            address(pool)
-        );
+        Integration memory integration = Integration(termAddress, poolAddress);
 
-        // add term info to registry list
+        // Add term info to registry list
         _integrations.push(integration);
 
         // Emit event for off-chain discoverability
-        emit IntegrationRegistered(address(term), address(pool));
+        emit IntegrationRegistered(termAddress, poolAddress);
     }
 
     /// @notice Helper function for fetching length of registry list
@@ -47,7 +48,7 @@ contract ElementRegistry is Authorizable {
     }
 
     /// @notice Helper function for element of registry list
-    /// @param index of the term list
+    /// @param index of the integration list
     function getIntegration(uint256 index)
         public
         view

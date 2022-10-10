@@ -10,13 +10,9 @@ import "contracts/mocks/MockERC20YearnVault.sol";
 import "contracts/mocks/MockPool.sol";
 import "contracts/mocks/MockYieldAdapter.sol";
 import "forge-std/Test.sol";
+import { ElementTest } from "test/ElementTest.sol";
 
-contract User {
-    // to be able to receive funds
-    receive() external payable {} // solhint-disable-line no-empty-blocks
-}
-
-contract TermRegistryTest is Test {
+contract TermRegistryTest is ElementTest {
     TermRegistry public termRegistry;
     ForwarderFactory public factory;
     MockERC20Permit public token;
@@ -24,8 +20,8 @@ contract TermRegistryTest is Test {
     MockPool public pool;
     MockYieldAdapter public term;
     ElementRegistry public registry;
-    User public owner;
-    User public user;
+    address public user = makeAddress("user");
+    address public owner = makeAddress("owner");
 
     // constants
     bytes32 public linkerCodeHash = bytes32(0);
@@ -34,10 +30,6 @@ contract TermRegistryTest is Test {
     uint256 public tradeFee = 10;
 
     function setUp() public {
-        // create mock accounts
-        owner = new User();
-        user = new User();
-
         // deploy mock contracts
         factory = new ForwarderFactory();
         token = new MockERC20Permit("Test Token", "TT", 18);
@@ -77,7 +69,7 @@ contract TermRegistryTest is Test {
 
         // register a new term in the term registry
         startHoax(address(user));
-        registry.register(term, pool);
+        registry.register(address(term), address(pool));
         vm.stopPrank();
 
         // token approvals for termRegistry
