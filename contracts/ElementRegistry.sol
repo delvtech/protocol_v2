@@ -7,14 +7,14 @@ import "./libraries/Authorizable.sol";
 import "./libraries/Errors.sol";
 
 contract ElementRegistry is Authorizable {
-    struct TermInfo {
+    struct Integration {
         address term; // term contract address
         address pool; // pool contract address
     }
 
-    event TermRegistered(address term, address pool);
+    event IntegrationRegistered(address term, address pool);
 
-    TermInfo[] private _terms;
+    Integration[] private _integrations;
 
     constructor(address owner) {
         setOwner(owner);
@@ -29,23 +29,30 @@ contract ElementRegistry is Authorizable {
             revert ElementError.ElementRegistry_DifferentTermAddresses();
         }
 
-        TermInfo memory info = TermInfo(address(term), address(pool));
+        Integration memory integration = Integration(
+            address(term),
+            address(pool)
+        );
 
         // add term info to registry list
-        _terms.push(info);
+        _integrations.push(integration);
 
         // Emit event for off-chain discoverability
-        emit TermRegistered(address(term), address(pool));
+        emit IntegrationRegistered(address(term), address(pool));
     }
 
     /// @notice Helper function for fetching length of registry list
     function getRegistryCount() public view returns (uint256) {
-        return _terms.length;
+        return _integrations.length;
     }
 
     /// @notice Helper function for element of registry list
     /// @param index of the term list
-    function getTermInfo(uint256 index) public view returns (TermInfo memory) {
-        return _terms[index];
+    function getIntegration(uint256 index)
+        public
+        view
+        returns (Integration memory)
+    {
+        return _integrations[index];
     }
 }
