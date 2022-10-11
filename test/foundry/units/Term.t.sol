@@ -728,7 +728,7 @@ contract TermUnitTest is ElementTest {
             } else {
                 _registerExpectedEventsUnlock(testCases[i]);
                 try
-                    _term.unlock(
+                    _term.unlockExternal(
                         destination,
                         testCases[i].assetIds,
                         testCases[i].amounts
@@ -783,8 +783,8 @@ contract TermUnitTest is ElementTest {
         returns (bool, bytes memory)
     {
         if (testCase.assetIds.length > 0) {
-            uint256 lastAssetId = testCase.assetIds[0];
-            for (uint256 i = 1; i < testCase.assetIds.length; i++) {
+            uint256 lastAssetId = 0;
+            for (uint256 i = 0; i < testCase.assetIds.length; i++) {
                 if (lastAssetId >= testCase.assetIds[i]) {
                     return (
                         true,
@@ -793,7 +793,7 @@ contract TermUnitTest is ElementTest {
                         )
                     );
                 }
-                if (i == testCase.amounts.length) {
+                if (i >= testCase.amounts.length) {
                     return (true, stdError.indexOOBError);
                 }
                 lastAssetId = testCase.assetIds[i];
@@ -1626,7 +1626,7 @@ contract TermUnitTest is ElementTest {
             // Set up the test state.
             _term.setCurrentPricePerShare(
                 testCases[i].currentPricePerShare,
-                IYieldAdapter.ShareState.Locked
+                IYieldAdapter.ShareState.Unlocked
             );
             _term.setTotalSupply(unlockedYTId, testCases[i].totalSupply);
             _term.setUserBalance(
