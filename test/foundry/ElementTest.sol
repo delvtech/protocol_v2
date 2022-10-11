@@ -36,6 +36,15 @@ contract ElementTest is Test {
         }
     }
 
+    function encodeStringError(string memory error)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        bytes4 selector = bytes4(keccak256("Error(string)"));
+        return abi.encodeWithSelector(selector, error);
+    }
+
     // https://book.getfoundry.sh/cheatcodes/expect-emit?highlight=expectEmi#expectemit
     // The typical `expectEmit` function as specified in the documentation will
     // when always validate topic0 and optionally topic1, topic2, topic3 and

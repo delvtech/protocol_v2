@@ -24,6 +24,29 @@ contract MockTerm is Term {
         uint256 expiration
     );
 
+    function lockExternal(
+        uint256[] memory assetIds,
+        uint256[] memory assetAmounts,
+        uint256 underlyingAmount,
+        bool hasPreFunding,
+        address ytDestination,
+        address ptDestination,
+        uint256 ytBeginDate,
+        uint256 expiration
+    ) external returns (uint256, uint256) {
+        return
+            super.lock(
+                assetIds,
+                assetAmounts,
+                underlyingAmount,
+                hasPreFunding,
+                ytDestination,
+                ptDestination,
+                ytBeginDate,
+                expiration
+            );
+    }
+
     uint256 internal _lockPrincipalTokensReturnValue;
     uint256 internal _lockYieldTokensReturnValue;
 
@@ -43,7 +66,7 @@ contract MockTerm is Term {
         address ptDestination,
         uint256 ytBeginDate,
         uint256 expiration
-    ) external override returns (uint256, uint256) {
+    ) public override returns (uint256, uint256) {
         emit Lock(
             assetIds,
             assetAmounts,
@@ -93,10 +116,10 @@ contract MockTerm is Term {
 
     event Convert(ShareState shareState, uint256 shares);
 
-    uint256 internal _convertReturnValue;
+    uint256 internal _sharesToUnlockedShare;
 
-    function setConvertReturnValue(uint256 _value) external {
-        _convertReturnValue = _value;
+    function setSharesToUnlockedShare(uint256 price) external {
+        _sharesToUnlockedShare = price;
     }
 
     function _convert(ShareState shareState, uint256 shares)
@@ -105,7 +128,11 @@ contract MockTerm is Term {
         returns (uint256)
     {
         emit Convert(shareState, shares);
-        return _convertReturnValue;
+        if (shareState == ShareState.Locked) {
+            return (shares * _sharesToUnlockedShare) / one;
+        } else {
+            return (shares * one) / (_sharesToUnlockedShare);
+        }
     }
 
     // ----------------------- _deposit ----------------------- //
@@ -254,6 +281,12 @@ contract MockTerm is Term {
             );
     }
 
+    uint256 internal _createYTDiscountFactor;
+
+    function _setCreateYTDiscountFactor(uint256 discountFactor) internal {
+        _createYTDiscountFactor = discountFactor;
+    }
+
     function _createYT(
         address destination,
         uint256 value,
@@ -262,8 +295,7 @@ contract MockTerm is Term {
         uint256 expiration
     ) internal override returns (uint256) {
         emit CreateYT(destination, value, totalShares, startTime, expiration);
-        // TODO: There may be a better way to compute the discount going forward.
-        return value / 2;
+        return (value * _createYTDiscountFactor) / one;
     }
 
     // ----------------------- _releaseAsset ----------------------- //

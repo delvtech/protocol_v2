@@ -11,7 +11,7 @@ import "contracts/mocks/MockERC20Permit.sol";
 import "test/ElementTest.sol";
 import "test/Utils.sol";
 
-contract TermTest is ElementTest {
+contract TermUnitTest is ElementTest {
     address public destination = makeAddress("destination");
     address public source = makeAddress("source");
 
@@ -58,20 +58,390 @@ contract TermTest is ElementTest {
     );
     event ReleaseUnlocked(address source, uint256 amount);
     event Transfer(address indexed from, address indexed to, uint256 value);
+    event TransferSingle(
+        address indexed operator,
+        address indexed from,
+        address indexed to,
+        uint256 id,
+        uint256 value
+    );
     event Withdraw(
         uint256 shares,
         address destination,
         IYieldAdapter.ShareState shareState
     );
 
+    // ------------------- lock ------------------- //
+
+    struct LockTestCase {
+        uint256[] assetIds;
+        uint256[] amounts;
+        uint256 createYTDiscountFactor;
+        uint256 expiration;
+        bool hasPreFunding;
+        uint256 sharesToUnlockedShares;
+        uint256 sourceBalance;
+        uint256 underlyingAmount;
+        uint256 ytBeginDate;
+    }
+
+    function testLock() public {
+        vm.warp(5_000);
+        startHoax(source);
+
+        uint256[] memory assetIds = new uint256[](1);
+        assetIds[
+            0
+        ] = 57896044618658097711785492504343953926634992332820282019728792003956564819968;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 0;
+        LockTestCase memory testCase = LockTestCase({
+            assetIds: assetIds,
+            amounts: amounts,
+            createYTDiscountFactor: 0,
+            expiration: 10_000,
+            hasPreFunding: false,
+            sharesToUnlockedShares: 0,
+            sourceBalance: 0,
+            underlyingAmount: 0,
+            ytBeginDate: 2500
+        });
+
+        _term.setSharesToUnlockedShare(testCase.sharesToUnlockedShares);
+        _underlying.setBalance(source, testCase.sourceBalance);
+        _underlying.approve(address(_term), type(uint256).max);
+
+        (
+            bool shouldExpectError,
+            bytes memory expectedError
+        ) = _getExpectedErrorLock(testCase);
+        if (shouldExpectError) {
+            _term.lockExternal(
+                testCase.assetIds,
+                testCase.amounts,
+                testCase.underlyingAmount,
+                testCase.hasPreFunding,
+                destination,
+                destination,
+                testCase.ytBeginDate,
+                testCase.expiration
+            );
+        } else {
+            _validateLockSuccess(testCase);
+        }
+    }
+
+    function testCombinatorialLock() public {
+        vm.warp(5_000);
+        startHoax(source);
+
+        uint256[][] memory inputs = new uint256[][](9);
+        // asset ids
+        inputs[0] = new uint256[](7);
+        inputs[0][0] = 0;
+        inputs[0][1] = 1;
+        inputs[0][2] = 2;
+        inputs[0][3] = 3;
+        inputs[0][4] = 4;
+        inputs[0][5] = 5;
+        inputs[0][6] = 6;
+        // amounts
+        inputs[1] = new uint256[](6);
+        inputs[1][0] = 0;
+        inputs[1][1] = 1;
+        inputs[1][2] = 2;
+        inputs[1][3] = 3;
+        inputs[1][4] = 4;
+        inputs[1][5] = 5;
+        // createYTDiscountFactor
+        inputs[2] = new uint256[](2);
+        inputs[2][0] = 0;
+        inputs[2][1] = 1 ether;
+        // expiration
+        inputs[3] = new uint256[](2);
+        inputs[3][0] = block.timestamp / 2;
+        inputs[3][1] = block.timestamp * 2;
+        // hasPreFunding
+        inputs[4] = new uint256[](2);
+        inputs[4][0] = 0;
+        inputs[4][1] = 1;
+        // sharesToUnlockedShares
+        inputs[5] = new uint256[](3);
+        inputs[5][0] = 0;
+        inputs[5][1] = 1 ether;
+        inputs[5][2] = 3.7843 ether;
+        // sourceBalance
+        inputs[6] = new uint256[](3);
+        inputs[6][0] = 0;
+        inputs[6][1] = 1 ether;
+        inputs[6][2] = 10 ether;
+        // underlyingAmount
+        inputs[7] = new uint256[](3);
+        inputs[7][0] = 0;
+        inputs[7][1] = 1.79345 ether + 123;
+        inputs[7][2] = 4.87234 ether + 9721;
+        // ytBeginDate
+        inputs[8] = new uint256[](2);
+        inputs[8][0] = block.timestamp / 2;
+        inputs[8][1] = block.timestamp * 2;
+        // generate testing matrix
+        LockTestCase[] memory testCases = _convertToLockTestCase(
+            Utils.generateTestingMatrix(inputs)
+        );
+
+        _underlying.approve(address(_term), type(uint256).max);
+        for (uint256 i = 0; i < testCases.length; i++) {
+            _term.setSharesToUnlockedShare(testCases[i].sharesToUnlockedShares);
+            _underlying.setBalance(source, testCases[i].sourceBalance);
+
+            (
+                bool shouldExpectError,
+                bytes memory expectedError
+            ) = _getExpectedErrorLock(testCases[i]);
+            if (shouldExpectError) {
+                _validateLockError(testCases[i], expectedError);
+            } else {
+                _validateLockSuccess(testCases[i]);
+            }
+        }
+    }
+
+    function _convertToLockTestCase(uint256[][] memory rawTestCases)
+        internal
+        view
+        returns (LockTestCase[] memory testCases)
+    {
+        testCases = new LockTestCase[](rawTestCases.length);
+        for (uint256 i = 0; i < rawTestCases.length; i++) {
+            require(
+                rawTestCases[i].length == 9,
+                "Raw test case must have length of 9."
+            );
+            (
+                uint256[] memory assetIds,
+                uint256[] memory amounts
+            ) = _getFixturesAssetIdsAndAmounts(
+                    rawTestCases[i][0],
+                    rawTestCases[i][1]
+                );
+            testCases[i] = LockTestCase({
+                assetIds: assetIds,
+                amounts: amounts,
+                createYTDiscountFactor: rawTestCases[i][2],
+                expiration: rawTestCases[i][3],
+                hasPreFunding: rawTestCases[i][4] > 0 ? true : false,
+                sharesToUnlockedShares: rawTestCases[i][5],
+                sourceBalance: rawTestCases[i][6],
+                underlyingAmount: rawTestCases[i][7],
+                ytBeginDate: rawTestCases[i][8]
+            });
+        }
+    }
+
+    function _validateLockSuccess(LockTestCase memory testCase) internal {
+        _registerExpectedEventsLock(testCase);
+        try
+            _term.lockExternal(
+                testCase.assetIds,
+                testCase.amounts,
+                testCase.underlyingAmount,
+                testCase.hasPreFunding,
+                destination,
+                destination,
+                testCase.ytBeginDate,
+                testCase.expiration
+            )
+        returns (uint256 ptCreated, uint256 ytCreated) {
+            // FIXME: Validate state changes and return values.
+        } catch {
+            _logTestCaseLock("success case", testCase);
+            revert("fails unexpectedly");
+        }
+    }
+
+    function _registerExpectedEventsLock(LockTestCase memory testCase)
+        internal
+    {
+        if (testCase.underlyingAmount > 0) {
+            expectStrictEmit();
+            emit Transfer(source, address(_term), testCase.underlyingAmount);
+        }
+        if (testCase.underlyingAmount > 0 || testCase.hasPreFunding) {
+            expectStrictEmit();
+            emit Deposit(IYieldAdapter.ShareState.Locked);
+        }
+        (
+            uint256 totalValue,
+            uint256 totalShares,
+            uint256 ytBeginDate,
+            uint256 discount
+        ) = _getExpectedCalculationsLock(testCase);
+        for (uint256 i = 0; i < testCase.assetIds.length; i++) {
+            expectStrictEmit();
+            emit ReleaseAsset(
+                testCase.assetIds[i],
+                source,
+                testCase.amounts[i]
+            );
+            if (testCase.assetIds[i] == _term.UNLOCKED_YT_ID()) {
+                expectStrictEmit();
+                emit Convert(
+                    IYieldAdapter.ShareState.Unlocked,
+                    testCase.amounts[i]
+                );
+            }
+        }
+        expectStrictEmit();
+        emit CreateYT(
+            destination,
+            totalValue,
+            totalShares,
+            ytBeginDate,
+            testCase.expiration
+        );
+        if (totalValue - discount > 0) {
+            expectStrictEmit();
+            emit TransferSingle(
+                source,
+                address(0),
+                destination,
+                testCase.expiration,
+                totalValue - discount
+            );
+        }
+    }
+
+    function _validateLockError(
+        LockTestCase memory testCase,
+        bytes memory expectedError
+    ) internal {
+        try
+            _term.lockExternal(
+                testCase.assetIds,
+                testCase.amounts,
+                testCase.underlyingAmount,
+                testCase.hasPreFunding,
+                destination,
+                destination,
+                testCase.ytBeginDate,
+                testCase.expiration
+            )
+        {
+            _logTestCaseLock("failure case", testCase);
+            revert("succeeds unexpectedly");
+        } catch (bytes memory error) {
+            if (Utils.neq(error, expectedError)) {
+                _logTestCaseLock("failure case", testCase);
+                assertEq(error, expectedError);
+            }
+        }
+    }
+
+    function _getExpectedErrorLock(LockTestCase memory testCase)
+        internal
+        view
+        returns (bool, bytes memory)
+    {
+        if (testCase.expiration <= block.timestamp) {
+            return (
+                true,
+                abi.encodeWithSelector(ElementError.TermExpired.selector)
+            );
+        }
+        if (testCase.underlyingAmount > testCase.sourceBalance) {
+            return (true, encodeStringError("ERC20: insufficient-balance"));
+        }
+        if (testCase.assetIds.length > 0) {
+            uint256 lastAssetId = 0;
+            for (uint256 i = 0; i < testCase.assetIds.length; i++) {
+                if (i >= testCase.amounts.length) {
+                    return (true, stdError.indexOOBError);
+                }
+                if (lastAssetId >= testCase.assetIds[i]) {
+                    return (
+                        true,
+                        abi.encodeWithSelector(
+                            ElementError.UnsortedAssetIds.selector
+                        )
+                    );
+                }
+                lastAssetId = testCase.assetIds[i];
+            }
+        }
+        (
+            uint256 totalValue,
+            ,
+            ,
+            uint256 discount
+        ) = _getExpectedCalculationsLock(testCase);
+        if (totalValue < discount) {
+            return (true, stdError.arithmeticError);
+        }
+        return (false, new bytes(0));
+    }
+
+    function _getExpectedCalculationsLock(LockTestCase memory testCase)
+        internal
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        uint256 totalValue = 0;
+        uint256 totalShares = 0;
+        for (uint256 i = 0; i < testCase.assetIds.length; i++) {
+            totalValue += testCase.amounts[i];
+            if (testCase.assetIds[i] == _term.UNLOCKED_YT_ID()) {
+                totalShares +=
+                    (testCase.amounts[i] * testCase.sharesToUnlockedShares) /
+                    _term.one();
+            } else {
+                totalShares += testCase.amounts[i];
+            }
+        }
+        uint256 ytBeginDate = testCase.ytBeginDate >= block.timestamp
+            ? block.timestamp
+            : testCase.ytBeginDate;
+        uint256 discount = (totalValue * testCase.createYTDiscountFactor) /
+            _term.one();
+        return (totalValue, totalShares, ytBeginDate, discount);
+    }
+
+    function _logTestCaseLock(
+        string memory prelude,
+        LockTestCase memory testCase
+    ) internal view {
+        console2.log(prelude);
+        console2.log("");
+        Utils.logArray("    assetIds: ", testCase.assetIds);
+        Utils.logArray("    amounts: ", testCase.amounts);
+        console2.log(
+            "    createYTDiscountFactor: ",
+            testCase.createYTDiscountFactor
+        );
+        console2.log("    expiration: ", testCase.expiration);
+        console2.log("    hasPreFunding: ", testCase.hasPreFunding);
+        console2.log(
+            "    sharesToUnlockedShares: ",
+            testCase.sharesToUnlockedShares
+        );
+        console2.log("    sourceBalance: ", testCase.sourceBalance);
+        console2.log("    underlyingAmount: ", testCase.underlyingAmount);
+        console2.log("    ytBeginDate: ", testCase.ytBeginDate);
+        console2.log("");
+    }
+
     // ------------------- depositUnlocked ------------------- //
 
     struct DepositUnlockedTestCase {
-        uint256 convertReturn;
         uint256 depositReturnShares;
         uint256 depositReturnValue;
         uint256 ptAmount;
         uint256 ptExpiry;
+        uint256 sharesToUnlockedShares;
         uint256 sourceBalance;
         uint256 underlyingAmount;
     }
@@ -85,22 +455,22 @@ contract TermTest is ElementTest {
         amounts[0] = 0;
         amounts[1] = 1.54893 ether + 234;
         amounts[2] = 3.34534 ether + 12;
-        // convert return value
-        inputs[0] = amounts;
         // deposit return shares
-        inputs[1] = amounts;
+        inputs[0] = amounts;
         // deposit return value
-        inputs[2] = amounts;
+        inputs[1] = amounts;
         // ptAmount
-        inputs[3] = amounts;
+        inputs[2] = amounts;
         // ptExpiry
-        inputs[4] = new uint256[](6);
-        inputs[4][0] = 0;
-        inputs[4][1] = block.timestamp;
-        inputs[4][2] = block.timestamp * 2;
-        inputs[4][3] = Utils.encodeAssetId(true, 0, 0);
-        inputs[4][4] = Utils.encodeAssetId(false, 1, 0);
-        inputs[4][5] = Utils.encodeAssetId(true, 1, 0);
+        inputs[3] = new uint256[](6);
+        inputs[3][0] = 0;
+        inputs[3][1] = block.timestamp;
+        inputs[3][2] = block.timestamp * 2;
+        inputs[3][3] = Utils.encodeAssetId(true, 0, 0);
+        inputs[3][4] = Utils.encodeAssetId(false, 1, 0);
+        inputs[3][5] = Utils.encodeAssetId(true, 1, 0);
+        // shares to unlocked shares
+        inputs[4] = amounts;
         // sourceBalance
         inputs[5] = amounts;
         // underlyingAmount
@@ -112,7 +482,7 @@ contract TermTest is ElementTest {
             );
 
         for (uint256 i = 0; i < testCases.length; i++) {
-            _term.setConvertReturnValue(testCases[i].convertReturn);
+            _term.setSharesToUnlockedShare(testCases[i].sharesToUnlockedShares);
             _term.setDepositReturnValues(
                 testCases[i].depositReturnShares,
                 testCases[i].depositReturnValue
@@ -177,11 +547,11 @@ contract TermTest is ElementTest {
         for (uint256 i = 0; i < rawTestMatrix.length; i++) {
             _validateTestCaseLength(rawTestMatrix[i], 7);
             result[i] = DepositUnlockedTestCase({
-                convertReturn: rawTestMatrix[i][0],
-                depositReturnShares: rawTestMatrix[i][1],
-                depositReturnValue: rawTestMatrix[i][2],
-                ptAmount: rawTestMatrix[i][3],
-                ptExpiry: rawTestMatrix[i][4],
+                depositReturnShares: rawTestMatrix[i][0],
+                depositReturnValue: rawTestMatrix[i][1],
+                ptAmount: rawTestMatrix[i][2],
+                ptExpiry: rawTestMatrix[i][3],
+                sharesToUnlockedShares: rawTestMatrix[i][4],
                 sourceBalance: rawTestMatrix[i][5],
                 underlyingAmount: rawTestMatrix[i][6]
             });
@@ -244,11 +614,13 @@ contract TermTest is ElementTest {
 
     function _getExpectedCalculationsDepositUnlocked(
         DepositUnlockedTestCase memory testCase
-    ) internal pure returns (uint256, uint256) {
+    ) internal view returns (uint256, uint256) {
         uint256 expectedShares = testCase.depositReturnShares;
         uint256 expectedValue = testCase.depositReturnValue;
         if (testCase.ptAmount > 0) {
-            expectedShares += testCase.convertReturn;
+            expectedShares +=
+                (testCase.ptAmount * testCase.sharesToUnlockedShares) /
+                _term.one();
             expectedValue += testCase.ptAmount;
         }
         return (expectedShares, expectedValue);
@@ -275,11 +647,14 @@ contract TermTest is ElementTest {
     ) internal view {
         console2.log(prelude);
         console2.log("");
-        console2.log("    convertReturn: ", testCase.convertReturn);
         console2.log("    depositReturnShares: ", testCase.depositReturnShares);
         console2.log("    depositReturnValue: ", testCase.depositReturnValue);
         console2.log("    ptAmount: ", testCase.ptAmount);
         console2.log("    ptExpiry: ", testCase.ptExpiry);
+        console2.log(
+            "    sharesToUnlockedShares: ",
+            testCase.sharesToUnlockedShares
+        );
         console2.log("    sourceBalance: ", testCase.sourceBalance);
         console2.log("    underlyingAmount: ", testCase.underlyingAmount);
         console2.log("");
@@ -389,106 +764,16 @@ contract TermTest is ElementTest {
             (
                 uint256[] memory assetIds,
                 uint256[] memory amounts
-            ) = _getFixturesUnlock(rawTestCases[i][0], rawTestCases[i][1]);
+            ) = _getFixturesAssetIdsAndAmounts(
+                    rawTestCases[i][0],
+                    rawTestCases[i][1]
+                );
             testCases[i] = UnlockTestCase({
                 assetIds: assetIds,
                 amounts: amounts,
                 currentPricePerShareLocked: rawTestCases[i][2],
                 currentPricePerShareUnlocked: rawTestCases[i][3]
             });
-        }
-    }
-
-    function _getFixturesUnlock(uint256 assetIdSelector, uint256 amountSelector)
-        internal
-        view
-        returns (uint256[] memory assetIds, uint256[] memory amounts)
-    {
-        // Create the asset IDs fixture.
-        require(
-            assetIdSelector < 7,
-            "Asset ID fixture selector must be less than 7"
-        );
-        if (assetIdSelector == 0) {
-            assetIds = new uint256[](0);
-        } else if (assetIdSelector == 1) {
-            assetIds = new uint256[](1);
-            assetIds[0] = Utils.encodeAssetId(false, 0, block.timestamp);
-        } else if (assetIdSelector == 2) {
-            // duplicated asset ID
-            assetIds = new uint256[](2);
-            assetIds[0] = Utils.encodeAssetId(false, 0, block.timestamp);
-            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
-        } else if (assetIdSelector == 3) {
-            // out of order asset IDs
-            assetIds = new uint256[](2);
-            assetIds[0] = Utils.encodeAssetId(
-                true,
-                block.timestamp / 2,
-                block.timestamp
-            );
-            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
-        } else if (assetIdSelector == 4) {
-            // out of order asset IDs and duplicate
-            assetIds = new uint256[](2);
-            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
-            assetIds[0] = Utils.encodeAssetId(
-                true,
-                block.timestamp / 2,
-                block.timestamp
-            );
-            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
-        } else if (assetIdSelector == 5) {
-            assetIds = new uint256[](1);
-            assetIds[0] = Utils.encodeAssetId(true, 0, 0);
-        } else if (assetIdSelector == 6) {
-            assetIds = new uint256[](5);
-            assetIds[0] = Utils.encodeAssetId(false, 0, block.timestamp);
-            assetIds[1] = Utils.encodeAssetId(
-                true,
-                block.timestamp / 3,
-                block.timestamp
-            );
-            assetIds[2] = Utils.encodeAssetId(
-                true,
-                block.timestamp / 2,
-                block.timestamp
-            );
-            assetIds[3] = Utils.encodeAssetId(true, 0, 0);
-        }
-
-        // Create the amounts fixture.
-        amounts = new uint256[](assetIds.length);
-        require(
-            amountSelector < 6,
-            "Amount fixture selector must be less than 6"
-        );
-        if (amountSelector == 0) {
-            for (uint256 i = 0; i < assetIds.length; i++) {
-                amounts[i] = 0;
-            }
-        } else if (amountSelector == 1) {
-            for (uint256 i = 0; i < assetIds.length; i++) {
-                amounts[i] = 1 ether;
-            }
-        } else if (amountSelector == 2) {
-            for (uint256 i = 0; i < assetIds.length; i++) {
-                amounts[i] = 1 ether + i * 0.3453 ether + 123;
-            }
-        } else if (amountSelector == 3) {
-            for (uint256 i = 0; i < assetIds.length; i++) {
-                amounts[i] = 203 ether - i * 45 ether + 123;
-            }
-        } else if (amountSelector == 4) {
-            if (assetIds.length > 0) {
-                for (uint256 i = 0; i < assetIds.length - 1; i++) {
-                    amounts[i] = 203 ether - i * 45 ether + 123;
-                }
-            }
-        } else if (amountSelector == 5) {
-            for (uint256 i = 0; i < assetIds.length + 1; i++) {
-                amounts[i] = 203 ether - i * 45 ether + 123;
-            }
         }
     }
 
@@ -608,7 +893,7 @@ contract TermTest is ElementTest {
         for (uint256 i = 0; i < sharePrices.length; i++) {
             _term.setCurrentPricePerShare(
                 sharePrices[i],
-                IYieldAdapter.ShareState.Locked
+                IYieldAdapter.ShareState.Unlocked
             );
 
             uint256 unlockedSharePrice = _term.unlockedSharePrice();
@@ -770,17 +1055,18 @@ contract TermTest is ElementTest {
             if (testCase.totalShares == 0) {
                 return (true, stdError.divisionError);
             }
-            (
-                uint256 expectedImpliedShareValue,
-                ,
-                uint256 expectedTotalDiscount
-            ) = _getExpectedCalculationsCreateYT(testCase);
+            uint256 expectedImpliedShareValue = (testCase.yieldState.shares *
+                testCase.value) / testCase.totalShares;
             if (expectedImpliedShareValue < uint256(testCase.yieldState.pt)) {
                 return (true, stdError.arithmeticError);
             }
             if (testCase.totalSupply == 0) {
                 return (true, stdError.divisionError);
             }
+            uint256 expectedInterestEarned = expectedImpliedShareValue -
+                testCase.yieldState.pt;
+            uint256 expectedTotalDiscount = (testCase.value *
+                expectedInterestEarned) / testCase.totalSupply;
             if (expectedTotalDiscount > testCase.totalShares) {
                 return (true, stdError.arithmeticError);
             }
@@ -889,11 +1175,12 @@ contract TermTest is ElementTest {
                 testCase.startTime,
                 testCase.expiration
             );
-            (
-                ,
-                ,
-                uint256 expectedTotalDiscount
-            ) = _getExpectedCalculationsCreateYT(testCase);
+            uint256 expectedImpliedShareValue = (testCase.yieldState.shares *
+                testCase.value) / testCase.totalShares;
+            uint256 expectedInterestEarned = expectedImpliedShareValue -
+                testCase.yieldState.pt;
+            uint256 expectedTotalDiscount = (testCase.value *
+                expectedInterestEarned) / testCase.totalSupply;
             if (amount != expectedTotalDiscount) {
                 _logTestCaseCreateYT("success case", testCase);
                 assertEq(amount, expectedTotalDiscount, "unexpected amount");
@@ -935,28 +1222,6 @@ contract TermTest is ElementTest {
                 );
             }
         }
-    }
-
-    function _getExpectedCalculationsCreateYT(CreateYTTestCase memory testCase)
-        internal
-        pure
-        returns (
-            uint256,
-            uint256,
-            uint256
-        )
-    {
-        uint256 expectedImpliedShareValue = (testCase.yieldState.shares *
-            testCase.value) / testCase.totalShares;
-        uint256 expectedInterestEarned = expectedImpliedShareValue -
-            testCase.yieldState.pt;
-        uint256 expectedTotalDiscount = (testCase.value *
-            expectedInterestEarned) / testCase.totalSupply;
-        return (
-            expectedImpliedShareValue,
-            expectedInterestEarned,
-            expectedTotalDiscount
-        );
     }
 
     function _logTestCaseCreateYT(
@@ -2142,6 +2407,109 @@ contract TermTest is ElementTest {
             assertEq(isYieldToken, true);
             assertEq(startDate, startDateInputs[i]);
             assertEq(expirationDate, expirationDateInputs[i]);
+        }
+    }
+
+    // ------------------------- helpers ------------------------- //
+
+    function _getFixturesAssetIdsAndAmounts(
+        uint256 assetIdSelector,
+        uint256 amountSelector
+    )
+        internal
+        view
+        returns (uint256[] memory assetIds, uint256[] memory amounts)
+    {
+        // Create the asset IDs fixture.
+        require(
+            assetIdSelector < 7,
+            "Asset ID fixture selector must be less than 7"
+        );
+        if (assetIdSelector == 0) {
+            assetIds = new uint256[](0);
+        } else if (assetIdSelector == 1) {
+            assetIds = new uint256[](1);
+            assetIds[0] = Utils.encodeAssetId(false, 0, block.timestamp);
+        } else if (assetIdSelector == 2) {
+            // duplicated asset ID
+            assetIds = new uint256[](2);
+            assetIds[0] = Utils.encodeAssetId(false, 0, block.timestamp);
+            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
+        } else if (assetIdSelector == 3) {
+            // out of order asset IDs
+            assetIds = new uint256[](2);
+            assetIds[0] = Utils.encodeAssetId(
+                true,
+                block.timestamp / 2,
+                block.timestamp
+            );
+            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
+        } else if (assetIdSelector == 4) {
+            // out of order asset IDs and duplicate
+            assetIds = new uint256[](2);
+            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
+            assetIds[0] = Utils.encodeAssetId(
+                true,
+                block.timestamp / 2,
+                block.timestamp
+            );
+            assetIds[1] = Utils.encodeAssetId(false, 0, block.timestamp);
+        } else if (assetIdSelector == 5) {
+            assetIds = new uint256[](1);
+            assetIds[0] = Utils.encodeAssetId(true, 0, 0);
+        } else if (assetIdSelector == 6) {
+            assetIds = new uint256[](4);
+            assetIds[0] = Utils.encodeAssetId(false, 0, block.timestamp);
+            assetIds[1] = Utils.encodeAssetId(
+                true,
+                block.timestamp / 3,
+                block.timestamp
+            );
+            assetIds[2] = Utils.encodeAssetId(
+                true,
+                block.timestamp / 2,
+                block.timestamp
+            );
+            assetIds[3] = Utils.encodeAssetId(true, 0, 0);
+        }
+
+        // Create the amounts fixture.
+        require(
+            amountSelector < 6,
+            "Amount fixture selector must be less than 6"
+        );
+        if (amountSelector == 0) {
+            amounts = new uint256[](assetIds.length);
+            for (uint256 i = 0; i < assetIds.length; i++) {
+                amounts[i] = 0;
+            }
+        } else if (amountSelector == 1) {
+            amounts = new uint256[](assetIds.length);
+            for (uint256 i = 0; i < assetIds.length; i++) {
+                amounts[i] = 1 ether;
+            }
+        } else if (amountSelector == 2) {
+            amounts = new uint256[](assetIds.length);
+            for (uint256 i = 0; i < assetIds.length; i++) {
+                amounts[i] = 1 ether + i * 0.3453 ether + 123;
+            }
+        } else if (amountSelector == 3) {
+            amounts = new uint256[](assetIds.length);
+            for (uint256 i = 0; i < assetIds.length; i++) {
+                amounts[i] = 203 ether - i * 2 ether + 123;
+            }
+        } else if (amountSelector == 4) {
+            if (assetIds.length > 0) {
+                amounts = new uint256[](assetIds.length - 1);
+                for (uint256 i = 0; i < assetIds.length - 1; i++) {
+                    amounts[i] = 203 ether - i * 2 ether + 123;
+                }
+            }
+        } else if (amountSelector == 5) {
+            amounts = new uint256[](assetIds.length + 1);
+            for (uint256 i = 0; i < assetIds.length + 1; i++) {
+                amounts[i] = 203 ether - i * 2 ether + 123;
+            }
         }
     }
 }

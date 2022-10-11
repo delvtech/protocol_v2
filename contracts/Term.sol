@@ -61,7 +61,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     ///      then uses their value to create new PT and YT. Cannot make unlocked deposit shares
     /// @param assetIds The array of PT, YT and Unlocked share identifiers. NOTE - The IDs MUST be unique
     ///                 and sorted.
-    /// @param assetAmounts The amount of each input PT, YT and Unlocked share to use
+    /// @param amounts The amount of each input PT, YT and Unlocked share to use
     /// @param underlyingAmount The amount of underlying transferred from the user.
     /// @param hasPreFunding If true a user can forward tokens ahead instead of doing transfer from
     /// @param ytDestination The address to mint the YTs to
@@ -72,14 +72,14 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
     /// @return Returns the number of principal and yield tokens created
     function lock(
         uint256[] memory assetIds,
-        uint256[] memory assetAmounts,
+        uint256[] memory amounts,
         uint256 underlyingAmount,
         bool hasPreFunding,
         address ytDestination,
         address ptDestination,
         uint256 ytBeginDate,
         uint256 expiration
-    ) external virtual returns (uint256, uint256) {
+    ) public virtual returns (uint256, uint256) {
         // If the user enters something larger than the current timestamp we set the yt
         // expiry to the current timestamp
         ytBeginDate = ytBeginDate >= block.timestamp
@@ -117,7 +117,7 @@ abstract contract Term is ITerm, MultiToken, IYieldAdapter, Authorizable {
         for (uint256 i = 0; i < assetIds.length; i++) {
             // helps the stack
             uint256 id = assetIds[i];
-            uint256 amount = assetAmounts[i];
+            uint256 amount = amounts[i];
             // Requiring strict sorting is a cheap way to check for uniqueness
             if (previousId >= id) revert ElementError.UnsortedAssetIds();
             previousId = id;
