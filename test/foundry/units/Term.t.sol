@@ -481,13 +481,14 @@ contract TermUnitTest is ElementTest {
                 Utils.generateTestingMatrix(inputs)
             );
 
+        _underlying.approve(address(_term), type(uint256).max);
         for (uint256 i = 0; i < testCases.length; i++) {
             _term.setSharesToUnlockedShare(testCases[i].sharesToUnlockedShares);
             _term.setDepositReturnValues(
                 testCases[i].depositReturnShares,
                 testCases[i].depositReturnValue
             );
-            _underlying.mint(source, testCases[i].sourceBalance);
+            _underlying.setBalance(source, testCases[i].sourceBalance);
 
             (
                 bool shouldExpectError,
@@ -630,9 +631,9 @@ contract TermUnitTest is ElementTest {
         DepositUnlockedTestCase memory testCase
     ) internal view returns (bool, bytes memory) {
         if (testCase.sourceBalance < testCase.underlyingAmount) {
-            return (true, stdError.arithmeticError);
+            return (true, encodeStringError("ERC20: insufficient-balance"));
         }
-        if (testCase.ptExpiry >= block.timestamp) {
+        if (testCase.ptAmount != 0 && testCase.ptExpiry >= block.timestamp) {
             return (
                 true,
                 abi.encodeWithSelector(ElementError.TermExpired.selector)
