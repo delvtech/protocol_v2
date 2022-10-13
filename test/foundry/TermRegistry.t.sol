@@ -4,10 +4,10 @@ pragma solidity ^0.8.15;
 import "contracts/ForwarderFactory.sol";
 import "contracts/Term.sol";
 import "contracts/ElementRegistry.sol";
+import "contracts/Pool.sol";
 import "contracts/TermRegistry.sol";
 import "contracts/mocks/MockERC20Permit.sol";
 import "contracts/mocks/MockERC20YearnVault.sol";
-import "contracts/mocks/MockPool.sol";
 import "contracts/mocks/MockYieldAdapter.sol";
 import "forge-std/Test.sol";
 import { ElementTest } from "test/ElementTest.sol";
@@ -17,7 +17,7 @@ contract TermRegistryTest is ElementTest {
     ForwarderFactory public factory;
     MockERC20Permit public token;
     MockERC20YearnVault public yearnVault;
-    MockPool public pool;
+    Pool public pool;
     MockYieldAdapter public term;
     ElementRegistry public registry;
     address public user = makeAddress("user");
@@ -41,7 +41,7 @@ contract TermRegistryTest is ElementTest {
             address(factory),
             token
         );
-        pool = new MockPool(
+        pool = new Pool(
             term,
             token,
             tradeFee,
