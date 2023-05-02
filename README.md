@@ -1,7 +1,7 @@
 # Element Protocol 👯‍♀️
 
-[![Build Status](https://github.com/element-fi/protocol_v2/workflows/Tests/badge.svg)](https://github.com/element-fi/protocol_v2/actions)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/element-fi/elf-contracts/blob/master/LICENSE)
+[![Build Status](https://github.com/delv-tech/protocol_v2/workflows/Tests/badge.svg)](https://github.com/delv-tech/protocol_v2/actions)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/delv-tech/elf-contracts/blob/master/LICENSE)
 
 The Element Protocol is a DeFi primitive which runs on the Ethereum blockchain. The Protocol, at its core, allows a tokenized yield bearing position (ETH, BTC, USDC, etc) to be split into principal and yield tokens. The principal tokens are redeemable for the deposited principal and the yield tokens are redeemable for the yield earned over the term period. This splitting mechanism allows users to sell their principal as a fixed-rate income position, further leveraging or increasing exposure to interest without any liquidation risk.
 
@@ -23,7 +23,7 @@ foundryup
 ## Clone the repo
 
 ```
-git clone --recurse-submodules git@github.com:element-fi/protocol_v2.git
+git clone --recurse-submodules git@github.com:delv-tech/protocol_v2.git
 ```
 
 ## Hardhat Config
